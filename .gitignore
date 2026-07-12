@@ -8,3 +8,4 @@ apps/api/prisma/dev.db
 apps/api/uploads/
 *.tsbuildinfo
 __pycache__/
+apps/api/course-content/

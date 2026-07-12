@@ -64,11 +64,14 @@ persistente, Railway é mais rápido de configurar. Passos genéricos:
    - `PORT` — geralmente o Render/Railway já injeta essa variável sozinho; não
      precisa definir manualmente.
    - `ADMIN_TOKEN` — gere um valor novo, diferente do local.
-   - `COURSES_ROOT` — **deixe em branco**. O conteúdo dos cursos (47+27 módulos,
-     ~42MB) já está empacotado dentro do repositório em
-     `apps/api/course-content/`, e `CoursesService` detecta sozinho se deve usar
-     essa pasta (deploy) ou as pastas-irmãs de desenvolvimento local — não
-     precisa configurar nada.
+   - `COURSES_ROOT` — **deixe em branco**. O conteúdo dos cursos **não** vai
+     junto no repositório (você vai colocar manualmente depois, direto no
+     servidor). `CoursesService` já procura sozinho por uma pasta
+     `apps/api/course-content/` no servidor — quando você copiar
+     `Formacao-Neurociencia/` e `Escola-Marketing-Psicologos/` pra dentro dela
+     (via upload manual, SCP, o que for), o Cursos passa a funcionar sem
+     precisar mexer em nenhuma configuração. Até lá, Cursos aparece vazio —
+     comportamento esperado, não é erro.
    - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`,
      `STRIPE_PRICE_YEARLY`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
      `DAILY_API_KEY`, `ASAAS_API_KEY`, `ASAAS_BASE_URL`, `ASAAS_WEBHOOK_TOKEN`,
