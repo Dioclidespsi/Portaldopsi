@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
@@ -19,10 +20,25 @@ export class CoursesService {
     private readonly config: ConfigService,
     private readonly certificates: CertificatesService,
   ) {
-    // Default assume o layout deste repositório: apps/api -> Portal-do-Psi -> "C:\Claude local".
     // `||` de propósito, não `??`: COURSES_ROOT="" no .env é uma string vazia (não
     // undefined), e queria cair no default mesmo assim.
-    this.coursesRoot = config.get<string>('COURSES_ROOT') || path.resolve(process.cwd(), '..', '..', '..');
+    this.coursesRoot = config.get<string>('COURSES_ROOT') || this.resolveDefaultCoursesRoot();
+  }
+
+  /**
+   * Dois candidatos, nessa ordem: (1) layout de dev local — pastas de curso como
+   * projetos-irmãos três níveis acima de apps/api (mesmo repositório do "C:\Claude
+   * local"); (2) conteúdo empacotado em apps/api/course-content/, usado no deploy
+   * (Render/Railway não têm as pastas-irmãs, só o que está dentro do repositório
+   * git). Detecta pela presença real da pasta, não por variável de ambiente, pra
+   * funcionar sem configuração extra nos dois ambientes.
+   */
+  private resolveDefaultCoursesRoot(): string {
+    const siblingLayout = path.resolve(process.cwd(), '..', '..', '..');
+    if (fs.existsSync(path.join(siblingLayout, 'Formacao-Neurociencia'))) {
+      return siblingLayout;
+    }
+    return path.resolve(__dirname, '..', '..', 'course-content');
   }
 
   private getCatalog(): Course[] {

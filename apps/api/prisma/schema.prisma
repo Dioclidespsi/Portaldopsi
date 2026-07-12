@@ -1,5 +1,8 @@
+/// "native" = Windows local (dev); "debian-openssl-3.0.x" = Linux containers como
+/// Render/Railway. Sem o segundo, o build gerado localmente não roda no servidor.
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
