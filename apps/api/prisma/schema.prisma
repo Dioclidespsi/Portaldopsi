@@ -1,0 +1,511 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PSICOLOGO_TITULAR
+  SECRETARIA
+  SUPERVISOR
+  PACIENTE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+/// CLINICA = tenant com paciente/prontuário/agenda ativos, exige psicólogo com
+/// CRP verificado. ESTUDANTE = conta só para comprar/estudar curso avulso no
+/// Marketplace — mesmo sistema de auth, sem acesso a nenhum módulo clínico.
+enum TenantKind {
+  CLINICA
+  ESTUDANTE
+}
+
+enum CrpStatus {
+  NAO_ENVIADO
+  EM_ANALISE
+  VERIFICADO
+  REJEITADO
+}
+
+enum EnrollmentSource {
+  ASSINATURA
+  MARKETPLACE
+}
+
+enum LeadStage {
+  NOVO
+  CONTATADO
+  AGENDADO
+  CONVERTIDO
+  PERDIDO
+}
+
+enum MarketingPostStatus {
+  RASCUNHO
+  AGENDADO
+  PUBLICADO
+}
+
+/// Um tenant = uma conta de psicólogo(a)/clínica OU uma conta individual de
+/// estudante (ver TenantKind). Toda tabela clínica carrega tenantId e é
+/// protegida por Row-Level Security (ver prisma/rls.sql).
+model Tenant {
+  id   String     @id @default(uuid())
+  name String
+  slug String     @unique
+  kind TenantKind @default(CLINICA)
+
+  /// Sub-conta no gateway de pagamento nacional (ex: Asaas) que recebe
+  /// diretamente os pagamentos de pacientes ao psicólogo — ver Invoice.
+  /// A plataforma nunca retém esse dinheiro, então não é responsável por
+  /// declarar ganhos/impostos do assinante.
+  payoutProvider  String?
+  payoutAccountId String?
+
+  /// Conteúdo do Site Profissional (página pública em /p/{slug}). Não tem RLS
+  /// de propósito — GET público não passa por AuthMiddleware, então nunca há
+  /// app.tenant_id setado nessa rota; ver profile.service.ts.
+  bio          String?
+  photoUrl     String?
+  specialties  String?
+  publicEmail  String?
+  publicPhone  String?
+  published    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  users              User[]
+  patients           Patient[]
+  prontuarioEntries  ProntuarioEntry[]
+  appointments       Appointment[]
+  invoices           Invoice[]
+  subscription       Subscription?
+  enrollments        CourseEnrollment[]
+  testResponses      TestResponse[]
+  moduleProgress     ModuleProgress[]
+  certificates       Certificate[]
+  supervisionSessions SupervisionSession[]
+  leads              Lead[]
+  marketingPosts     MarketingPost[]
+  communityPosts     CommunityPost[]
+  communityReplies   CommunityReply[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  /// Só relevante para role=PSICOLOGO_TITULAR num tenant kind=CLINICA. Rotas
+  /// clínicas (Prontuário, Agenda, Teleconsulta) devem checar
+  /// crpStatus=VERIFICADO antes de liberar acesso — estudante nunca atende.
+  /// Ainda NÃO é checado em nenhum guard (ver README) — o fluxo de submissão/
+  /// aprovação existe, mas bloquear acesso é uma decisão separada em aberto.
+  crpNumber         String?
+  crpStatus         CrpStatus @default(NAO_ENVIADO)
+  /// Caminho local do documento enviado para análise (uploads/crp/, fora do
+  /// diretório público) — ver users/crp.controller.ts. Nunca exposto direto
+  /// por URL; só baixável pelo próprio titular ou pelo admin da plataforma.
+  crpDocumentPath   String?
+  /// Preenchido pelo admin ao rejeitar — mostrado pro psicólogo no banner de
+  /// pendências pra ele saber o que corrigir antes de reenviar.
+  crpRejectionReason String?
+
+  prontuarioEntries ProntuarioEntry[] @relation("AutorEntry")
+  testResponses     TestResponse[]    @relation("TestResponseAuthor")
+  moduleProgress    ModuleProgress[]
+  certificates      Certificate[]
+  supervisionsGiven    SupervisionSession[] @relation("Supervisor")
+  supervisionsReceived SupervisionSession[] @relation("Supervisee")
+  communityPosts       CommunityPost[]
+  communityReplies     CommunityReply[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Patient {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  birthDate DateTime?
+  createdAt DateTime @default(now())
+
+  /// CPF/CNPJ do paciente — exigido pelo Asaas pra gerar cobrança real (ver
+  /// AsaasService.createSplitCharge). Sem isso preenchido, a cobrança via
+  /// Asaas é recusada com uma mensagem clara pedindo pra completar o cadastro.
+  cpfCnpj String?
+
+  /// Aplicativo do Paciente: identidade separada dos Users da equipe (staff
+  /// tem crpStatus/Role, paciente não — são dois sistemas de login distintos
+  /// de propósito, ver auth/patient-auth.middleware.ts). `portalEnabled` só
+  /// vira true quando a equipe ativa o acesso e define a senha inicial.
+  passwordHash  String?
+  portalEnabled Boolean @default(false)
+
+  prontuarioEntries ProntuarioEntry[]
+  appointments      Appointment[]
+  invoices          Invoice[]
+  testResponses     TestResponse[]
+  convertedFromLead Lead?
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("patients")
+}
+
+/// Entrada de evolução do prontuário. Nunca é editada após criada (append-only)
+/// para atender a trilha de auditoria exigida pela Resolução CFP nº 06/2019.
+model ProntuarioEntry {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "prontuario_tenant_fk")
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AutorEntry", fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, patientId])
+  @@map("prontuario_entries")
+}
+
+model Appointment {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  endsAt    DateTime
+  status    String   @default("agendado")
+  createdAt DateTime @default(now())
+
+  /// Teleconsulta (Daily.co). `consentAt` é o consentimento informado exigido
+  /// pela Resolução CFP nº 11/2018 — a sala só aparece pro paciente no
+  /// Aplicativo do Paciente depois de ele registrar consentimento; ver
+  /// patient-portal.service.ts.
+  videoRoomUrl  String?
+  videoRoomName String?
+  consentAt     DateTime?
+
+  @@index([tenantId, startsAt])
+  @@map("appointments")
+}
+
+/// Cobrança do psicólogo ao PACIENTE (Financeiro) — dinheiro vai direto para
+/// Tenant.payoutAccountId no gateway nacional, nunca passa pelo caixa da
+/// plataforma. Diferente de Subscription, que é o psicólogo pagando a
+/// plataforma.
+model Invoice {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  amountCents Int
+  status      String   @default("pendente")
+  dueDate     DateTime
+  createdAt   DateTime @default(now())
+
+  /// Cobrança real via Asaas, com split pro payoutAccountId do Tenant — ver
+  /// AsaasService.createSplitCharge. Fica null enquanto a cobrança for só o
+  /// registro manual do F1 (sem gateway ligado).
+  asaasPaymentId String?
+  paymentLink    String?
+
+  @@index([tenantId])
+  @@map("invoices")
+}
+
+/// Resultado de uma escala aplicada a um paciente (Aplicação de Testes). O
+/// catálogo de escalas (itens, pontuação, corte) NÃO fica no banco — vive como
+/// dado estático versionado em código (apps/api/src/psych-tests/catalog),
+/// porque é conteúdo compartilhado entre todos os tenants, não dado de tenant.
+/// `testSlug` referencia esse catálogo por convenção, sem FK.
+model TestResponse {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation("TestResponseAuthor", fields: [authorId], references: [id])
+  testSlug    String
+  answers     Json
+  score       Int
+  resultLabel String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, patientId])
+  @@map("test_responses")
+}
+
+/// Compra de curso avulso (Marketplace) OU acesso liberado por já ter
+/// assinatura da plataforma completa — os dois casos usam o mesmo registro
+/// para o player de curso checar acesso sem se importar com a origem.
+/// tenant.kind=ESTUDANTE só existe para viabilizar este modelo: aluno de
+/// psicologia compra o curso sem nunca abrir Prontuário/Agenda.
+model CourseEnrollment {
+  id                String           @id @default(uuid())
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courseSlug        String
+  source            EnrollmentSource
+  priceCents        Int?
+  paymentProvider   String?
+  externalPaymentId String?
+  createdAt         DateTime         @default(now())
+
+  @@unique([tenantId, courseSlug])
+  @@index([tenantId])
+  @@map("course_enrollments")
+}
+
+/// Conclusão de um módulo de curso por um usuário. `courseSlug`/`moduleSlug`
+/// referenciam o catálogo de cursos (apps/api/src/courses/catalog), que — como
+/// o de testes — é dado estático em código, não tabela, porque o conteúdo é
+/// compartilhado entre tenants.
+model ModuleProgress {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseSlug  String
+  moduleSlug  String
+  completedAt DateTime @default(now())
+
+  @@unique([userId, courseSlug, moduleSlug])
+  @@index([tenantId])
+  @@map("module_progress")
+}
+
+/// Emitido automaticamente quando um usuário completa todos os módulos de um
+/// curso (ver CoursesService). Sem RLS de propósito — a verificação pública
+/// por `verificationCode` (como autenticidade de diploma) não deve depender
+/// de contexto de tenant, e não é dado clínico sensível.
+model Certificate {
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseSlug        String
+  verificationCode  String   @unique @default(uuid())
+  issuedAt          DateTime @default(now())
+
+  @@unique([userId, courseSlug])
+  @@map("certificates")
+}
+
+/// Sessão de supervisão clínica entre o psicólogo titular e um supervisor —
+/// hoje só modela supervisor dentro do mesmo tenant (role=SUPERVISOR
+/// cadastrado via POST /users); supervisor externo cross-tenant fica para
+/// depois.
+model SupervisionSession {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisorId String
+  supervisor   User     @relation("Supervisor", fields: [supervisorId], references: [id])
+  superviseeId String
+  supervisee   User     @relation("Supervisee", fields: [superviseeId], references: [id])
+  startsAt     DateTime
+  endsAt       DateTime
+  notes        String?
+  status       String   @default("agendado")
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, startsAt])
+  @@map("supervision_sessions")
+}
+
+/// Lead do funil de captação (CRM), antes de virar Patient. `convertToPatient`
+/// (ver CrmService) cria o Patient de verdade e linka aqui — o histórico do
+/// funil não se perde quando o lead vira paciente.
+model Lead {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name               String
+  contact            String?
+  source             String?
+  stage              LeadStage @default(NOVO)
+  notes              String?
+  convertedPatientId String?   @unique
+  convertedPatient   Patient?  @relation(fields: [convertedPatientId], references: [id])
+  createdAt          DateTime  @default(now())
+
+  @@index([tenantId])
+  @@map("leads")
+}
+
+/// Rascunho/planejamento de post (Marketing). `complianceFlags` guarda o
+/// resultado do checklist ético (ver marketing/compliance/rules.ts) no momento
+/// da criação — é um alerta, não um bloqueio, e não substitui revisão humana
+/// contra a Resolução CFP nº 03/2007 + NT 01/2022. Publicação de verdade não
+/// está aqui: o InstaPostPro (pasta-irmã deste repo) já resolve isso.
+model MarketingPost {
+  id              String              @id @default(uuid())
+  tenantId        String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  content         String
+  platform        String?
+  scheduledAt     DateTime?
+  status          MarketingPostStatus @default(RASCUNHO)
+  complianceFlags Json?
+  createdAt       DateTime            @default(now())
+
+  @@index([tenantId])
+  @@map("marketing_posts")
+}
+
+/// Comunidade é o único espaço deliberadamente CROSS-TENANT do sistema — troca
+/// de caso/indicação entre assinantes de clínicas diferentes. Por isso, ao
+/// contrário de toda outra tabela, NÃO tem RLS: tenantId aqui é só atribuição
+/// ("postado por qual clínica"), não isolamento. Ver prisma/rls.sql.
+///
+/// `authorName`/`tenantName` são snapshot de texto, não join ao vivo: `users`
+/// e `tenants` têm RLS, e uma conexão sem app.tenant_id setado (o caso normal
+/// aqui, já que é leitura cross-tenant) nunca conseguiria montar esse join —
+/// o Prisma erraria com "Field author is required... got null". Capturado uma
+/// vez na criação, quando o autor está no próprio contexto autenticado dele.
+model CommunityPost {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantName String
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName String
+  title      String
+  content    String
+  createdAt  DateTime @default(now())
+
+  replies CommunityReply[]
+
+  @@map("community_posts")
+}
+
+model CommunityReply {
+  id         String        @id @default(uuid())
+  postId     String
+  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantName String
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName String
+  content    String
+  createdAt  DateTime      @default(now())
+
+  @@index([postId])
+  @@map("community_replies")
+}
+
+/// Assinatura do tenant na própria plataforma (billing do Portal do Psi,
+/// não confundir com Invoice, que é a cobrança do psicólogo ao paciente).
+model Subscription {
+  id                   String             @id @default(uuid())
+  tenantId             String             @unique
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  /// Asaas é o gateway principal para assinatura da plataforma (§03 do doc de
+  /// arquitetura); Stripe fica secundário, hoje só usado pelo Marketplace.
+  asaasCustomerId      String?
+  asaasSubscriptionId  String?
+  status               SubscriptionStatus @default(TRIALING)
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime           @default(now())
+
+  @@map("subscriptions")
+}
+
+/// Conteúdo promocional gerenciado pelo administrador da plataforma (não do
+/// tenant) — novos treinamentos, produtos externos (venda de livro, site
+/// corporativo), etc. Sem RLS de propósito: é intencionalmente visível pra
+/// todo tenant, e escrito só pelo admin (ver AdminModule), nunca pelo
+/// psicólogo. Mesmo motivo de Certificate/Tenant não terem RLS, mas aqui
+/// porque o conteúdo é global por natureza, não porque falta implementar.
+model Offer {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  externalUrl String
+  imageUrl    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("offers")
+}
+
+/// Vídeo (YouTube não-listado) de um módulo de curso, gerenciado pelo admin —
+/// mesmo motivo de Offer não ter RLS: o catálogo de curso (courseSlug/
+/// moduleSlug) já é dado global compartilhado entre tenants, não tabela por
+/// tenant. Mesclado no catálogo por CoursesService, nunca substitui o
+/// conteúdo em arquivo (slide/exercício/avaliação/roteiro seguem por baixo).
+model CourseModuleVideo {
+  id         String   @id @default(uuid())
+  courseSlug String
+  moduleSlug String
+  youtubeUrl String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([courseSlug, moduleSlug])
+  @@map("course_module_videos")
+}
+
+/// Modelo de documento (contrato, termo, recibo) enviado pelo admin —
+/// apps/api/uploads/document-templates/, fora de pasta pública. Igual a
+/// Offer/CourseModuleVideo, sem RLS: conteúdo global, só o admin escreve. A
+/// restrição de "só assinante CLINICA vê" é feita no service de leitura
+/// (DocumentTemplatesService), não no banco — mesmo padrão do bloco gratuito
+/// em CoursesService.
+model DocumentTemplate {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  filePath    String
+  createdAt   DateTime @default(now())
+
+  @@map("document_templates")
+}
+
+/// Preço avulso de um curso no Marketplace (venda pra quem não assina a
+/// plataforma) — dado admin-editável, propositalmente FORA do manifest
+/// hand-authored em catalog/manifest.ts porque preço muda sem precisar de
+/// deploy. Sem linha aqui = curso ainda não está à venda (CoursesService/
+/// MarketplaceService recusam a compra com mensagem clara, nunca inventam
+/// um valor). Sem RLS: preço de catálogo é global, não por tenant.
+model CoursePrice {
+  courseSlug  String   @id
+  priceCents  Int
+  updatedAt   DateTime @updatedAt
+
+  @@map("course_prices")
+}

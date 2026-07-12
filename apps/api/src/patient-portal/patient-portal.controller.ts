@@ -1,0 +1,34 @@
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { PatientPortalService } from './patient-portal.service';
+import { PatientLoginDto } from './dto/patient-login.dto';
+
+@Controller('patient-portal')
+export class PatientPortalController {
+  constructor(private readonly portal: PatientPortalService) {}
+
+  /** Pública — excluída do PatientAuthMiddleware em patient-portal.module.ts. */
+  @Post('login')
+  login(@Body() dto: PatientLoginDto) {
+    return this.portal.login(dto);
+  }
+
+  @Get('me')
+  me() {
+    return this.portal.me();
+  }
+
+  @Get('appointments')
+  listAppointments() {
+    return this.portal.listAppointments();
+  }
+
+  @Post('appointments/:id/confirm')
+  confirm(@Param('id') id: string) {
+    return this.portal.confirmAppointment(id);
+  }
+
+  @Post('appointments/:id/consent')
+  consent(@Param('id') id: string) {
+    return this.portal.consentToTeleconsulta(id);
+  }
+}

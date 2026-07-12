@@ -1,0 +1,18 @@
+{
+  "name": "portal-do-psi",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "bcrypt@5.1.1": true,
+    "prisma@5.22.0": true,
+    "@nestjs/core@10.4.22": true
+  }
+}
