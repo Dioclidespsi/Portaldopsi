@@ -29,23 +29,45 @@ existir que eu ajudo a partir daí.)
 
 1. Crie um projeto na Neon (região São Paulo/`sa-east-1` se disponível, ou a mais
    próxima).
-2. Copie a **connection string** que a Neon te dá (formato
-   `postgresql://usuario:senha@host/dbname?sslmode=require`).
-3. **Antes de rodar a aplicação contra ela**, aplique o schema e o RLS:
+2. Copie a **connection string** que a Neon te dá (a role padrão costuma se
+   chamar `neondb_owner` — formato
+   `postgresql://neondb_owner:senha@host/dbname?sslmode=require`).
+3. **Antes de rodar a aplicação contra ela**, aplique o schema e o RLS (usando a
+   connection string do `neondb_owner` — só essa role dona das tabelas consegue
+   criar/alterar schema):
    ```
    cd apps/api
-   DATABASE_URL="<connection string da Neon>" npx prisma db push
-   DATABASE_URL="<connection string da Neon>" npx prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma
+   DATABASE_URL="<connection string do neondb_owner>" npx prisma db push
+   DATABASE_URL="<connection string do neondb_owner>" npx prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma
    ```
-4. **Verificação obrigatória antes de considerar isso pronto**: confirme que o
-   isolamento entre tenants funciona de verdade na Neon, do mesmo jeito que
-   verificamos no Postgres local — crie duas contas de teste (dois slugs
-   diferentes) contra o banco da Neon e confirme que uma não vê os pacientes da
-   outra. A role da Neon não tem superusuário (Neon não permite isso por padrão),
-   mas nunca testamos RLS especificamente contra a Neon nesta sessão — não
-   assuma que está OK sem essa checagem, foi exatamente esse tipo de suposição
-   que causou o bug crítico de vazamento entre tenants na primeira rodada deste
-   projeto (ver README, seção "Bugs reais encontrados").
+4. **Crie uma role separada só pra aplicação rodar** — não conecte a aplicação
+   como `neondb_owner`. Já confirmamos ao vivo nesta sessão que a role padrão da
+   Neon vem com `rolbypassrls = true` (ignora RLS completamente, mesmo sem ser
+   superusuário — é exatamente o mesmo tipo de bug de "conectar como dono do
+   banco silenciosamente furando o RLS" já visto antes neste projeto, só que
+   pela flag `BYPASSRLS` em vez de `SUPERUSER`). Rode isto uma vez, conectado
+   como `neondb_owner` (troque a senha por uma sua):
+   ```sql
+   CREATE ROLE app_runtime WITH LOGIN PASSWORD '<senha forte seguranca>' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+   GRANT USAGE ON SCHEMA public TO app_runtime;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_runtime;
+   ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
+   ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_runtime;
+   ```
+   O `DATABASE_URL` que vai no Render/Railway (passo 3 abaixo) é o de
+   `app_runtime`, não o de `neondb_owner` — guarde a connection string do
+   `neondb_owner` só pra rodar migrations (`db push`/`rls.sql`) manualmente no
+   futuro.
+5. **Verificação obrigatória, já feita nesta sessão com `app_runtime`**: rodamos
+   `DATABASE_URL="<connection string do app_runtime>" node scripts/verify-rls.mjs`
+   (dentro de `apps/api`) — confirmado `rolbypassrls=false` e isolamento real
+   entre dois tenants de teste na Neon. Rode esse mesmo script de novo sempre
+   que recriar o banco ou rodar `db push` de novo, antes de considerar o
+   ambiente pronto — não assuma que continua OK sem essa checagem (foi
+   exatamente esse tipo de suposição que causou o bug crítico de vazamento
+   entre tenants na primeira rodada deste projeto; ver README, seção "Bugs
+   reais encontrados").
 
 ## 3. API (Render ou Railway)
 
@@ -58,7 +80,8 @@ persistente, Railway é mais rápido de configurar. Passos genéricos:
 3. **Build command**: `npm install && npm run build:api`
 4. **Start command**: `npm run start:api`
 5. Variáveis de ambiente a configurar no painel do serviço (nunca no código):
-   - `DATABASE_URL` — a connection string da Neon.
+   - `DATABASE_URL` — a connection string da role `app_runtime` da Neon (passo
+     2.4), **não** a do `neondb_owner`.
    - `JWT_SECRET` — gere um valor novo (`openssl rand -hex 32`), não reaproveite o
      do ambiente local.
    - `PORT` — geralmente o Render/Railway já injeta essa variável sozinho; não
@@ -106,7 +129,6 @@ No painel de DNS da Hostinger (hPanel → Domínios → DNS / Zona DNS):
 
 ## O que falta decidir antes do primeiro teste real
 
-- **Verificação de RLS na Neon** (passo 2.4) — obrigatória, ainda não feita.
 - Todas as chaves de serviço externo (Stripe/Anthropic/Daily.co/Asaas) seguem
   precisando ser preenchidas por você pra sair do modo 503, exatamente como em
   desenvolvimento local.
