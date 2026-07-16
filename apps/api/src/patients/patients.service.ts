@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -47,6 +48,27 @@ export class PatientsService {
       data: { passwordHash, portalEnabled: true },
       select: { id: true, name: true, email: true, portalEnabled: true },
     });
+  }
+
+  /**
+   * Alternativa ao enablePortal() acima: em vez da equipe escolher a senha,
+   * gera um token de uso único (48h) pro próprio paciente definir a senha
+   * (ver PatientPortalService.activate). A equipe copia o link retornado e
+   * manda pro paciente pelo canal que preferir (WhatsApp, SMS) — sem infra
+   * de e-mail neste projeto.
+   */
+  async generateActivationLink(patientId: string) {
+    const patient = await this.findOne(patientId);
+    if (!patient.email) {
+      throw new BadRequestException('Cadastre um e-mail para o paciente antes de gerar o link de ativação.');
+    }
+    const activationToken = randomBytes(24).toString('hex');
+    const activationTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    await this.prisma.forCurrentTenant().patient.update({
+      where: { id: patientId },
+      data: { activationToken, activationTokenExpiresAt },
+    });
+    return { activationToken };
   }
 
   list(active?: boolean) {

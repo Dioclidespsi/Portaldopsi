@@ -6,8 +6,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { getPatientContext } from '../common/patient-context';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
+import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
 import { PatientJwtPayload } from './patient-jwt.types';
 import { computeSuggestedScore } from '../psych-tests/scoring';
+
+const SALT_ROUNDS = 12;
 
 @Injectable()
 export class PatientPortalService {
@@ -15,6 +18,33 @@ export class PatientPortalService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
   ) {}
+
+  /**
+   * Autoatendimento: paciente define a própria senha usando o token gerado
+   * pela equipe (ver PatientsService.generateActivationLink). `slug` resolve
+   * o tenant primeiro (igual login()) — patients tem RLS forçado sem exceção
+   * '__system__', então nunca dá pra buscar só pelo token cru sem escopar
+   * por tenant antes (forTenant(id) explícito, nunca forSystem() aqui).
+   */
+  async activate(dto: ActivatePatientPortalDto) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.slug } });
+    if (!tenant) throw new UnauthorizedException('Link de ativação inválido.');
+
+    const tenantPrisma = this.prisma.forTenant(tenant.id);
+    const patient = await tenantPrisma.patient.findFirst({ where: { activationToken: dto.token } });
+    if (!patient || !patient.activationTokenExpiresAt || patient.activationTokenExpiresAt.getTime() < Date.now()) {
+      throw new UnauthorizedException('Link de ativação inválido ou expirado — peça um novo pra sua clínica.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    await tenantPrisma.patient.update({
+      where: { id: patient.id },
+      data: { passwordHash, portalEnabled: true, activationToken: null, activationTokenExpiresAt: null },
+    });
+
+    const payload: PatientJwtPayload = { sub: patient.id, tenantId: tenant.id, kind: 'PACIENTE' };
+    return { accessToken: this.jwt.sign(payload) };
+  }
 
   /** Mesmo formato do login de equipe (slug + e-mail): e-mail só é único dentro do tenant. */
   async login(dto: PatientLoginDto) {

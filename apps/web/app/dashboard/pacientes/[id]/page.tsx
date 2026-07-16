@@ -8,6 +8,8 @@ import {
   Appointment,
   createTeleconsultaRoom,
   enablePatientPortal,
+  fetchOwnProfile,
+  generatePatientActivationLink,
   getPatient,
   listPatientAppointments,
   listProntuario,
@@ -42,6 +44,9 @@ export default function PatientDetailPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [newEntry, setNewEntry] = useState('');
   const [portalPassword, setPortalPassword] = useState('');
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [activationLink, setActivationLink] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +56,12 @@ export default function PatientDetailPage() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
-    Promise.all([getPatient(params.id), listProntuario(params.id), listPatientAppointments(params.id)])
-      .then(([p, e, a]) => {
+    Promise.all([getPatient(params.id), listProntuario(params.id), listPatientAppointments(params.id), fetchOwnProfile()])
+      .then(([p, e, a, profile]) => {
         setPatient(p);
         setEntries(e);
         setAppointments(a);
+        setTenantSlug(profile.slug);
       })
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
@@ -129,6 +135,20 @@ export default function PatientDetailPage() {
       setPortalPassword('');
     } catch (err) {
       setError((err as Error).message);
+    }
+  }
+
+  async function onGenerateActivationLink() {
+    setError(null);
+    setGeneratingLink(true);
+    try {
+      const { activationToken } = await generatePatientActivationLink(params.id);
+      const url = `${window.location.origin}/paciente/ativar?slug=${encodeURIComponent(tenantSlug)}&token=${activationToken}`;
+      setActivationLink(url);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGeneratingLink(false);
     }
   }
 
@@ -235,14 +255,30 @@ export default function PatientDetailPage() {
       {patient.portalEnabled ? (
         <p className="sub">Portal ativado — o paciente já pode entrar com o e-mail cadastrado.</p>
       ) : (
-        <form onSubmit={onEnablePortal} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <label>
-            Senha inicial
-            <input type="password" minLength={8} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} required />
-          </label>
-          <button type="submit" disabled={!patient.email}>Ativar portal</button>
-          {!patient.email && <span className="sub" style={{ margin: 0 }}>Cadastre um e-mail primeiro.</span>}
-        </form>
+        <>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+            <button type="button" onClick={onGenerateActivationLink} disabled={!patient.email || generatingLink}>
+              {generatingLink ? 'Gerando…' : 'Gerar link de ativação'}
+            </button>
+            {!patient.email && <span className="sub" style={{ margin: 0 }}>Cadastre um e-mail primeiro.</span>}
+          </div>
+          {activationLink && (
+            <div className="callout-box" style={{ marginBottom: '1rem' }}>
+              <p style={{ margin: '0 0 0.4rem' }}>
+                Envie este link pro paciente (WhatsApp, SMS) — ele mesmo define a senha. Válido por 48h:
+              </p>
+              <input readOnly value={activationLink} onFocus={(e) => e.target.select()} style={{ fontSize: '0.8rem' }} />
+            </div>
+          )}
+          <p className="sub" style={{ margin: '0 0 0.5rem' }}>Ou defina a senha você mesmo:</p>
+          <form onSubmit={onEnablePortal} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label>
+              Senha inicial
+              <input type="password" minLength={8} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} required />
+            </label>
+            <button type="submit" disabled={!patient.email}>Ativar portal</button>
+          </form>
+        </>
       )}
     </div>
   );

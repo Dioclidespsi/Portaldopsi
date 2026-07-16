@@ -13,7 +13,10 @@ export class PatientPortalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(PatientAuthMiddleware)
-      .exclude({ path: 'patient-portal/login', method: RequestMethod.POST })
+      .exclude(
+        { path: 'patient-portal/login', method: RequestMethod.POST },
+        { path: 'patient-portal/activate', method: RequestMethod.POST },
+      )
       .forRoutes('patient-portal/*');
   }
 }

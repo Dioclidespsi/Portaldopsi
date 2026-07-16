@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { PatientPortalService } from './patient-portal.service';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
+import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
 
 @Controller('patient-portal')
 export class PatientPortalController {
@@ -11,6 +12,12 @@ export class PatientPortalController {
   @Post('login')
   login(@Body() dto: PatientLoginDto) {
     return this.portal.login(dto);
+  }
+
+  /** Pública — excluída do PatientAuthMiddleware em patient-portal.module.ts. Autoatendimento via link gerado pela equipe. */
+  @Post('activate')
+  activate(@Body() dto: ActivatePatientPortalDto) {
+    return this.portal.activate(dto);
   }
 
   @Get('me')

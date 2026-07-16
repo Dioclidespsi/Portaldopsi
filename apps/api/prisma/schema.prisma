@@ -221,6 +221,12 @@ model Patient {
   /// vira true quando a equipe ativa o acesso e define a senha inicial.
   passwordHash  String?
   portalEnabled Boolean @default(false)
+  /// Autoatendimento: em vez da equipe definir a senha direto (fluxo antigo,
+  /// ainda existe), a equipe gera esse token e manda o link pro paciente
+  /// (WhatsApp, SMS — sem infra de e-mail neste projeto). Paciente abre o
+  /// link, define a própria senha, token é limpo. Expira em 48h por padrão.
+  activationToken          String?   @unique
+  activationTokenExpiresAt DateTime?
 
   prontuarioEntries ProntuarioEntry[]
   appointments      Appointment[]

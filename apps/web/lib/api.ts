@@ -893,6 +893,11 @@ export function enablePatientPortal(patientId: string, password: string) {
   return request<PatientDetail>(`/patients/${patientId}/portal`, { method: 'PATCH', body: JSON.stringify({ password }) });
 }
 
+/** Alternativa a enablePatientPortal: gera um token pro próprio paciente definir a senha (ver /paciente/ativar). */
+export function generatePatientActivationLink(patientId: string) {
+  return request<{ activationToken: string }>(`/patients/${patientId}/activation-link`, { method: 'POST' });
+}
+
 export function summarizeProntuarioWithAi(patientId: string) {
   return request<{ summary: string }>(`/ai/prontuario/${patientId}/summarize`, { method: 'POST' });
 }

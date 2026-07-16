@@ -44,6 +44,11 @@ export class PatientsController {
     return this.patients.enablePortal(id, dto);
   }
 
+  @Post(':id/activation-link')
+  generateActivationLink(@Param('id') id: string) {
+    return this.patients.generateActivationLink(id);
+  }
+
   @Patch(':id/active')
   setActive(@Param('id') id: string, @Body() dto: UpdatePatientActiveDto) {
     return this.patients.setActive(id, dto);

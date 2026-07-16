@@ -40,6 +40,11 @@ export function patientLogin(data: { slug: string; email: string; password: stri
   return request<{ accessToken: string }>('/patient-portal/login', { method: 'POST', body: JSON.stringify(data) });
 }
 
+/** Autoatendimento via link gerado pela equipe (ver generatePatientActivationLink em lib/api.ts). */
+export function activatePatientPortal(data: { slug: string; token: string; password: string }) {
+  return request<{ accessToken: string }>('/patient-portal/activate', { method: 'POST', body: JSON.stringify(data) });
+}
+
 export interface PatientMe {
   id: string;
   name: string;
