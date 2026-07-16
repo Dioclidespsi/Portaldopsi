@@ -8,5 +8,6 @@ import { AsaasModule } from '../asaas/asaas.module';
   imports: [AvailabilityModule, AsaasModule],
   controllers: [BookingController],
   providers: [BookingService],
+  exports: [BookingService],
 })
 export class BookingModule {}

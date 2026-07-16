@@ -78,6 +78,27 @@ export function consentToTeleconsulta(id: string) {
   return request<PatientAppointment>(`/patient-portal/appointments/${id}/consent`, { method: 'POST' });
 }
 
+export function cancelOwnAppointment(id: string) {
+  return request<{ cancelled: boolean }>(`/patient-portal/appointments/${id}/cancel`, { method: 'POST' });
+}
+
+export interface PatientSlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export function listOwnAvailability() {
+  return request<{ sessionPriceCents: number | null; slots: PatientSlot[] }>('/patient-portal/availability');
+}
+
+export function bookOwnAppointment(slotId: string) {
+  return request<{ appointmentId: string; holdExpiresAt: string; paymentLink: string }>('/patient-portal/bookings', {
+    method: 'POST',
+    body: JSON.stringify({ slotId }),
+  });
+}
+
 /** Nunca traz score/resultLabel — comunicar o resultado é decisão do psicólogo, não deste app. */
 export interface PatientTestSummary {
   id: string;

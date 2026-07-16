@@ -3,6 +3,7 @@ import { PatientPortalService } from './patient-portal.service';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
+import { BookAppointmentDto } from './dto/book-appointment.dto';
 
 @Controller('patient-portal')
 export class PatientPortalController {
@@ -38,6 +39,21 @@ export class PatientPortalController {
   @Post('appointments/:id/consent')
   consent(@Param('id') id: string) {
     return this.portal.consentToTeleconsulta(id);
+  }
+
+  @Post('appointments/:id/cancel')
+  cancel(@Param('id') id: string) {
+    return this.portal.cancelAppointment(id);
+  }
+
+  @Get('availability')
+  listAvailability() {
+    return this.portal.listAvailability();
+  }
+
+  @Post('bookings')
+  book(@Body() dto: BookAppointmentDto) {
+    return this.portal.bookAppointment(dto.slotId);
   }
 
   @Get('tests')

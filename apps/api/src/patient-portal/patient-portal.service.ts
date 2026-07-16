@@ -9,6 +9,8 @@ import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
 import { PatientJwtPayload } from './patient-jwt.types';
 import { computeSuggestedScore } from '../psych-tests/scoring';
+import { AvailabilityService } from '../availability/availability.service';
+import { BookingService } from '../booking/booking.service';
 
 const SALT_ROUNDS = 12;
 
@@ -17,6 +19,8 @@ export class PatientPortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly availability: AvailabilityService,
+    private readonly booking: BookingService,
   ) {}
 
   /**
@@ -123,6 +127,49 @@ export class PatientPortalService {
       throw new ForbiddenException('Nenhuma sala de teleconsulta foi criada para este agendamento ainda.');
     }
     return this.ownPatientClient().appointment.update({ where: { id }, data: { consentAt: new Date() } });
+  }
+
+  /** Mesmos horários liberados que aparecem no site público (/p/{slug}) — aqui já dentro do login do paciente. */
+  async listAvailability() {
+    const { tenantId } = getPatientContext();
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    const tenantPrisma = this.prisma.forTenant(tenantId);
+    await this.availability.expireStaleHolds(tenantPrisma);
+
+    const slots = await tenantPrisma.availabilitySlot.findMany({
+      where: { status: 'disponivel', startsAt: { gte: new Date() } },
+      orderBy: { startsAt: 'asc' },
+      select: { id: true, startsAt: true, endsAt: true },
+    });
+    return { sessionPriceCents: tenant.sessionPriceCents, slots };
+  }
+
+  /** Igual ao agendamento público (ver BookingService), mas pro paciente já logado — sem reupsertar por e-mail, patientId já é conhecido. */
+  async bookAppointment(slotId: string) {
+    const { tenantId, patientId } = getPatientContext();
+    return this.booking.createBookingForPatient(tenantId, patientId, slotId);
+  }
+
+  /**
+   * Só cancela agendamentos que ainda não aconteceram/foram concluídos. Se o
+   * agendamento tinha um AvailabilitySlot vinculado (reservado via este
+   * portal ou via site público), libera o horário de volta pra disponível.
+   */
+  async cancelAppointment(id: string) {
+    const appointment = await this.ownAppointmentOrThrow(id);
+    if (appointment.status === 'concluido' || appointment.status === 'cancelado') {
+      throw new BadRequestException('Este agendamento já não pode mais ser cancelado.');
+    }
+    const tenantPrisma = this.ownPatientClient();
+    await tenantPrisma.appointment.update({
+      where: { id },
+      data: { status: 'cancelado', cancelReason: 'Cancelado pelo próprio paciente.' },
+    });
+    await tenantPrisma.availabilitySlot.updateMany({
+      where: { appointmentId: id },
+      data: { status: 'disponivel', heldUntil: null, appointmentId: null },
+    });
+    return { cancelled: true };
   }
 
   /**

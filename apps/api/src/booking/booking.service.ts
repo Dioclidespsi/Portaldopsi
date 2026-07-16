@@ -51,33 +51,52 @@ export class BookingService {
   async createBooking(slug: string, dto: CreateBookingDto) {
     const tenant = await this.requireBookableTenant(slug);
     const tenantPrisma = this.prisma.forTenant(tenant.id);
+
+    const cpfCnpj = dto.cpfCnpj.replace(/\D/g, '');
+    const phone = dto.phone.replace(/\D/g, '');
+    const patient = await tenantPrisma.patient.upsert({
+      where: { tenantId_email: { tenantId: tenant.id, email: dto.email } },
+      create: { tenantId: tenant.id, name: dto.name, email: dto.email, phone, cpfCnpj },
+      update: { name: dto.name, phone, cpfCnpj },
+    });
+
+    return this.claimSlotForPatient(tenant.id, patient.id, dto.slotId, tenant.sessionPriceCents!);
+  }
+
+  /**
+   * Mesmo fluxo de createBooking, mas pra um paciente JÁ autenticado no
+   * portal (ver PatientPortalService.bookAppointment) — pula o upsert por
+   * e-mail, já tem o patientId direto do PatientRequestContext.
+   */
+  async createBookingForPatient(tenantId: string, patientId: string, slotId: string) {
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    if (!tenant.bookingEnabled || !tenant.sessionPriceCents) {
+      throw new BadRequestException('Sua clínica ainda não habilitou o agendamento pelo portal.');
+    }
+    return this.claimSlotForPatient(tenantId, patientId, slotId, tenant.sessionPriceCents);
+  }
+
+  private async claimSlotForPatient(tenantId: string, patientId: string, slotId: string, sessionPriceCents: number) {
+    const tenantPrisma = this.prisma.forTenant(tenantId);
     await this.availability.expireStaleHolds(tenantPrisma);
 
     const heldUntil = new Date(Date.now() + HOLD_MINUTES * 60 * 1000);
     const claimed = await tenantPrisma.availabilitySlot.updateMany({
-      where: { id: dto.slotId, status: 'disponivel' },
+      where: { id: slotId, status: 'disponivel' },
       data: { status: 'reservado', heldUntil },
     });
     if (claimed.count === 0) {
       throw new ConflictException('Esse horário acabou de deixar de estar disponível. Escolha outro.');
     }
-    const slot = await tenantPrisma.availabilitySlot.findUniqueOrThrow({ where: { id: dto.slotId } });
+    const slot = await tenantPrisma.availabilitySlot.findUniqueOrThrow({ where: { id: slotId } });
 
     let appointmentId: string | undefined;
     let invoiceId: string | undefined;
     try {
-      const cpfCnpj = dto.cpfCnpj.replace(/\D/g, '');
-      const phone = dto.phone.replace(/\D/g, '');
-      const patient = await tenantPrisma.patient.upsert({
-        where: { tenantId_email: { tenantId: tenant.id, email: dto.email } },
-        create: { tenantId: tenant.id, name: dto.name, email: dto.email, phone, cpfCnpj },
-        update: { name: dto.name, phone, cpfCnpj },
-      });
-
       const appointment = await tenantPrisma.appointment.create({
         data: {
-          tenantId: tenant.id,
-          patientId: patient.id,
+          tenantId,
+          patientId,
           startsAt: slot.startsAt,
           endsAt: slot.endsAt,
           status: 'aguardando_pagamento',
@@ -88,20 +107,19 @@ export class BookingService {
 
       const invoice = await tenantPrisma.invoice.create({
         data: {
-          tenantId: tenant.id,
-          patientId: patient.id,
+          tenantId,
+          patientId,
           appointmentId: appointment.id,
-          amountCents: tenant.sessionPriceCents!,
+          amountCents: sessionPriceCents,
           dueDate: heldUntil,
         },
       });
       invoiceId = invoice.id;
 
-      const charged = await this.asaas.createSplitCharge(invoice.id, tenant.id);
+      const charged = await this.asaas.createSplitCharge(invoice.id, tenantId);
       return { appointmentId: appointment.id, holdExpiresAt: heldUntil, paymentLink: charged.paymentLink };
     } catch (err) {
       // Desfaz tudo — o slot volta a ficar disponível pra outra pessoa em vez de ficar preso sem cobrança gerada.
-      // Paciente (upsert) fica; não há dado sensível criado a mais só por causa disso.
       if (invoiceId) await tenantPrisma.invoice.delete({ where: { id: invoiceId } });
       if (appointmentId) await tenantPrisma.appointment.delete({ where: { id: appointmentId } });
       await tenantPrisma.availabilitySlot.update({

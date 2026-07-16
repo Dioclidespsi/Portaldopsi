@@ -3,9 +3,11 @@ import { PatientPortalController } from './patient-portal.controller';
 import { PatientPortalService } from './patient-portal.service';
 import { PatientAuthMiddleware } from './patient-auth.middleware';
 import { AuthModule } from '../auth/auth.module';
+import { AvailabilityModule } from '../availability/availability.module';
+import { BookingModule } from '../booking/booking.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AvailabilityModule, BookingModule],
   controllers: [PatientPortalController],
   providers: [PatientPortalService],
 })
