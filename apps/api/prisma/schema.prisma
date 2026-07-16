@@ -1041,6 +1041,24 @@ model LibraryMaterial {
   @@map("library_materials")
 }
 
+/// Trilhas de meditação/áudio guiado do app do paciente — mesmo padrão de
+/// LibraryMaterial (catálogo GLOBAL, sem tenantId/RLS, só o admin cadastra),
+/// mas o consumidor é o paciente (patient-portal), não a equipe. Servido por
+/// download autenticado via patient JWT, não rota pública — não é conteúdo
+/// sensível, mas também não há motivo pra deixar sem login nenhum.
+model MeditationTrack {
+  id              String   @id @default(uuid())
+  category        String
+  title           String
+  description     String?
+  audioPath       String
+  durationSeconds Int?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@map("meditation_tracks")
+}
+
 /// Banner promocional da home pública da PLATAFORMA (/, não confundir com a
 /// página do psicólogo em /p/{slug}) — só 2 posições fixas (1 e 2), geridas
 /// pelo admin. Imagem fica em apps/api/uploads/banners/, servida por rota

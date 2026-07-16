@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CRP_UPLOAD_DIR } from '../users/crp-upload.config';
 import { DOCUMENT_TEMPLATE_UPLOAD_DIR } from '../document-templates/document-template-upload.config';
 import { LIBRARY_MATERIAL_UPLOAD_DIR } from '../library/library-material-upload.config';
+import { MEDITATION_UPLOAD_DIR } from '../meditation/meditation-upload.config';
 import { CERTIFICATE_TEMPLATE_UPLOAD_DIR } from '../certificates/certificate-template-upload.config';
 import { BANNER_UPLOAD_DIR } from '../banners/banner-upload.config';
 import { renderCertificateBuffer } from '../certificates/certificate-renderer';
@@ -13,6 +14,7 @@ import { CrpStatus, Prisma } from '@prisma/client';
 import { UpsertCertificateTemplateDto } from './dto/upsert-certificate-template.dto';
 import { UpsertTestTemplateDto } from './dto/upsert-test-template.dto';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
+import { CreateMeditationTrackDto } from './dto/create-meditation-track.dto';
 
 /**
  * Serviço do console do administrador da plataforma — opera deliberadamente
@@ -173,6 +175,37 @@ export class AdminService {
     if (!material) throw new NotFoundException('Material não encontrado.');
     fs.unlink(path.join(LIBRARY_MATERIAL_UPLOAD_DIR, material.filePath), () => undefined);
     await this.prisma.libraryMaterial.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  listMeditationTracks() {
+    return this.prisma.meditationTrack.findMany({ orderBy: [{ category: 'asc' }, { title: 'asc' }] });
+  }
+
+  createMeditationTrack(dto: CreateMeditationTrackDto, file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Envie o arquivo de áudio.');
+    return this.prisma.meditationTrack.create({
+      data: {
+        category: dto.category,
+        title: dto.title,
+        description: dto.description,
+        durationSeconds: dto.durationSeconds,
+        audioPath: file.filename,
+      },
+    });
+  }
+
+  async setMeditationTrackActive(id: string, active: boolean) {
+    const track = await this.prisma.meditationTrack.findUnique({ where: { id } });
+    if (!track) throw new NotFoundException('Trilha não encontrada.');
+    return this.prisma.meditationTrack.update({ where: { id }, data: { active } });
+  }
+
+  async deleteMeditationTrack(id: string) {
+    const track = await this.prisma.meditationTrack.findUnique({ where: { id } });
+    if (!track) throw new NotFoundException('Trilha não encontrada.');
+    fs.unlink(path.join(MEDITATION_UPLOAD_DIR, track.audioPath), () => undefined);
+    await this.prisma.meditationTrack.delete({ where: { id } });
     return { deleted: true };
   }
 

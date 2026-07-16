@@ -137,6 +137,9 @@ export default function PatientDashboardPage() {
           <Link href="/paciente/dever-de-casa">
             <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Dever de casa</button>
           </Link>
+          <Link href="/paciente/meditacao">
+            <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Meditação</button>
+          </Link>
           <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
             Sair
           </button>

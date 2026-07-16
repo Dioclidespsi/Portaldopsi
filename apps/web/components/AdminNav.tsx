@@ -15,6 +15,7 @@ const LINKS = [
   { href: '/admin/testes', label: 'Testes' },
   { href: '/admin/banners', label: 'Banners da home' },
   { href: '/admin/aparencia', label: 'Aparência do site' },
+  { href: '/admin/meditacao', label: 'Meditação' },
 ];
 
 export default function AdminNav() {

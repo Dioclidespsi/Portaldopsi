@@ -16,13 +16,20 @@ export class PatientAuthMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     const header = req.headers.authorization;
-    if (!header?.startsWith('Bearer ')) {
+    // <audio src> não manda header Authorization — só essa rota específica de streaming aceita o token via query
+    // (ver meditationAudioUrl em lib/patient-api.ts). Nenhuma outra rota do portal aceita token fora do header.
+    // req.path fica relativo ao prefixo dentro de middleware escopado por forRoutes() — sempre "/" aqui,
+    // não dá pra checar a rota por ele. req.originalUrl mantém a URL completa como o Express recebeu.
+    const isAudioRoute = req.originalUrl.split('?')[0].endsWith('/audio');
+    const queryToken = isAudioRoute && typeof req.query.token === 'string' ? req.query.token : undefined;
+    const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : queryToken;
+    if (!token) {
       throw new UnauthorizedException('Token ausente.');
     }
 
     let payload: PatientJwtPayload;
     try {
-      payload = this.jwt.verify<PatientJwtPayload>(header.slice('Bearer '.length));
+      payload = this.jwt.verify<PatientJwtPayload>(token);
     } catch {
       throw new UnauthorizedException('Token inválido ou expirado.');
     }

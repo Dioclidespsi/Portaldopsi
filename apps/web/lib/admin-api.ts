@@ -196,6 +196,54 @@ export function deleteLibraryMaterial(id: string) {
   return request(`/admin/library/${id}`, { method: 'DELETE' });
 }
 
+export interface AdminMeditationTrack {
+  id: string;
+  category: string;
+  title: string;
+  description?: string | null;
+  durationSeconds?: number | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export function listAdminMeditationTracks() {
+  return request<AdminMeditationTrack[]>('/admin/meditation-tracks');
+}
+
+export async function createMeditationTrack(
+  category: string,
+  title: string,
+  description: string,
+  durationSeconds: string,
+  file: File,
+) {
+  const token = getAdminToken();
+  const form = new FormData();
+  form.append('category', category);
+  form.append('title', title);
+  if (description) form.append('description', description);
+  if (durationSeconds) form.append('durationSeconds', durationSeconds);
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/admin/meditation-tracks`, {
+    method: 'POST',
+    headers: token ? { 'x-admin-token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export function setMeditationTrackActive(id: string, active: boolean) {
+  return request<AdminMeditationTrack>(`/admin/meditation-tracks/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) });
+}
+
+export function deleteMeditationTrack(id: string) {
+  return request(`/admin/meditation-tracks/${id}`, { method: 'DELETE' });
+}
+
 export interface AdminBanner {
   id: string;
   position: number;

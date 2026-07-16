@@ -121,6 +121,24 @@ export function completeOwnHomework(id: string, patientNote?: string) {
   });
 }
 
+export interface PatientMeditationTrack {
+  id: string;
+  category: string;
+  title: string;
+  description?: string | null;
+  durationSeconds?: number | null;
+}
+
+export function listOwnMeditationTracks() {
+  return request<PatientMeditationTrack[]>('/patient-portal/meditation-tracks');
+}
+
+/** URL direta pro <audio src>, com o token do paciente como query param — <audio> não manda header Authorization. */
+export function meditationAudioUrl(id: string): string {
+  const token = getPatientToken();
+  return `${API_URL}/patient-portal/meditation-tracks/${id}/audio?token=${encodeURIComponent(token ?? '')}`;
+}
+
 /** Nunca traz score/resultLabel — comunicar o resultado é decisão do psicólogo, não deste app. */
 export interface PatientTestSummary {
   id: string;

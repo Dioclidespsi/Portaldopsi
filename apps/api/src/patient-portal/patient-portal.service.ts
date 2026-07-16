@@ -172,6 +172,20 @@ export class PatientPortalService {
     return { cancelled: true };
   }
 
+  /** Catálogo global (sem RLS/tenantId, ver MeditationTrack no schema) — mesmo pra qualquer clínica. */
+  listMeditationTracks() {
+    return this.prisma.meditationTrack.findMany({
+      where: { active: true },
+      orderBy: [{ category: 'asc' }, { title: 'asc' }],
+    });
+  }
+
+  async getMeditationAudioPath(id: string) {
+    const track = await this.prisma.meditationTrack.findUnique({ where: { id } });
+    if (!track || !track.active) throw new NotFoundException('Trilha não encontrada.');
+    return track.audioPath;
+  }
+
   async listHomework() {
     const { patientId } = getPatientContext();
     return this.ownPatientClient().homework.findMany({

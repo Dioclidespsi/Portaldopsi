@@ -6,11 +6,13 @@ import { AdminTokenGuard } from './admin-token.guard';
 import { RejectCrpDto } from './dto/reject-crp.dto';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { CreateLibraryMaterialDto } from './dto/create-library-material.dto';
+import { CreateMeditationTrackDto } from './dto/create-meditation-track.dto';
 import { UpsertCertificateTemplateDto } from './dto/upsert-certificate-template.dto';
 import { UpsertTestTemplateDto } from './dto/upsert-test-template.dto';
 import { SetTestTemplateActiveDto } from './dto/set-test-template-active.dto';
 import { documentTemplateUploadOptions } from '../document-templates/document-template-upload.config';
 import { libraryMaterialUploadOptions } from '../library/library-material-upload.config';
+import { meditationUploadOptions } from '../meditation/meditation-upload.config';
 import { certificateTemplateUploadOptions } from '../certificates/certificate-template-upload.config';
 import { bannerUploadOptions } from '../banners/banner-upload.config';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
@@ -117,6 +119,27 @@ export class AdminController {
   @Delete('library/:id')
   deleteLibraryMaterial(@Param('id') id: string) {
     return this.admin.deleteLibraryMaterial(id);
+  }
+
+  @Get('meditation-tracks')
+  listMeditationTracks() {
+    return this.admin.listMeditationTracks();
+  }
+
+  @Post('meditation-tracks')
+  @UseInterceptors(FileInterceptor('file', meditationUploadOptions))
+  createMeditationTrack(@Body() dto: CreateMeditationTrackDto, @UploadedFile() file?: Express.Multer.File) {
+    return this.admin.createMeditationTrack(dto, file);
+  }
+
+  @Patch('meditation-tracks/:id/active')
+  setMeditationTrackActive(@Param('id') id: string, @Body() dto: SetTestTemplateActiveDto) {
+    return this.admin.setMeditationTrackActive(id, dto.active);
+  }
+
+  @Delete('meditation-tracks/:id')
+  deleteMeditationTrack(@Param('id') id: string) {
+    return this.admin.deleteMeditationTrack(id);
   }
 
   @Get('certificate-template')

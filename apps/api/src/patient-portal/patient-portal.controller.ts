@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import { Response } from 'express';
+import * as path from 'path';
 import { PatientPortalService } from './patient-portal.service';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
 import { BookAppointmentDto } from './dto/book-appointment.dto';
 import { CompleteHomeworkDto } from './dto/complete-homework.dto';
+import { MEDITATION_UPLOAD_DIR } from '../meditation/meditation-upload.config';
 
 @Controller('patient-portal')
 export class PatientPortalController {
@@ -65,6 +68,17 @@ export class PatientPortalController {
   @Post('homework/:id/complete')
   completeHomework(@Param('id') id: string, @Body() dto: CompleteHomeworkDto) {
     return this.portal.completeHomework(id, dto.patientNote);
+  }
+
+  @Get('meditation-tracks')
+  listMeditationTracks() {
+    return this.portal.listMeditationTracks();
+  }
+
+  @Get('meditation-tracks/:id/audio')
+  async getMeditationAudio(@Param('id') id: string, @Res() res: Response) {
+    const audioPath = await this.portal.getMeditationAudioPath(id);
+    res.sendFile(path.join(MEDITATION_UPLOAD_DIR, audioPath));
   }
 
   @Get('tests')
