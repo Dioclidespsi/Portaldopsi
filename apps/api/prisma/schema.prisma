@@ -994,3 +994,15 @@ model Banner {
   @@map("banners")
 }
 
+/// Singleton (sempre uma linha só, ver PlatformSettingsService) — paleta de
+/// cores da plataforma em si (home pública, logins, loja de cursos, painéis
+/// internos), escolhida pelo admin. Não confundir com Tenant.colorPalette,
+/// que é a paleta da página individual de CADA psicólogo (/p/{slug}) — essa
+/// aqui é uma escolha só, valendo pro resto do site inteiro.
+model PlatformSettings {
+  id           String @id @default(uuid())
+  colorPalette String @default("salvia")
+
+  @@map("platform_settings")
+}
+

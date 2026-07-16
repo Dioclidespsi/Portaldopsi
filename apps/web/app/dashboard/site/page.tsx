@@ -95,6 +95,7 @@ export default function SiteProfissionalPage() {
 
   const selectedSpecialties = parseSpecialties(profile.specialties);
   const customSpecialtiesText = selectedSpecialties.filter((s) => !ALL_SPECIALTIES.has(s)).join(', ');
+  const selectedPalette = SITE_PALETTES[profile.colorPalette] ?? SITE_PALETTES.salvia;
 
   function renderSpecialtyGroup(group: SpecialtyGroup) {
     return SPECIALTY_CATEGORIES.filter((cat) => cat.group === group).map((cat) => (
@@ -224,33 +225,27 @@ export default function SiteProfissionalPage() {
         <h3 style={{ fontSize: '0.95rem', margin: '1.2rem 0 0.8rem', borderTop: '1px solid var(--line)', paddingTop: '1.2rem' }}>
           Aparência da página
         </h3>
-        <div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', margin: '0 0 0.5rem' }}>Paleta de cores da página pública</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.6rem' }}>
+        <label>
+          Paleta de cores da página pública
+          <select
+            value={profile.colorPalette}
+            onChange={(e) => setProfile({ ...profile, colorPalette: e.target.value })}
+          >
             {Object.values(SITE_PALETTES).map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setProfile({ ...profile, colorPalette: p.key })}
-                style={{
-                  textAlign: 'left',
-                  padding: '0.6rem',
-                  borderRadius: '8px',
-                  border: profile.colorPalette === p.key ? `2px solid ${p.accent}` : '1px solid var(--line)',
-                  background: p.ground,
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.4rem' }}>
-                  <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: p.accent, display: 'inline-block' }} />
-                  <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: p.accentSoft, display: 'inline-block' }} />
-                  <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: p.surface, border: `1px solid ${p.line}`, display: 'inline-block' }} />
-                </div>
-                <strong style={{ fontSize: '0.82rem', color: p.ink }}>{p.label}</strong>
-                <p style={{ fontSize: '0.72rem', color: p.inkSoft, margin: '0.15rem 0 0' }}>{p.description}</p>
-              </button>
+              <option key={p.key} value={p.key}>{p.label} — {p.description}</option>
             ))}
-          </div>
+          </select>
+        </label>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.7rem',
+            borderRadius: '8px', border: '1px solid var(--line)', background: selectedPalette.ground, width: 'fit-content',
+          }}
+        >
+          <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: selectedPalette.accent, display: 'inline-block' }} />
+          <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: selectedPalette.accentSoft, display: 'inline-block' }} />
+          <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: selectedPalette.surface, border: `1px solid ${selectedPalette.line}`, display: 'inline-block' }} />
+          <span style={{ fontSize: '0.78rem', color: selectedPalette.ink }}>Pré-visualização</span>
         </div>
 
         <label style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>

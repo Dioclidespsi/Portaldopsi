@@ -27,6 +27,7 @@ import { AvailabilityModule } from './availability/availability.module';
 import { BookingModule } from './booking/booking.module';
 import { BannersModule } from './banners/banners.module';
 import { DirectoryModule } from './directory/directory.module';
+import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { EstudanteAccessGuard } from './common/estudante-access.guard';
 
 @Module({
@@ -58,6 +59,7 @@ import { EstudanteAccessGuard } from './common/estudante-access.guard';
     BookingModule,
     BannersModule,
     DirectoryModule,
+    PlatformSettingsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: EstudanteAccessGuard }],
 })

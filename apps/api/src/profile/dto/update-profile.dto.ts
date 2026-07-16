@@ -1,6 +1,6 @@
 import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUrl, Max, MaxLength, Min } from 'class-validator';
 
-export const SITE_COLOR_PALETTES = ['salvia', 'terracota', 'oceano', 'lavanda', 'areia', 'vinho'] as const;
+export const SITE_COLOR_PALETTES = ['salvia', 'terracota', 'oceano', 'lavanda', 'areia', 'vinho', 'amarela', 'rosa', 'coral', 'grafite'] as const;
 
 export class UpdateProfileDto {
   @IsOptional()

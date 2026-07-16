@@ -946,6 +946,17 @@ export async function fetchPublicPlans(): Promise<Record<PlanKey, Plan> | null> 
   return res.json();
 }
 
+export interface PlatformSettings {
+  colorPalette: string;
+}
+
+/** Paleta de cores da plataforma em si (home, logins, loja) — escolhida pelo admin, diferente da paleta individual de cada psicólogo. Usada em app/layout.tsx. */
+export async function fetchPlatformSettings(): Promise<PlatformSettings> {
+  const res = await fetch(`${API_URL}/public/settings`, { cache: 'no-store' });
+  if (!res.ok) return { colorPalette: 'salvia' };
+  return res.json();
+}
+
 export interface SubscriptionInfo {
   status: 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
   currentPeriodEnd?: string | null;

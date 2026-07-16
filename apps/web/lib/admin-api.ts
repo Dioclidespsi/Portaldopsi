@@ -232,6 +232,18 @@ export function deleteBanner(position: 1 | 2) {
   return request(`/admin/banners/${position}`, { method: 'DELETE' });
 }
 
+export interface AdminPlatformSettings {
+  colorPalette: string;
+}
+
+export function getPlatformSettings() {
+  return request<AdminPlatformSettings>('/admin/settings');
+}
+
+export function updatePlatformSettings(colorPalette: string) {
+  return request<AdminPlatformSettings>('/admin/settings', { method: 'PATCH', body: JSON.stringify({ colorPalette }) });
+}
+
 export interface CertificateTemplatePositions {
   nameX: number;
   nameY: number;

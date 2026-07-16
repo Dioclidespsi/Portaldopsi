@@ -38,6 +38,7 @@ export class AuthModule implements NestModule {
         { path: 'public/banner-images/:filename', method: RequestMethod.GET },
         { path: 'public/directory', method: RequestMethod.GET },
         { path: 'billing/plans', method: RequestMethod.GET },
+        { path: 'public/settings', method: RequestMethod.GET },
         { path: 'certificates/verify/:code', method: RequestMethod.GET },
         { path: 'marketplace/courses', method: RequestMethod.GET },
         { path: 'marketplace/purchase', method: RequestMethod.POST },
