@@ -33,6 +33,8 @@ async function bootstrap() {
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`Portal do Psi API rodando em http://localhost:${port}`);
+  // eslint-disable-next-line no-console
+  console.log(`PUBLIC_API_URL efetivamente lido pelo processo: ${config.get<string>('PUBLIC_API_URL', '(não definida — usando padrão http://localhost:3333)')}`);
 }
 
 bootstrap();
