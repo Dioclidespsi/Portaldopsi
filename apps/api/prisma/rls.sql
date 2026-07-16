@@ -109,8 +109,26 @@ DROP POLICY IF EXISTS tenant_isolation ON leads;
 CREATE POLICY tenant_isolation ON leads
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
--- tenants, certificates, community_posts e community_replies não levam policy
--- de tenant_isolation: os dois primeiros pela razão já documentada (raiz do
--- isolamento / verificação pública), os dois últimos porque Comunidade é
--- deliberadamente CROSS-TENANT — ver comentário em CommunityPost no
--- schema.prisma. Acesso fica restrito pela aplicação, não pelo banco.
+-- Gap encontrado só na verificação pós-deploy: essas duas tabelas têm
+-- tenantId mas nunca ganharam policy (o código sempre usa forCurrentTenant()
+-- pra elas, então não havia vazamento ativo — mas ficavam sem a camada de
+-- defesa do banco, inconsistente com o resto do projeto).
+ALTER TABLE lead_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lead_activities FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON lead_activities;
+CREATE POLICY tenant_isolation ON lead_activities
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
+ALTER TABLE ai_usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_usage_logs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON ai_usage_logs;
+CREATE POLICY tenant_isolation ON ai_usage_logs
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
+-- tenants, certificates, community_posts, community_replies, community_likes,
+-- community_reports e community_notifications não levam policy de
+-- tenant_isolation: os dois primeiros pela razão já documentada (raiz do
+-- isolamento / verificação pública), os demais porque Comunidade é
+-- deliberadamente CROSS-TENANT (não têm nem tenantId) — ver comentário em
+-- CommunityPost no schema.prisma. Acesso fica restrito pela aplicação, não
+-- pelo banco.
