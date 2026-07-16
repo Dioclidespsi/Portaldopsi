@@ -30,6 +30,7 @@ export default function LoginPage() {
 
   return (
     <div className="shell">
+      <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Entrar</h1>
       <p className="sub">Informe o identificador da clínica junto com suas credenciais.</p>
       <form onSubmit={onSubmit}>

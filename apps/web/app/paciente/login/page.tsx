@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { patientLogin, savePatientToken } from '../../../lib/patient-api';
 
 export default function PatientLoginPage() {
@@ -29,6 +30,7 @@ export default function PatientLoginPage() {
 
   return (
     <div className="shell">
+      <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Área do paciente</h1>
       <p className="sub">Peça o identificador da clínica para o seu psicólogo, se não souber.</p>
       <form onSubmit={onSubmit}>

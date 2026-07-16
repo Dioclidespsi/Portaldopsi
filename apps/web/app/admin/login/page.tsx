@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { saveAdminToken, verifyAdminToken } from '../../../lib/admin-api';
 
 export default function AdminLoginPage() {
@@ -31,6 +32,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="shell">
+      <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Console do administrador</h1>
       <p className="sub">Segredo único configurado em ADMIN_TOKEN no .env da API.</p>
       <form onSubmit={onSubmit}>

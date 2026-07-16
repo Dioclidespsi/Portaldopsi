@@ -86,6 +86,15 @@ button:disabled { opacity: 0.6; cursor: default; }
 .foot-link { margin-top: 1.2rem; font-size: 0.85rem; color: var(--ink-soft); }
 .foot-link a { color: var(--accent); }
 
+.back-home {
+  display: inline-block;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+.back-home:hover { color: var(--accent); }
+
 .topbar {
   display: flex;
   justify-content: space-between;

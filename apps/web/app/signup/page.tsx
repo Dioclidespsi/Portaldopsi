@@ -32,6 +32,7 @@ export default function SignupPage() {
 
   return (
     <div className="shell">
+      <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Criar clínica</h1>
       <p className="sub">Você vira o psicólogo titular da conta.</p>
       <form onSubmit={onSubmit}>

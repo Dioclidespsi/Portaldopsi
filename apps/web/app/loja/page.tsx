@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { enrollInCourse, getToken, listMarketplaceCourses, MarketplaceCourse, purchaseCourse, saveToken } from '../../lib/api';
 
 function centsToReais(cents: number) {
@@ -67,6 +68,7 @@ export default function LojaPage() {
 
   return (
     <div className="shell shell-wide">
+      <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Loja de cursos</h1>
       <p className="sub">Compre um curso avulso sem assinar a plataforma completa — estudante de psicologia pode estudar sem atender paciente.</p>
       {message && <p style={{ color: 'var(--accent)', fontSize: '0.9rem' }}>{message}</p>}

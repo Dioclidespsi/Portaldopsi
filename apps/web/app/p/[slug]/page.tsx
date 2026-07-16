@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchPublicProfile } from '../../../lib/api';
 import { getPalette, SitePalette } from '../../../lib/site-palettes';
@@ -181,7 +182,9 @@ export default async function PublicProfilePage({ params }: { params: { slug: st
           {profile.name}
           {profile.crpVerified && <span style={{ color: p.accent, fontWeight: 700 }}> · CRP verificado</span>}
         </p>
-        <p style={{ margin: 0, opacity: 0.7 }}>Site profissional via Portal do Psi</p>
+        <p style={{ margin: 0, opacity: 0.7 }}>
+          Site profissional via <Link href="/" style={{ color: 'inherit' }}>Portal do Psi</Link>
+        </p>
       </footer>
     </div>
   );
