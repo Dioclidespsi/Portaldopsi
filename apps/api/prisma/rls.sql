@@ -42,6 +42,12 @@ DROP POLICY IF EXISTS tenant_isolation ON prontuario_entries;
 CREATE POLICY tenant_isolation ON prontuario_entries
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
+ALTER TABLE homeworks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homeworks FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON homeworks;
+CREATE POLICY tenant_isolation ON homeworks
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON appointments;

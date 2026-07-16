@@ -928,6 +928,29 @@ export function createTeleconsultaRoom(appointmentId: string) {
   return request<Appointment & { videoRoomUrl: string }>(`/appointments/${appointmentId}/teleconsulta/room`, { method: 'POST' });
 }
 
+export interface Homework {
+  id: string;
+  title: string;
+  instructions: string;
+  status: 'pendente' | 'concluido';
+  dueDate?: string | null;
+  patientNote?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export function listHomeworkForPatient(patientId: string) {
+  return request<Homework[]>(`/homework?patientId=${encodeURIComponent(patientId)}`);
+}
+
+export function createHomework(data: { patientId: string; title: string; instructions: string; dueDate?: string }) {
+  return request<Homework>('/homework', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function deleteHomework(id: string) {
+  return request(`/homework/${id}`, { method: 'DELETE' });
+}
+
 export function suggestLeadFollowUpMessage(leadId: string) {
   return request<{ message: string }>(`/leads/${leadId}/suggest-message`, { method: 'POST' });
 }

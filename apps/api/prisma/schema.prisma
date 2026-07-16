@@ -117,6 +117,7 @@ model Tenant {
   users              User[]
   patients           Patient[]
   prontuarioEntries  ProntuarioEntry[]
+  homeworks          Homework[]
   appointments       Appointment[]
   availabilitySlots  AvailabilitySlot[]
   invoices           Invoice[]
@@ -189,6 +190,7 @@ model User {
   communityLikes         CommunityLike[]
   communityNotifications CommunityNotification[]
   aiUsageLogs            AiUsageLog[]
+  homeworksAssigned      Homework[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -237,6 +239,7 @@ model Patient {
   moduleProgress     ModuleProgress[]
   courseQuizAttempts CourseQuizAttempt[]
   certificates       Certificate[]
+  homeworks          Homework[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -258,6 +261,32 @@ model ProntuarioEntry {
 
   @@index([tenantId, patientId])
   @@map("prontuario_entries")
+}
+
+/// Tarefa que o psicólogo atribui a um paciente entre sessões (ex: "escreva 3
+/// situações que geraram ansiedade essa semana") — mesmo padrão de
+/// TestAssignment (atribui -> paciente responde -> fica visível pro
+/// psicólogo), mas sem correção/pontuação, só um texto livre de instruções e
+/// uma resposta livre opcional do paciente ao marcar como feito.
+model Homework {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId    String
+  patient      Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User      @relation(fields: [assignedById], references: [id])
+  title        String
+  instructions String
+  status       String    @default("pendente")
+  dueDate      DateTime?
+  /// Preenchido pelo paciente ao marcar como concluído — opcional, é só um espaço pra comentar, não uma resposta corrigível.
+  patientNote  String?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, patientId])
+  @@map("homeworks")
 }
 
 model Appointment {

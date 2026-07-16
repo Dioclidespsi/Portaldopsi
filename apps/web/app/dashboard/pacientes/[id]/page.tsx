@@ -6,11 +6,15 @@ import DashboardNav from '../../../../components/DashboardNav';
 import {
   addProntuarioEntry,
   Appointment,
+  createHomework,
   createTeleconsultaRoom,
+  deleteHomework,
   enablePatientPortal,
   fetchOwnProfile,
   generatePatientActivationLink,
   getPatient,
+  Homework,
+  listHomeworkForPatient,
   listPatientAppointments,
   listProntuario,
   PatientDetail,
@@ -47,6 +51,10 @@ export default function PatientDetailPage() {
   const [tenantSlug, setTenantSlug] = useState('');
   const [activationLink, setActivationLink] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [homeworks, setHomeworks] = useState<Homework[]>([]);
+  const [homeworkTitle, setHomeworkTitle] = useState('');
+  const [homeworkInstructions, setHomeworkInstructions] = useState('');
+  const [homeworkDueDate, setHomeworkDueDate] = useState('');
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,12 +64,19 @@ export default function PatientDetailPage() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
-    Promise.all([getPatient(params.id), listProntuario(params.id), listPatientAppointments(params.id), fetchOwnProfile()])
-      .then(([p, e, a, profile]) => {
+    Promise.all([
+      getPatient(params.id),
+      listProntuario(params.id),
+      listPatientAppointments(params.id),
+      fetchOwnProfile(),
+      listHomeworkForPatient(params.id),
+    ])
+      .then(([p, e, a, profile, hw]) => {
         setPatient(p);
         setEntries(e);
         setAppointments(a);
         setTenantSlug(profile.slug);
+        setHomeworks(hw);
       })
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
@@ -149,6 +164,35 @@ export default function PatientDetailPage() {
       setError((err as Error).message);
     } finally {
       setGeneratingLink(false);
+    }
+  }
+
+  async function onAssignHomework(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      const hw = await createHomework({
+        patientId: params.id,
+        title: homeworkTitle,
+        instructions: homeworkInstructions,
+        dueDate: homeworkDueDate || undefined,
+      });
+      setHomeworks((prev) => [hw, ...prev]);
+      setHomeworkTitle('');
+      setHomeworkInstructions('');
+      setHomeworkDueDate('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function onDeleteHomework(id: string) {
+    setError(null);
+    try {
+      await deleteHomework(id);
+      setHomeworks((prev) => prev.filter((h) => h.id !== id));
+    } catch (err) {
+      setError((err as Error).message);
     }
   }
 
@@ -250,6 +294,47 @@ export default function PatientDetailPage() {
           )}
         </tbody>
       </table>
+
+      <h3 style={{ fontSize: '0.92rem', marginTop: '1.5rem' }}>Dever de casa</h3>
+      <table>
+        <thead><tr><th>Título</th><th>Status</th><th>Prazo</th><th>Resposta do paciente</th><th></th></tr></thead>
+        <tbody>
+          {homeworks.map((h) => (
+            <tr key={h.id}>
+              <td>{h.title}</td>
+              <td>{h.status === 'concluido' ? 'Concluído' : 'Pendente'}</td>
+              <td>{h.dueDate ? new Date(h.dueDate).toLocaleDateString('pt-BR') : '—'}</td>
+              <td className="sub" style={{ margin: 0 }}>{h.patientNote ?? '—'}</td>
+              <td>
+                <button
+                  onClick={() => onDeleteHomework(h.id)}
+                  style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                >
+                  Excluir
+                </button>
+              </td>
+            </tr>
+          ))}
+          {homeworks.length === 0 && (
+            <tr><td colSpan={5} style={{ color: 'var(--ink-soft)' }}>Nenhum dever de casa atribuído ainda.</td></tr>
+          )}
+        </tbody>
+      </table>
+      <form onSubmit={onAssignHomework} style={{ marginTop: '0.8rem', flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label style={{ minWidth: '160px' }}>
+          Título
+          <input value={homeworkTitle} onChange={(e) => setHomeworkTitle(e.target.value)} required />
+        </label>
+        <label style={{ flex: 1, minWidth: '220px' }}>
+          Instruções
+          <input value={homeworkInstructions} onChange={(e) => setHomeworkInstructions(e.target.value)} required />
+        </label>
+        <label>
+          Prazo (opcional)
+          <input type="date" value={homeworkDueDate} onChange={(e) => setHomeworkDueDate(e.target.value)} />
+        </label>
+        <button type="submit">Atribuir</button>
+      </form>
 
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.5rem' }}>Aplicativo do paciente</h3>
       {patient.portalEnabled ? (

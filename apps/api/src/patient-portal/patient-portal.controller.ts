@@ -4,6 +4,7 @@ import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
 import { BookAppointmentDto } from './dto/book-appointment.dto';
+import { CompleteHomeworkDto } from './dto/complete-homework.dto';
 
 @Controller('patient-portal')
 export class PatientPortalController {
@@ -54,6 +55,16 @@ export class PatientPortalController {
   @Post('bookings')
   book(@Body() dto: BookAppointmentDto) {
     return this.portal.bookAppointment(dto.slotId);
+  }
+
+  @Get('homework')
+  listHomework() {
+    return this.portal.listHomework();
+  }
+
+  @Post('homework/:id/complete')
+  completeHomework(@Param('id') id: string, @Body() dto: CompleteHomeworkDto) {
+    return this.portal.completeHomework(id, dto.patientNote);
   }
 
   @Get('tests')

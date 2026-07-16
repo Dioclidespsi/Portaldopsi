@@ -172,6 +172,30 @@ export class PatientPortalService {
     return { cancelled: true };
   }
 
+  async listHomework() {
+    const { patientId } = getPatientContext();
+    return this.ownPatientClient().homework.findMany({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async completeHomework(id: string, patientNote?: string) {
+    const { patientId } = getPatientContext();
+    const tenantPrisma = this.ownPatientClient();
+    const homework = await tenantPrisma.homework.findUnique({ where: { id } });
+    if (!homework || homework.patientId !== patientId) {
+      throw new NotFoundException('Dever de casa não encontrado.');
+    }
+    if (homework.status === 'concluido') {
+      throw new BadRequestException('Este dever de casa já foi marcado como concluído.');
+    }
+    return tenantPrisma.homework.update({
+      where: { id },
+      data: { status: 'concluido', completedAt: new Date(), patientNote },
+    });
+  }
+
   /**
    * Nunca inclui score/finalResultLabel/communicationNote — comunicar o
    * resultado é sempre decisão manual do psicólogo, nunca automática por

@@ -99,6 +99,28 @@ export function bookOwnAppointment(slotId: string) {
   });
 }
 
+export interface PatientHomework {
+  id: string;
+  title: string;
+  instructions: string;
+  status: 'pendente' | 'concluido';
+  dueDate?: string | null;
+  patientNote?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export function listOwnHomework() {
+  return request<PatientHomework[]>('/patient-portal/homework');
+}
+
+export function completeOwnHomework(id: string, patientNote?: string) {
+  return request<PatientHomework>(`/patient-portal/homework/${id}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ patientNote }),
+  });
+}
+
 /** Nunca traz score/resultLabel — comunicar o resultado é decisão do psicólogo, não deste app. */
 export interface PatientTestSummary {
   id: string;
