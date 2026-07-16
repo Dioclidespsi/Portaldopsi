@@ -287,11 +287,16 @@ export class AsaasService {
     if (payment.externalReference?.startsWith('enrollment:') && mapAsaasStatusToInvoice(payment.status) === 'pago') {
       const [, tenantId, courseSlug] = payment.externalReference.split(':');
       if (tenantId && courseSlug) {
-        await this.prisma.forSystem().courseEnrollment.upsert({
-          where: { tenantId_courseSlug: { tenantId, courseSlug } },
-          create: { tenantId, courseSlug, source: EnrollmentSource.MARKETPLACE, paymentProvider: 'asaas', externalPaymentId: payment.id },
-          update: { paymentProvider: 'asaas', externalPaymentId: payment.id },
-        });
+        // upsert com a chave composta não dá — patientId null não é aceito num compound unique lookup do Prisma (findFirst + create/update manual).
+        const enrollmentPrisma = this.prisma.forSystem().courseEnrollment;
+        const existing = await enrollmentPrisma.findFirst({ where: { tenantId, courseSlug, patientId: null } });
+        if (existing) {
+          await enrollmentPrisma.update({ where: { id: existing.id }, data: { paymentProvider: 'asaas', externalPaymentId: payment.id } });
+        } else {
+          await enrollmentPrisma.create({
+            data: { tenantId, courseSlug, source: EnrollmentSource.MARKETPLACE, paymentProvider: 'asaas', externalPaymentId: payment.id },
+          });
+        }
       }
     }
 

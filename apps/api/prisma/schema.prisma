@@ -233,6 +233,10 @@ model Patient {
   invoices          Invoice[]
   testAssignments   TestAssignment[]
   convertedFromLead Lead?
+  courseEnrollments  CourseEnrollment[]
+  moduleProgress     ModuleProgress[]
+  courseQuizAttempts CourseQuizAttempt[]
+  certificates       Certificate[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -471,10 +475,23 @@ model TestAssignment {
 /// para o player de curso checar acesso sem se importar com a origem.
 /// tenant.kind=ESTUDANTE só existe para viabilizar este modelo: aluno de
 /// psicologia compra o curso sem nunca abrir Prontuário/Agenda.
+/// `tenantId` continua SEMPRE preenchido (mesmo em matrícula de paciente —
+/// usa o tenant da clínica dele, ver PatientCoursesService): `course_enrollments`
+/// tem RLS forçado, e a policy exige "tenantId" = tenant da sessão, então
+/// deixar null quebraria o INSERT. `patientId` (opcional) identifica UM
+/// paciente específico dentro desse tenant; null = matrícula da conta
+/// ESTUDANTE inteira (fluxo clássico). A constraint de 3 colunas evita
+/// colisão entre dois pacientes DIFERENTES da mesma clínica no mesmo curso
+/// (patientId real, nunca null, nesse caso) — mas não impede uma conta
+/// ESTUDANTE de gerar duas linhas com patientId null pro mesmo curso; isso é
+/// prevenido a nível de aplicação (upsert/findFirst antes de criar), não pelo
+/// banco, já que Postgres nunca considera NULL igual a NULL numa unique.
 model CourseEnrollment {
   id                String           @id @default(uuid())
   tenantId          String
   tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId         String?
+  patient           Patient?         @relation(fields: [patientId], references: [id], onDelete: Cascade)
   courseSlug        String
   course            Course           @relation(fields: [courseSlug], references: [slug])
   source            EnrollmentSource
@@ -483,39 +500,48 @@ model CourseEnrollment {
   externalPaymentId String?
   createdAt         DateTime         @default(now())
 
-  @@unique([tenantId, courseSlug])
+  @@unique([tenantId, courseSlug, patientId])
   @@index([tenantId])
   @@map("course_enrollments")
 }
 
-/// Conclusão de uma aula por um usuário — `lessonId` referencia CourseLesson
-/// (catálogo admin-gerenciável, ver Course/CourseModule/CourseLesson abaixo).
+/// Conclusão de uma aula por um usuário OU por um paciente (mutuamente
+/// exclusivos, mesmo padrão de CourseEnrollment acima) — `lessonId` referencia
+/// CourseLesson (catálogo admin-gerenciável, ver Course/CourseModule/
+/// CourseLesson abaixo).
 model ModuleProgress {
   id          String       @id @default(uuid())
   tenantId    String
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patientId   String?
+  patient     Patient?     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   lessonId    String
   lesson      CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   completedAt DateTime     @default(now())
 
   @@unique([userId, lessonId])
+  @@unique([patientId, lessonId])
   @@index([tenantId])
   @@map("module_progress")
 }
 
-/// Emitido automaticamente quando um usuário completa todas as aulas
-/// obrigatórias (não-extra) de um curso (ver CoursesService). Sem RLS de
+/// Emitido automaticamente quando um usuário OU paciente completa todas as
+/// aulas obrigatórias (não-extra) de um curso (ver CoursesService). Sem RLS de
 /// propósito — a verificação pública por `verificationCode` (como
 /// autenticidade de diploma) não deve depender de contexto de tenant, e não
-/// é dado clínico sensível.
+/// é dado clínico sensível. `tenantId` aqui não participa de nenhuma
+/// constraint de unicidade (só referência/relatório), então pode ficar
+/// preenchido com o tenant da clínica do paciente sem risco de colisão.
 model Certificate {
   id                String   @id @default(uuid())
   tenantId          String
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patientId         String?
+  patient           Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
   courseSlug        String
   course            Course   @relation(fields: [courseSlug], references: [slug])
   verificationCode  String   @unique @default(uuid())
@@ -528,6 +554,7 @@ model Certificate {
   filePath          String?
 
   @@unique([userId, courseSlug])
+  @@unique([patientId, courseSlug])
   @@map("certificates")
 }
 
@@ -663,8 +690,10 @@ model CourseQuizAttempt {
   id           String     @id @default(uuid())
   tenantId     String
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patientId    String?
+  patient      Patient?   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   quizId       String
   quiz         CourseQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
   answers      Json

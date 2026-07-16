@@ -28,8 +28,8 @@ export class CoursesService {
     const { tenantId } = getRequestContext();
     const tenant = await this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
     if (tenant.kind === 'CLINICA') return true;
-    const enrollment = await this.prisma.courseEnrollment.findUnique({
-      where: { tenantId_courseSlug: { tenantId, courseSlug } },
+    const enrollment = await this.prisma.courseEnrollment.findFirst({
+      where: { tenantId, courseSlug, patientId: null },
     });
     return Boolean(enrollment);
   }

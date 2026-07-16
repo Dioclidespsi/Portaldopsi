@@ -74,8 +74,8 @@ export class MarketplaceService {
     const courseTitle = await this.courses.getCourseTitle(dto.courseSlug);
 
     const tenantPrisma = this.prisma.forCurrentTenant();
-    const existing = await tenantPrisma.courseEnrollment.findUnique({
-      where: { tenantId_courseSlug: { tenantId, courseSlug: dto.courseSlug } },
+    const existing = await tenantPrisma.courseEnrollment.findFirst({
+      where: { tenantId, courseSlug: dto.courseSlug, patientId: null },
     });
     if (existing) throw new ConflictException('Você já tem acesso a este curso.');
 

@@ -173,11 +173,16 @@ export class BillingService {
       return;
     }
     // course_enrollments tem RLS forçado — precisa de forSystem(), ver AsaasService.handleWebhook para o mesmo padrão.
-    await this.prisma.forSystem().courseEnrollment.upsert({
-      where: { tenantId_courseSlug: { tenantId, courseSlug } },
-      create: { tenantId, courseSlug, source: EnrollmentSource.MARKETPLACE, paymentProvider: 'stripe', externalPaymentId: session.id },
-      update: { paymentProvider: 'stripe', externalPaymentId: session.id },
-    });
+    // upsert com a chave composta não dá — patientId null não é aceito num compound unique lookup do Prisma (findFirst + create/update manual).
+    const enrollmentPrisma = this.prisma.forSystem().courseEnrollment;
+    const existing = await enrollmentPrisma.findFirst({ where: { tenantId, courseSlug, patientId: null } });
+    if (existing) {
+      await enrollmentPrisma.update({ where: { id: existing.id }, data: { paymentProvider: 'stripe', externalPaymentId: session.id } });
+    } else {
+      await enrollmentPrisma.create({
+        data: { tenantId, courseSlug, source: EnrollmentSource.MARKETPLACE, paymentProvider: 'stripe', externalPaymentId: session.id },
+      });
+    }
   }
 
   private async syncSubscription(sub: Stripe.Subscription, forceStatus?: SubscriptionStatus) {

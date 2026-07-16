@@ -26,7 +26,7 @@ export class CertificatesService {
       include: { user: { select: { name: true } }, course: { select: { title: true } } },
     });
 
-    const filePath = await this.tryRender(created.id, created.user.name, created.course.title, created.issuedAt, created.verificationCode);
+    const filePath = await this.tryRender(created.id, created.user!.name, created.course.title, created.issuedAt, created.verificationCode);
     if (filePath) {
       return this.prisma.certificate.update({ where: { id: created.id }, data: { filePath } });
     }
@@ -65,15 +65,21 @@ export class CertificatesService {
     return path.join(CERTIFICATE_OUTPUT_DIR, cert.filePath);
   }
 
+  /** `user`/`patient` são mutuamente exclusivos — certificado emitido pra um paciente (ver Fase 6 do app do paciente) não tem `user`. */
   async verify(code: string) {
     const cert = await this.prisma.certificate.findUnique({
       where: { verificationCode: code },
-      include: { user: { select: { name: true } }, tenant: { select: { name: true } }, course: { select: { title: true } } },
+      include: {
+        user: { select: { name: true } },
+        patient: { select: { name: true } },
+        tenant: { select: { name: true } },
+        course: { select: { title: true } },
+      },
     });
     if (!cert) throw new NotFoundException('Certificado não encontrado — código inválido.');
 
     return {
-      holderName: cert.user.name,
+      holderName: cert.user?.name ?? cert.patient?.name ?? '—',
       clinicName: cert.tenant.name,
       courseTitle: cert.course.title,
       issuedAt: cert.issuedAt,
