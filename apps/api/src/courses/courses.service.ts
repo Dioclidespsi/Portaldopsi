@@ -1,68 +1,30 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as fs from 'node:fs';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import * as path from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
-import { scanAllCourses } from './catalog/scan';
-import { Course, CourseModule } from './catalog/types';
 import { CertificatesService } from '../certificates/certificates.service';
+import { COURSE_MATERIAL_UPLOAD_DIR } from './course-material-upload.config';
+import { SubmitQuizAttemptDto } from './dto/submit-quiz-attempt.dto';
 
-export type FileType = 'deck' | 'avaliacao' | 'exercicios' | 'roteiro';
-const FILE_TYPES: FileType[] = ['deck', 'avaliacao', 'exercicios', 'roteiro'];
+interface QuizOption {
+  id: string;
+  label: string;
+}
 
 @Injectable()
 export class CoursesService {
-  private readonly coursesRoot: string;
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
     private readonly certificates: CertificatesService,
-  ) {
-    // `||` de propósito, não `??`: COURSES_ROOT="" no .env é uma string vazia (não
-    // undefined), e queria cair no default mesmo assim.
-    this.coursesRoot = config.get<string>('COURSES_ROOT') || this.resolveDefaultCoursesRoot();
-  }
+  ) {}
 
   /**
-   * Dois candidatos, nessa ordem: (1) layout de dev local — pastas de curso como
-   * projetos-irmãos três níveis acima de apps/api (mesmo repositório do "C:\Claude
-   * local"); (2) conteúdo empacotado em apps/api/course-content/, usado no deploy
-   * (Render/Railway não têm as pastas-irmãs, só o que está dentro do repositório
-   * git). Detecta pela presença real da pasta, não por variável de ambiente, pra
-   * funcionar sem configuração extra nos dois ambientes.
+   * Módulo gratuito libera pra qualquer autenticado (isca/lead-magnet). Fora
+   * isso, CLINICA (assinante da plataforma) tem acesso incluso; ESTUDANTE só
+   * acessa com CourseEnrollment — matrícula paga via Marketplace.
    */
-  private resolveDefaultCoursesRoot(): string {
-    const siblingLayout = path.resolve(process.cwd(), '..', '..', '..');
-    if (fs.existsSync(path.join(siblingLayout, 'Formacao-Neurociencia'))) {
-      return siblingLayout;
-    }
-    return path.resolve(__dirname, '..', '..', 'course-content');
-  }
-
-  private getCatalog(): Course[] {
-    return scanAllCourses(this.coursesRoot);
-  }
-
-  private findModule(courseSlug: string, moduleSlug: string): { course: Course; module: CourseModule } {
-    const course = this.getCatalog().find((c) => c.slug === courseSlug);
-    if (!course) throw new NotFoundException('Curso não encontrado.');
-    for (const bloco of course.blocos) {
-      const module = bloco.modules.find((m) => m.slug === moduleSlug);
-      if (module) return { course, module };
-    }
-    throw new NotFoundException('Módulo não encontrado.');
-  }
-
-  /**
-   * Bloco gratuito libera pra qualquer autenticado (isca/lead-magnet, ver
-   * Bloco 2 da Escola de Marketing). Fora isso, CLINICA assume acesso incluso
-   * na assinatura da plataforma (decisão ainda não confirmada, ver README) e
-   * ESTUDANTE só acessa com CourseEnrollment — matrícula via Marketplace.
-   */
-  private async hasBlocoAccess(courseSlug: string, blocoFree: boolean): Promise<boolean> {
-    if (blocoFree) return true;
+  private async hasModuleAccess(courseSlug: string, moduleFree: boolean): Promise<boolean> {
+    if (moduleFree) return true;
     const { tenantId } = getRequestContext();
     const tenant = await this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
     if (tenant.kind === 'CLINICA') return true;
@@ -72,123 +34,240 @@ export class CoursesService {
     return Boolean(enrollment);
   }
 
-  /** Preço admin-editável (CoursePrice) — nunca o `priceCents` estático do manifest, que fica sempre null. */
-  private async priceMap(): Promise<Map<string, number>> {
-    const prices = await this.prisma.coursePrice.findMany();
-    return new Map(prices.map((p) => [p.courseSlug, p.priceCents]));
+  async courseExists(courseSlug: string): Promise<boolean> {
+    const count = await this.prisma.course.count({ where: { slug: courseSlug, active: true } });
+    return count > 0;
   }
 
-  async getCoursePriceCents(courseSlug: string): Promise<number | null> {
-    const price = await this.prisma.coursePrice.findUnique({ where: { courseSlug } });
-    return price?.priceCents ?? null;
-  }
-
-  /** Vitrine pública do Marketplace — sem progresso/acesso de usuário, sem caminho de arquivo. */
-  async listPublicCatalog() {
-    const prices = await this.priceMap();
-    return this.getCatalog().map((course) => ({
-      slug: course.slug,
-      title: course.title,
-      description: course.description,
-      priceCents: prices.get(course.slug) ?? null,
-      blocos: course.blocos.map((b) => ({ number: b.number, title: b.title, free: b.free, moduleCount: b.modules.length })),
-    }));
-  }
-
-  courseExists(courseSlug: string): boolean {
-    return this.getCatalog().some((c) => c.slug === courseSlug);
-  }
-
-  getCourseTitle(courseSlug: string): string {
-    const course = this.getCatalog().find((c) => c.slug === courseSlug);
+  async getCourseTitle(courseSlug: string): Promise<string> {
+    const course = await this.prisma.course.findUnique({ where: { slug: courseSlug } });
     if (!course) throw new NotFoundException('Curso não encontrado.');
     return course.title;
   }
 
-  /** Lista achatada de curso/módulo pro seletor do admin ao cadastrar vídeo — sem lock/progresso de usuário. */
-  listModulesFlat() {
-    return this.getCatalog().flatMap((course) =>
-      course.blocos.flatMap((bloco) =>
-        bloco.modules.map((m) => ({
-          courseSlug: course.slug,
-          courseTitle: course.title,
-          moduleSlug: m.slug,
-          moduleTitle: m.title,
-        })),
-      ),
-    );
+  async getCoursePriceCents(courseSlug: string): Promise<number | null> {
+    const course = await this.prisma.course.findUnique({ where: { slug: courseSlug } });
+    return course?.priceCents ?? null;
   }
 
-  private async videoUrlMap(): Promise<Map<string, string>> {
-    const videos = await this.prisma.courseModuleVideo.findMany();
-    return new Map(videos.map((v) => [`${v.courseSlug}::${v.moduleSlug}`, v.youtubeUrl]));
+  /** Vitrine pública do Marketplace — sem progresso/acesso de usuário. */
+  async listPublicCatalog() {
+    const courses = await this.prisma.course.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+      include: { modules: { orderBy: { order: 'asc' }, include: { lessons: true } } },
+    });
+    return courses.map((course) => ({
+      slug: course.slug,
+      title: course.title,
+      description: course.description,
+      priceCents: course.priceCents,
+      modules: course.modules.map((m) => ({ order: m.order, title: m.title, free: m.free, lessonCount: m.lessons.length })),
+    }));
   }
 
   async listCatalog() {
-    const { userId } = getRequestContext();
-    const progress = await this.prisma.forCurrentTenant().moduleProgress.findMany({ where: { userId } });
-    const completedSlugs = new Set(progress.map((p) => `${p.courseSlug}::${p.moduleSlug}`));
-    const videoUrls = await this.videoUrlMap();
-    const prices = await this.priceMap();
+    const { tenantId, userId } = getRequestContext();
+    const tenantPrisma = this.prisma.forCurrentTenant();
 
-    const catalog = this.getCatalog();
+    const courses = await this.prisma.course.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        modules: {
+          orderBy: { order: 'asc' },
+          include: {
+            lessons: {
+              orderBy: { order: 'asc' },
+              include: {
+                materials: { select: { id: true, title: true } },
+                quiz: { include: { questions: { select: { id: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const lessonIds = courses.flatMap((c) => c.modules.flatMap((m) => m.lessons.map((l) => l.id)));
+    const progress = await tenantPrisma.moduleProgress.findMany({ where: { userId, lessonId: { in: lessonIds } } });
+    const completedLessonIds = new Set(progress.map((p) => p.lessonId));
+
+    const quizIds = courses.flatMap((c) => c.modules.flatMap((m) => m.lessons.map((l) => l.quiz?.id).filter(Boolean))) as string[];
+    const attempts = await tenantPrisma.courseQuizAttempt.findMany({ where: { userId, quizId: { in: quizIds } } });
+    const bestScoreByQuiz = new Map<string, number>();
+    const passedByQuiz = new Set<string>();
+    for (const a of attempts) {
+      bestScoreByQuiz.set(a.quizId, Math.max(bestScoreByQuiz.get(a.quizId) ?? 0, a.scorePercent));
+      if (a.passed) passedByQuiz.add(a.quizId);
+    }
+    const attemptCountByQuiz = new Map<string, number>();
+    for (const a of attempts) attemptCountByQuiz.set(a.quizId, (attemptCountByQuiz.get(a.quizId) ?? 0) + 1);
+
     const result = [];
-    for (const course of catalog) {
-      const blocos = [];
-      for (const bloco of course.blocos) {
-        const unlocked = await this.hasBlocoAccess(course.slug, bloco.free);
-        blocos.push({
-          number: bloco.number,
-          title: bloco.title,
-          free: bloco.free,
-          bundleOnly: bloco.bundleOnly,
-          modules: bloco.modules.map((m) => ({
-            slug: m.slug,
-            moduleNumber: m.moduleNumber,
-            title: m.title,
-            files: FILE_TYPES.filter((ft) => Boolean(m.files[ft])),
-            completed: completedSlugs.has(`${course.slug}::${m.slug}`),
-            locked: !unlocked,
-            videoUrl: videoUrls.get(`${course.slug}::${m.slug}`) ?? null,
-          })),
-        });
+    for (const course of courses) {
+      const modules = [];
+      for (const module of course.modules) {
+        const moduleUnlocked = await this.hasModuleAccess(course.slug, module.free);
+        let blockedBySequence = false;
+        const lessons = [];
+        for (const lesson of module.lessons) {
+          const locked = !moduleUnlocked || (!lesson.isExtra && blockedBySequence);
+          lessons.push({
+            id: lesson.id,
+            order: lesson.order,
+            title: lesson.title,
+            description: lesson.description,
+            youtubeUrl: lesson.youtubeUrl,
+            isExtra: lesson.isExtra,
+            completed: completedLessonIds.has(lesson.id),
+            locked,
+            materials: lesson.materials,
+            quiz: lesson.quiz
+              ? {
+                  id: lesson.quiz.id,
+                  required: lesson.quiz.required,
+                  passingScorePercent: lesson.quiz.passingScorePercent,
+                  questionCount: lesson.quiz.questions.length,
+                  bestScorePercent: bestScoreByQuiz.get(lesson.quiz.id) ?? null,
+                  passed: passedByQuiz.has(lesson.quiz.id),
+                  attemptCount: attemptCountByQuiz.get(lesson.quiz.id) ?? 0,
+                }
+              : null,
+          });
+          if (!lesson.isExtra && lesson.quiz?.required && !passedByQuiz.has(lesson.quiz.id)) {
+            blockedBySequence = true;
+          }
+        }
+        modules.push({ id: module.id, order: module.order, title: module.title, free: module.free, locked: !moduleUnlocked, lessons });
       }
-      result.push({ slug: course.slug, title: course.title, description: course.description, priceCents: prices.get(course.slug) ?? null, blocos });
+      result.push({ id: course.id, slug: course.slug, title: course.title, description: course.description, priceCents: course.priceCents, modules });
     }
     return result;
   }
 
-  async getFilePath(courseSlug: string, moduleSlug: string, fileType: FileType): Promise<{ absolutePath: string; filename: string }> {
-    const { course, module } = this.findModule(courseSlug, moduleSlug);
-    const bloco = course.blocos.find((b) => b.modules.includes(module))!;
-    if (!(await this.hasBlocoAccess(courseSlug, bloco.free))) {
-      throw new ForbiddenException('Sem acesso a este curso — ver Marketplace ou assinatura da plataforma.');
-    }
-    const absolutePath = module.files[fileType];
-    if (!absolutePath) throw new NotFoundException('Arquivo não disponível para este módulo.');
-    return { absolutePath, filename: path.basename(absolutePath) };
+  private async findLessonWithModule(lessonId: string) {
+    const lesson = await this.prisma.courseLesson.findUnique({
+      where: { id: lessonId },
+      include: { module: { include: { course: true } } },
+    });
+    if (!lesson) throw new NotFoundException('Aula não encontrada.');
+    return lesson;
   }
 
-  async markComplete(courseSlug: string, moduleSlug: string) {
-    const { course, module } = this.findModule(courseSlug, moduleSlug);
-    const bloco = course.blocos.find((b) => b.modules.includes(module))!;
-    if (!(await this.hasBlocoAccess(courseSlug, bloco.free))) {
+  private async assertLessonUnlocked(lessonId: string) {
+    const lesson = await this.findLessonWithModule(lessonId);
+    const { module } = lesson;
+    const { course } = module;
+    if (!(await this.hasModuleAccess(course.slug, module.free))) {
       throw new ForbiddenException('Sem acesso a este curso — ver Marketplace ou assinatura da plataforma.');
     }
+    if (!lesson.isExtra) {
+      const previousLessons = await this.prisma.courseLesson.findMany({
+        where: { moduleId: module.id, isExtra: false, order: { lt: lesson.order } },
+        include: { quiz: true },
+        orderBy: { order: 'asc' },
+      });
+      const { userId } = getRequestContext();
+      for (const prev of previousLessons) {
+        if (!prev.quiz?.required) continue;
+        const passed = await this.prisma.forCurrentTenant().courseQuizAttempt.findFirst({
+          where: { userId, quizId: prev.quiz.id, passed: true },
+        });
+        if (!passed) {
+          throw new ForbiddenException(`Conclua o quiz obrigatório da aula "${prev.title}" antes de continuar.`);
+        }
+      }
+    }
+    return lesson;
+  }
 
+  async completeLesson(lessonId: string) {
+    const lesson = await this.assertLessonUnlocked(lessonId);
     const { tenantId, userId } = getRequestContext();
+
     await this.prisma.forCurrentTenant().moduleProgress.upsert({
-      where: { userId_courseSlug_moduleSlug: { userId, courseSlug, moduleSlug } },
-      create: { tenantId, userId, courseSlug, moduleSlug },
+      where: { userId_lessonId: { userId, lessonId } },
+      create: { tenantId, userId, lessonId },
       update: {},
     });
 
-    const totalModules = course.blocos.reduce((sum, b) => sum + b.modules.length, 0);
-    const doneCount = await this.prisma.forCurrentTenant().moduleProgress.count({ where: { userId, courseSlug } });
-    if (doneCount >= totalModules) {
+    const courseSlug = lesson.module.course.slug;
+    const requiredLessonIds = await this.prisma.courseLesson.findMany({
+      where: { isExtra: false, module: { courseId: lesson.module.courseId } },
+      select: { id: true },
+    });
+    const doneCount = await this.prisma.forCurrentTenant().moduleProgress.count({
+      where: { userId, lessonId: { in: requiredLessonIds.map((l) => l.id) } },
+    });
+    if (doneCount >= requiredLessonIds.length) {
       await this.certificates.issueIfNeeded(courseSlug);
     }
 
     return { completed: true };
+  }
+
+  async getMaterialPath(materialId: string): Promise<{ absolutePath: string; filename: string }> {
+    const material = await this.prisma.courseLessonMaterial.findUnique({
+      where: { id: materialId },
+      include: { lesson: { include: { module: { include: { course: true } } } } },
+    });
+    if (!material) throw new NotFoundException('Material não encontrado.');
+    const { course, free } = material.lesson.module;
+    if (!(await this.hasModuleAccess(course.slug, free))) {
+      throw new ForbiddenException('Sem acesso a este curso — ver Marketplace ou assinatura da plataforma.');
+    }
+    return { absolutePath: path.join(COURSE_MATERIAL_UPLOAD_DIR, material.filePath), filename: material.title };
+  }
+
+  /** Nunca inclui correctOptionId — o front não pode saber a resposta certa antes de responder. */
+  async getQuizForStudent(lessonId: string) {
+    const lesson = await this.findLessonWithModule(lessonId);
+    if (!(await this.hasModuleAccess(lesson.module.course.slug, lesson.module.free))) {
+      throw new ForbiddenException('Sem acesso a este curso — ver Marketplace ou assinatura da plataforma.');
+    }
+    const quiz = await this.prisma.courseQuiz.findUnique({
+      where: { lessonId },
+      include: { questions: { orderBy: { order: 'asc' } } },
+    });
+    if (!quiz) throw new NotFoundException('Este aula não tem quiz.');
+
+    const { userId } = getRequestContext();
+    const attempts = await this.prisma.forCurrentTenant().courseQuizAttempt.findMany({
+      where: { userId, quizId: quiz.id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, scorePercent: true, passed: true, createdAt: true },
+    });
+
+    return {
+      id: quiz.id,
+      required: quiz.required,
+      passingScorePercent: quiz.passingScorePercent,
+      questions: quiz.questions.map((q) => ({ id: q.id, prompt: q.prompt, options: q.options as unknown as QuizOption[] })),
+      attempts,
+    };
+  }
+
+  async submitQuizAttempt(lessonId: string, dto: SubmitQuizAttemptDto) {
+    const lesson = await this.findLessonWithModule(lessonId);
+    if (!(await this.hasModuleAccess(lesson.module.course.slug, lesson.module.free))) {
+      throw new ForbiddenException('Sem acesso a este curso — ver Marketplace ou assinatura da plataforma.');
+    }
+    const quiz = await this.prisma.courseQuiz.findUnique({ where: { lessonId }, include: { questions: true } });
+    if (!quiz) throw new NotFoundException('Este aula não tem quiz.');
+
+    let correctCount = 0;
+    for (const q of quiz.questions) {
+      if (dto.answers[q.id] === q.correctOptionId) correctCount += 1;
+    }
+    const scorePercent = Math.round((correctCount / quiz.questions.length) * 100);
+    const passed = scorePercent >= quiz.passingScorePercent;
+
+    const { tenantId, userId } = getRequestContext();
+    await this.prisma.forCurrentTenant().courseQuizAttempt.create({
+      data: { tenantId, userId, quizId: quiz.id, answers: dto.answers, scorePercent, passed },
+    });
+
+    return { scorePercent, passed, correctCount, totalCount: quiz.questions.length };
   }
 }

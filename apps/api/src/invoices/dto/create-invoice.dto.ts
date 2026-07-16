@@ -1,4 +1,4 @@
-import { IsISO8601, IsInt, IsString, Min } from 'class-validator';
+import { IsISO8601, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateInvoiceDto {
   @IsString()
@@ -10,4 +10,8 @@ export class CreateInvoiceDto {
 
   @IsISO8601()
   dueDate: string;
+
+  @IsOptional()
+  @IsString()
+  appointmentId?: string;
 }

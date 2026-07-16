@@ -6,9 +6,14 @@ import { clearAdminToken } from '../lib/admin-api';
 
 const LINKS = [
   { href: '/admin', label: 'Verificação de CRP' },
-  { href: '/admin/ofertas', label: 'Ofertas' },
+  { href: '/admin/supervisores', label: 'Supervisores' },
+  { href: '/admin/comunidade', label: 'Comunidade' },
   { href: '/admin/cursos', label: 'Cursos' },
   { href: '/admin/documentos', label: 'Documentos' },
+  { href: '/admin/biblioteca', label: 'Biblioteca' },
+  { href: '/admin/certificados', label: 'Certificados' },
+  { href: '/admin/testes', label: 'Testes' },
+  { href: '/admin/banners', label: 'Banners da home' },
 ];
 
 export default function AdminNav() {

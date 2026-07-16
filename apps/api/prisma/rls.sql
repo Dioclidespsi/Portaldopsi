@@ -48,6 +48,16 @@ DROP POLICY IF EXISTS tenant_isolation ON appointments;
 CREATE POLICY tenant_isolation ON appointments
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
+-- Sem exceção '__system__' de propósito, igual appointments/patients: o
+-- agendamento público (BookingService) sempre resolve o tenantId pelo slug
+-- primeiro e usa forTenant(id) explícito, nunca forSystem() — ver
+-- profile.service.ts pra o mesmo padrão já usado no lead público.
+ALTER TABLE availability_slots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE availability_slots FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON availability_slots;
+CREATE POLICY tenant_isolation ON availability_slots
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON invoices;
@@ -69,16 +79,22 @@ DROP POLICY IF EXISTS tenant_isolation ON course_enrollments;
 CREATE POLICY tenant_isolation ON course_enrollments
   USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
 
-ALTER TABLE test_responses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE test_responses FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tenant_isolation ON test_responses;
-CREATE POLICY tenant_isolation ON test_responses
+ALTER TABLE test_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_assignments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON test_assignments;
+CREATE POLICY tenant_isolation ON test_assignments
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
 ALTER TABLE module_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE module_progress FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON module_progress;
 CREATE POLICY tenant_isolation ON module_progress
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
+ALTER TABLE course_quiz_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE course_quiz_attempts FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON course_quiz_attempts;
+CREATE POLICY tenant_isolation ON course_quiz_attempts
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
 ALTER TABLE supervision_sessions ENABLE ROW LEVEL SECURITY;
@@ -91,12 +107,6 @@ ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON leads;
 CREATE POLICY tenant_isolation ON leads
-  USING ("tenantId" = current_setting('app.tenant_id', true));
-
-ALTER TABLE marketing_posts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE marketing_posts FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tenant_isolation ON marketing_posts;
-CREATE POLICY tenant_isolation ON marketing_posts
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
 -- tenants, certificates, community_posts e community_replies não levam policy

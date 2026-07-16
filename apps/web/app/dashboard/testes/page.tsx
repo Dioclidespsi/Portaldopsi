@@ -4,34 +4,46 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardNav from '../../../components/DashboardNav';
 import {
+  assignTest,
+  attachTestToProntuario,
+  correctTestAssignment,
   listPatients,
+  listTestAssignments,
   listTestCatalog,
-  listTestResponses,
   Patient,
-  submitTestResponse,
-  TestDefinition,
-  TestResponseRecord,
+  TestAssignment,
+  TestTemplate,
 } from '../../../lib/api';
+
+const STATUS_LABEL: Record<string, string> = {
+  pendente: 'Aguardando o paciente responder',
+  respondido: 'Respondido — aguardando correção',
+  corrigido: 'Corrigido',
+};
 
 export default function TestesPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [catalog, setCatalog] = useState<TestDefinition[]>([]);
+  const [catalog, setCatalog] = useState<TestTemplate[]>([]);
   const [patientId, setPatientId] = useState('');
-  const [testSlug, setTestSlug] = useState('');
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [history, setHistory] = useState<TestResponseRecord[]>([]);
-  const [result, setResult] = useState<TestResponseRecord | null>(null);
+  const [testTemplateId, setTestTemplateId] = useState('');
+  const [assignments, setAssignments] = useState<TestAssignment[]>([]);
+
+  const [correctingId, setCorrectingId] = useState<string | null>(null);
+  const [finalScore, setFinalScore] = useState('');
+  const [finalResultLabel, setFinalResultLabel] = useState('');
+  const [communicationNote, setCommunicationNote] = useState('');
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listPatients(), listTestCatalog()])
+    Promise.all([listPatients(true), listTestCatalog()])
       .then(([patientsData, catalogData]) => {
         setPatients(patientsData);
         setCatalog(catalogData);
         if (patientsData[0]) setPatientId(patientsData[0].id);
-        if (catalogData[0]) setTestSlug(catalogData[0].slug);
+        if (catalogData[0]) setTestTemplateId(catalogData[0].id);
       })
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
@@ -39,20 +51,47 @@ export default function TestesPage() {
 
   useEffect(() => {
     if (!patientId) return;
-    listTestResponses(patientId).then(setHistory);
-    setAnswers({});
-    setResult(null);
+    listTestAssignments(patientId).then(setAssignments);
   }, [patientId]);
 
-  const test = catalog.find((t) => t.slug === testSlug);
-
-  async function onSubmit(e: FormEvent) {
+  async function onAssign(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      const response = await submitTestResponse(testSlug, patientId, answers);
-      setResult(response);
-      setHistory((prev) => [response, ...prev]);
+      const assignment = await assignTest(patientId, testTemplateId);
+      setAssignments((prev) => [assignment, ...prev]);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  function startCorrecting(a: TestAssignment) {
+    setCorrectingId(a.id);
+    setFinalScore(a.suggestedScore?.toString() ?? '');
+    setFinalResultLabel(a.suggestedResultLabel ?? '');
+    setCommunicationNote('');
+  }
+
+  async function onSaveCorrection(id: string) {
+    setError(null);
+    try {
+      const updated = await correctTestAssignment(id, {
+        finalScore: finalScore ? Number(finalScore) : undefined,
+        finalResultLabel: finalResultLabel || undefined,
+        communicationNote: communicationNote || undefined,
+      });
+      setAssignments((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      setCorrectingId(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function onAttach(id: string) {
+    setError(null);
+    try {
+      const updated = await attachTestToProntuario(id);
+      setAssignments((prev) => prev.map((a) => (a.id === id ? updated : a)));
     } catch (err) {
       setError((err as Error).message);
     }
@@ -64,89 +103,149 @@ export default function TestesPage() {
     return (
       <div className="shell shell-wide">
         <DashboardNav />
-        <p className="sub">Cadastre um paciente primeiro para aplicar uma escala.</p>
+        <p className="sub">Cadastre um paciente ativo primeiro para disponibilizar um teste.</p>
       </div>
     );
   }
 
-  const allAnswered = test ? test.items.every((item) => answers[item.id] !== undefined) : false;
+  const selectedTemplate = catalog.find((t) => t.id === testTemplateId);
 
   return (
     <div className="shell shell-wide">
       <DashboardNav />
       <h2 style={{ fontSize: '1.05rem' }}>Aplicação de testes</h2>
-      <p className="sub">Escalas de domínio público — sem depender de licenciar catálogo fechado.</p>
+      <p className="sub">
+        Disponibilize um teste do catálogo pro paciente responder na área dele. Ele responde uma única vez — a
+        correção e a decisão de como comunicar o resultado acontecem aqui, nunca automaticamente pro paciente.
+      </p>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <label style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <label style={{ flex: 1, minWidth: '200px' }}>
           Paciente
           <select value={patientId} onChange={(e) => setPatientId(e.target.value)}>
-            {patients.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {patients.map((p) => <option key={p.id} value={p.id}>{p.name}{p.socialName && ` (${p.socialName})`}</option>)}
           </select>
         </label>
-        <label style={{ flex: 1 }}>
-          Escala
-          <select value={testSlug} onChange={(e) => { setTestSlug(e.target.value); setAnswers({}); setResult(null); }}>
-            {catalog.map((t) => <option key={t.slug} value={t.slug}>{t.title}</option>)}
+        <label style={{ flex: 1, minWidth: '200px' }}>
+          Teste
+          <select value={testTemplateId} onChange={(e) => setTestTemplateId(e.target.value)}>
+            {catalog.map((t) => <option key={t.id} value={t.id}>{t.category} — {t.title}</option>)}
           </select>
         </label>
       </div>
 
-      {test && (
-        <>
-          <div className="callout-box">{test.disclaimer}</div>
-          <p style={{ fontSize: '0.9rem', margin: '1rem 0 0.5rem' }}>{test.instructions}</p>
-
-          <form onSubmit={onSubmit}>
-            {test.items.map((item) => (
-              <div key={item.id} style={{ marginBottom: '0.9rem' }}>
-                <p style={{ fontSize: '0.9rem', margin: '0 0 0.4rem', color: 'var(--ink)' }}>{item.text}</p>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  {test.responseScale.map((opt) => (
-                    <label key={opt.value} style={{ flexDirection: 'row', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
-                      <input
-                        type="radio"
-                        name={item.id}
-                        checked={answers[item.id] === opt.value}
-                        onChange={() => setAnswers((prev) => ({ ...prev, [item.id]: opt.value }))}
-                        style={{ width: 'auto' }}
-                      />
-                      {opt.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <button type="submit" disabled={!allAnswered}>Calcular resultado</button>
-          </form>
-        </>
+      {catalog.length === 0 ? (
+        <p className="sub">Nenhum teste cadastrado no catálogo ainda — peça pro administrador cadastrar em /admin/testes.</p>
+      ) : (
+        <form onSubmit={onAssign} style={{ marginBottom: '1.5rem' }}>
+          {selectedTemplate && <div className="callout-box" style={{ marginBottom: '0.8rem' }}>{selectedTemplate.disclaimer}</div>}
+          <button type="submit">Disponibilizar para o paciente</button>
+        </form>
       )}
 
-      {result && (
-        <div className="callout-box" style={{ marginTop: '1rem' }}>
-          <strong>Resultado: {result.score} pontos — {result.resultLabel}</strong>
-          <p style={{ margin: '0.3rem 0 0' }}>Revise antes de registrar no Prontuário — não é diagnóstico automático.</p>
-        </div>
-      )}
-      {error && <span className="error">{error}</span>}
-
-      <h3 style={{ fontSize: '0.95rem', marginTop: '1.5rem' }}>Histórico do paciente</h3>
+      <h3 style={{ fontSize: '0.95rem' }}>Histórico do paciente</h3>
       <table>
-        <thead><tr><th>Escala</th><th>Pontuação</th><th>Resultado</th><th>Data</th></tr></thead>
+        <thead><tr><th>Teste</th><th>Situação</th><th>Disponibilizado em</th><th>Ações</th></tr></thead>
         <tbody>
-          {history.map((h) => (
-            <tr key={h.id}>
-              <td>{catalog.find((t) => t.slug === h.testSlug)?.title ?? h.testSlug}</td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{h.score}</td>
-              <td>{h.resultLabel}</td>
-              <td>{new Date(h.createdAt).toLocaleDateString('pt-BR')}</td>
+          {assignments.map((a) => (
+            <tr key={a.id}>
+              <td>{a.testTemplate.title}</td>
+              <td>{STATUS_LABEL[a.status]}</td>
+              <td>{new Date(a.assignedAt).toLocaleDateString('pt-BR')}</td>
+              <td>
+                {a.status === 'respondido' && correctingId !== a.id && (
+                  <button onClick={() => startCorrecting(a)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
+                    Corrigir
+                  </button>
+                )}
+                {a.status === 'corrigido' && !a.attachedToProntuario && (
+                  <button onClick={() => onAttach(a.id)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
+                    Anexar ao prontuário
+                  </button>
+                )}
+                {a.status === 'corrigido' && a.attachedToProntuario && (
+                  <span className="sub" style={{ margin: 0 }}>Anexado ao prontuário</span>
+                )}
+              </td>
             </tr>
           ))}
-          {history.length === 0 && (
-            <tr><td colSpan={4} style={{ color: 'var(--ink-soft)' }}>Nenhuma escala aplicada ainda.</td></tr>
+          {assignments.length === 0 && (
+            <tr><td colSpan={4} style={{ color: 'var(--ink-soft)' }}>Nenhum teste disponibilizado ainda.</td></tr>
           )}
         </tbody>
       </table>
+
+      {correctingId && (() => {
+        const assignment = assignments.find((a) => a.id === correctingId);
+        if (!assignment) return null;
+        return (
+          <div className="callout-box" style={{ marginTop: '1.2rem' }}>
+            <h4 style={{ margin: '0 0 0.6rem', fontSize: '0.92rem' }}>Corrigir: {assignment.testTemplate.title}</h4>
+            {assignment.suggestedScore !== null && assignment.suggestedScore !== undefined && (
+              <p className="sub" style={{ marginBottom: '0.6rem' }}>
+                Soma automática das respostas objetivas (sugestão, revise antes de confirmar):{' '}
+                <strong>{assignment.suggestedScore} pontos{assignment.suggestedResultLabel ? ` — ${assignment.suggestedResultLabel}` : ''}</strong>
+              </p>
+            )}
+            {assignment.suggestedSubscaleScores && assignment.suggestedSubscaleScores.length > 0 && (
+              <div style={{ marginBottom: '0.6rem' }}>
+                <p className="sub" style={{ margin: '0 0 0.3rem' }}>Escores por subescala (sugestão automática — o cálculo final é sempre manual):</p>
+                <table style={{ fontSize: '0.82rem' }}>
+                  <thead><tr><th>Subescala</th><th>Pontos</th><th>Faixa sugerida</th></tr></thead>
+                  <tbody>
+                    {assignment.suggestedSubscaleScores.map((s) => (
+                      <tr key={s.key}><td>{s.label}</td><td>{s.score}</td><td>{s.resultLabel ?? '—'}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {assignment.suggestedDerivedScores && assignment.suggestedDerivedScores.length > 0 && (
+              <div style={{ marginBottom: '0.6rem' }}>
+                <p className="sub" style={{ margin: '0 0 0.3rem' }}>Escores compostos:</p>
+                <table style={{ fontSize: '0.82rem' }}>
+                  <thead><tr><th>Composto</th><th>Pontos</th><th>Faixa sugerida</th></tr></thead>
+                  <tbody>
+                    {assignment.suggestedDerivedScores.map((s) => (
+                      <tr key={s.key}><td>{s.label}</td><td>{s.score}</td><td>{s.resultLabel ?? '—'}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+              <label>
+                Pontuação final
+                <input type="number" value={finalScore} onChange={(e) => setFinalScore(e.target.value)} style={{ width: '100px' }} />
+              </label>
+              <label style={{ flex: 1, minWidth: '180px' }}>
+                Resultado final
+                <input value={finalResultLabel} onChange={(e) => setFinalResultLabel(e.target.value)} />
+              </label>
+            </div>
+            <label>
+              Como (ou se) você vai comunicar o resultado ao paciente
+              <textarea
+                value={communicationNote}
+                onChange={(e) => setCommunicationNote(e.target.value)}
+                rows={2}
+                placeholder="Ex: vou conversar na próxima sessão presencial. Isso nunca é mostrado ao paciente pelo sistema."
+                style={{ padding: '0.5rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', width: '100%' }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+              <button onClick={() => onSaveCorrection(assignment.id)}>Salvar correção</button>
+              <button
+                onClick={() => setCorrectingId(null)}
+                style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+      {error && <span className="error">{error}</span>}
     </div>
   );
 }

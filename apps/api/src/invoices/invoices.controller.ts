@@ -17,9 +17,19 @@ export class InvoicesController {
     return this.invoices.create(dto);
   }
 
+  @Get('summary')
+  summary() {
+    return this.invoices.summary();
+  }
+
   @Get()
-  list(@Query('status') status?: string) {
-    return this.invoices.list(status);
+  list(
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('patientId') patientId?: string,
+  ) {
+    return this.invoices.list({ status, from, to, patientId });
   }
 
   @Get(':id')

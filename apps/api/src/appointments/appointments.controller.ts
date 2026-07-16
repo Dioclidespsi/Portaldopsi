@@ -29,6 +29,6 @@ export class AppointmentsController {
 
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateAppointmentStatusDto) {
-    return this.appointments.updateStatus(id, dto.status);
+    return this.appointments.updateStatus(id, dto.status, dto.cancelReason);
   }
 }

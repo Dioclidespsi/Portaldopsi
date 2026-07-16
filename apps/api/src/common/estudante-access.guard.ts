@@ -13,7 +13,7 @@ import { tenantStorage } from './tenant-context';
  * patient-portal/*, admin/*) não têm contexto de tenant nenhum — nesse caso
  * a restrição simplesmente não se aplica, cada uma tem seu próprio guard.
  */
-const ALLOWED_PREFIXES = ['/me', '/courses', '/certificates', '/marketplace', '/offers'];
+const ALLOWED_PREFIXES = ['/me', '/courses', '/certificates', '/marketplace'];
 
 @Injectable()
 export class EstudanteAccessGuard implements CanActivate {
@@ -26,7 +26,7 @@ export class EstudanteAccessGuard implements CanActivate {
     const allowed = ALLOWED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
     if (!allowed) {
       throw new ForbiddenException(
-        'Contas de estudante têm acesso apenas ao ambiente de estudos (Cursos, Certificados, Marketplace, Ofertas).',
+        'Contas de estudante têm acesso apenas ao ambiente de estudos (Cursos, Certificados, Marketplace).',
       );
     }
     return true;

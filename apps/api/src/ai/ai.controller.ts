@@ -1,7 +1,6 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { AskDto } from './dto/ask.dto';
-import { RewritePostDto } from './dto/rewrite-post.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -18,15 +17,14 @@ export class AiController {
     return { summary };
   }
 
-  @Post('marketing/rewrite')
-  async rewrite(@Body() dto: RewritePostDto) {
-    const suggestion = await this.ai.suggestCompliantRewrite(dto.content, dto.flagReasons);
-    return { suggestion };
-  }
-
   @Post('ask')
   async ask(@Body() dto: AskDto) {
-    const answer = await this.ai.ask(dto.question);
+    const answer = await this.ai.ask(dto.question, dto.history);
     return { answer };
+  }
+
+  @Get('usage')
+  getUsage() {
+    return this.ai.getUsageToday();
   }
 }

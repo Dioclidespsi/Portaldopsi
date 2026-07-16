@@ -77,7 +77,7 @@ export default function LojaPage() {
           <h3 style={{ fontSize: '1rem', margin: '0 0 0.3rem' }}>{c.title}</h3>
           <p style={{ fontSize: '0.88rem', color: 'var(--ink-soft)', margin: '0 0 0.5rem' }}>{c.description}</p>
           <p style={{ fontSize: '0.8rem', color: 'var(--ink-soft)', margin: '0 0 0.6rem' }}>
-            {c.blocos.map((b) => `${b.title}${b.free ? ' (grátis)' : ''}`).join(' · ')}
+            {c.modules.map((m) => `${m.title}${m.free ? ' (grátis)' : ''}`).join(' · ')}
           </p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>{c.priceCents !== null ? centsToReais(c.priceCents) : 'Preço a definir'}</strong>

@@ -15,11 +15,9 @@ const LINKS = [
   { href: '/dashboard/documentos', label: 'Documentos' },
   { href: '/dashboard/supervisao', label: 'Supervisão' },
   { href: '/dashboard/crm', label: 'CRM' },
-  { href: '/dashboard/marketing', label: 'Marketing' },
   { href: '/dashboard/comunidade', label: 'Comunidade' },
   { href: '/dashboard/assistente', label: 'Assistente IA' },
   { href: '/dashboard/site', label: 'Site profissional' },
-  { href: '/dashboard/ofertas', label: 'Ofertas' },
   { href: '/dashboard/assinatura', label: 'Assinatura' },
 ];
 
@@ -27,7 +25,6 @@ const LINKS = [
 const ESTUDANTE_LINKS = [
   { href: '/dashboard/cursos', label: 'Cursos' },
   { href: '/dashboard/certificados', label: 'Certificados' },
-  { href: '/dashboard/ofertas', label: 'Ofertas' },
 ];
 
 export default function DashboardNav() {

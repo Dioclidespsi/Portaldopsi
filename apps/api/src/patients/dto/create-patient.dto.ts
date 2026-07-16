@@ -1,4 +1,5 @@
 import { IsEmail, IsISO8601, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBrPhone, IsCpfCnpj } from '../../common/validators/br-documents';
 
 export class CreatePatientDto {
   @IsString()
@@ -6,11 +7,15 @@ export class CreatePatientDto {
   name: string;
 
   @IsOptional()
-  @IsEmail()
+  @IsString()
+  socialName?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'E-mail inválido.' })
   email?: string;
 
   @IsOptional()
-  @IsString()
+  @IsBrPhone()
   phone?: string;
 
   @IsOptional()
@@ -18,6 +23,6 @@ export class CreatePatientDto {
   birthDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsCpfCnpj()
   cpfCnpj?: string;
 }

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminCoursesController } from './admin-courses.controller';
+import { AdminCoursesService } from './admin-courses.service';
 import { AdminTokenGuard } from './admin-token.guard';
-import { CoursesModule } from '../courses/courses.module';
 
 @Module({
-  imports: [CoursesModule],
-  controllers: [AdminController],
-  providers: [AdminService, AdminTokenGuard],
+  controllers: [AdminController, AdminCoursesController],
+  providers: [AdminService, AdminCoursesService, AdminTokenGuard],
 })
 export class AdminModule {}

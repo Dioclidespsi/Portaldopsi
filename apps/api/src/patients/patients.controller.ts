@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { CreateProntuarioEntryDto } from './dto/create-prontuario-entry.dto';
 import { EnablePortalDto } from './dto/enable-portal.dto';
+import { UpdatePatientActiveDto } from './dto/update-patient-active.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -19,8 +20,8 @@ export class PatientsController {
   }
 
   @Get()
-  list() {
-    return this.patients.list();
+  list(@Query('active') active?: string) {
+    return this.patients.list(active === undefined ? undefined : active === 'true');
   }
 
   @Get(':id')
@@ -41,5 +42,10 @@ export class PatientsController {
   @Patch(':id/portal')
   enablePortal(@Param('id') id: string, @Body() dto: EnablePortalDto) {
     return this.patients.enablePortal(id, dto);
+  }
+
+  @Patch(':id/active')
+  setActive(@Param('id') id: string, @Body() dto: UpdatePatientActiveDto) {
+    return this.patients.setActive(id, dto);
   }
 }

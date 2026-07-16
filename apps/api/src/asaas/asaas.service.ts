@@ -84,8 +84,8 @@ export class AsaasService {
       body: JSON.stringify({
         name: dto.name,
         email: dto.email,
-        cpfCnpj: dto.cpfCnpj,
-        mobilePhone: dto.mobilePhone,
+        cpfCnpj: dto.cpfCnpj.replace(/\D/g, ''),
+        mobilePhone: dto.mobilePhone.replace(/\D/g, ''),
         companyType: dto.companyType,
       }),
     });
@@ -146,9 +146,16 @@ export class AsaasService {
     return { asaasSubscriptionId: sub.id };
   }
 
-  /** Cobrança do paciente com split pro walletId da sub-conta do tenant. Grava asaasPaymentId/paymentLink na Invoice. */
-  async createSplitCharge(invoiceId: string) {
-    const tenantPrisma = this.prisma.forCurrentTenant();
+  /**
+   * Cobrança do paciente com split pro walletId da sub-conta do tenant. Grava
+   * asaasPaymentId/paymentLink na Invoice. `tenantId` explícito é obrigatório
+   * pro fluxo de agendamento público (BookingService), que não tem
+   * RequestContext (visitante não autenticado) — nesse caso não dá pra usar
+   * forCurrentTenant(). Rotas autenticadas (Financeiro) continuam sem passar
+   * o parâmetro, caindo no tenant da requisição atual.
+   */
+  async createSplitCharge(invoiceId: string, tenantId?: string) {
+    const tenantPrisma = this.prisma.forTenant(tenantId ?? getRequestContext().tenantId);
     const invoice = await tenantPrisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { patient: true, tenant: true },
@@ -248,6 +255,23 @@ export class AsaasService {
       // o client cru sempre volta zero linhas afetadas aqui. Webhook não tem tenant no contexto de
       // request; asaasPaymentId vem do Asaas (não de input do usuário), então é confiável.
       await this.prisma.forSystem().invoice.updateMany({ where: { asaasPaymentId: payment.id }, data: { status: invoiceStatus } });
+
+      /// Agendamento público (ver BookingService): confirma o Appointment/AvailabilitySlot
+      /// vinculados assim que o Invoice da reserva vira "pago". appointments/
+      /// availability_slots NÃO têm a exceção '__system__' na RLS (de propósito, mesmo
+      /// padrão de patients) — por isso resolve o tenantId de cada invoice primeiro e usa
+      /// forTenant(tenantId) explícito, nunca forSystem() nessas duas tabelas.
+      if (invoiceStatus === 'pago') {
+        const paidInvoices = await this.prisma
+          .forSystem()
+          .invoice.findMany({ where: { asaasPaymentId: payment.id, appointmentId: { not: null } }, select: { tenantId: true, appointmentId: true } });
+        for (const inv of paidInvoices) {
+          if (!inv.appointmentId) continue;
+          const tenantPrisma = this.prisma.forTenant(inv.tenantId);
+          await tenantPrisma.appointment.update({ where: { id: inv.appointmentId }, data: { status: 'confirmado' } });
+          await tenantPrisma.availabilitySlot.updateMany({ where: { appointmentId: inv.appointmentId }, data: { status: 'confirmado', heldUntil: null } });
+        }
+      }
     }
 
     if (payment.subscription) {

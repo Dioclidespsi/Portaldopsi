@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   clearPatientToken,
   confirmOwnAppointment,
@@ -72,9 +73,14 @@ export default function PatientDashboardPage() {
           <h1>Olá, {me.name}</h1>
           <p className="sub">Suas sessões</p>
         </div>
-        <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
-          Sair
-        </button>
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <Link href="/paciente/testes">
+            <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Meus testes</button>
+          </Link>
+          <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
+            Sair
+          </button>
+        </div>
       </div>
 
       {appointments.map((a) => (

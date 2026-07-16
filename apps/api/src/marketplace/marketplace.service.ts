@@ -31,7 +31,7 @@ export class MarketplaceService {
   }
 
   private async requirePrice(courseSlug: string): Promise<number> {
-    if (!this.courses.courseExists(courseSlug)) {
+    if (!(await this.courses.courseExists(courseSlug))) {
       throw new NotFoundException('Curso não encontrado.');
     }
     const priceCents = await this.courses.getCoursePriceCents(courseSlug);
@@ -44,7 +44,7 @@ export class MarketplaceService {
   /** Fluxo público: visitante sem conta compra um curso e vira tenant ESTUDANTE. */
   async purchase(dto: PurchaseDto) {
     const priceCents = await this.requirePrice(dto.courseSlug);
-    const courseTitle = this.courses.getCourseTitle(dto.courseSlug);
+    const courseTitle = await this.courses.getCourseTitle(dto.courseSlug);
 
     const { tenant, user } = await this.auth.createTenantWithUser(
       TenantKind.ESTUDANTE,
@@ -71,7 +71,7 @@ export class MarketplaceService {
   async enroll(dto: EnrollDto) {
     const { tenantId, userId } = getRequestContext();
     const priceCents = await this.requirePrice(dto.courseSlug);
-    const courseTitle = this.courses.getCourseTitle(dto.courseSlug);
+    const courseTitle = await this.courses.getCourseTitle(dto.courseSlug);
 
     const tenantPrisma = this.prisma.forCurrentTenant();
     const existing = await tenantPrisma.courseEnrollment.findUnique({

@@ -16,15 +16,17 @@ import { LibraryModule } from './library/library.module';
 import { SupervisionModule } from './supervision/supervision.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { CrmModule } from './crm/crm.module';
-import { MarketingModule } from './marketing/marketing.module';
 import { CommunityModule } from './community/community.module';
 import { AiModule } from './ai/ai.module';
 import { TeleconsultaModule } from './teleconsulta/teleconsulta.module';
 import { PatientPortalModule } from './patient-portal/patient-portal.module';
 import { AsaasModule } from './asaas/asaas.module';
 import { AdminModule } from './admin/admin.module';
-import { OffersModule } from './offers/offers.module';
 import { DocumentTemplatesModule } from './document-templates/document-templates.module';
+import { AvailabilityModule } from './availability/availability.module';
+import { BookingModule } from './booking/booking.module';
+import { BannersModule } from './banners/banners.module';
+import { DirectoryModule } from './directory/directory.module';
 import { EstudanteAccessGuard } from './common/estudante-access.guard';
 
 @Module({
@@ -45,15 +47,17 @@ import { EstudanteAccessGuard } from './common/estudante-access.guard';
     SupervisionModule,
     MarketplaceModule,
     CrmModule,
-    MarketingModule,
     CommunityModule,
     AiModule,
     TeleconsultaModule,
     PatientPortalModule,
     AsaasModule,
     AdminModule,
-    OffersModule,
     DocumentTemplatesModule,
+    AvailabilityModule,
+    BookingModule,
+    BannersModule,
+    DirectoryModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: EstudanteAccessGuard }],
 })

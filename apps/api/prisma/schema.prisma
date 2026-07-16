@@ -39,6 +39,17 @@ enum CrpStatus {
   REJEITADO
 }
 
+/// Gate independente do CrpStatus — CRP já é verificado no cadastro do
+/// assinante (CLINICA), então checar de novo seria redundante aqui. Isto
+/// aprova especificamente a ATUAÇÃO como supervisor na plataforma (decisão
+/// do admin, não do titular que cria a conta). Null = não é candidato a
+/// supervisor (role != SUPERVISOR).
+enum SupervisorApprovalStatus {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
 enum EnrollmentSource {
   ASSINATURA
   MARKETPLACE
@@ -50,12 +61,6 @@ enum LeadStage {
   AGENDADO
   CONVERTIDO
   PERDIDO
-}
-
-enum MarketingPostStatus {
-  RASCUNHO
-  AGENDADO
-  PUBLICADO
 }
 
 /// Um tenant = uma conta de psicólogo(a)/clínica OU uma conta individual de
@@ -77,12 +82,35 @@ model Tenant {
   /// Conteúdo do Site Profissional (página pública em /p/{slug}). Não tem RLS
   /// de propósito — GET público não passa por AuthMiddleware, então nunca há
   /// app.tenant_id setado nessa rota; ver profile.service.ts.
-  bio          String?
+  /// Apresentação pessoal, curta — usada no topo (hero) da página pública.
+  bio            String?
+  /// Descrição de como funciona o atendimento (método, formato, o que esperar)
+  /// — usada na seção "Sobre o atendimento", separada do bio pra não repetir
+  /// o mesmo texto duas vezes na página.
+  attendanceInfo String?
   photoUrl     String?
   specialties  String?
   publicEmail  String?
   publicPhone  String?
+  /// Chave de uma paleta fixa (ver apps/web/lib/site-palettes.ts) — escolhida
+  /// pelo psicólogo, aplicada só na página pública (/p/{slug}), nunca no
+  /// dashboard interno. Lista fechada de propósito, validada no DTO.
+  colorPalette String  @default("salvia")
   published    Boolean @default(false)
+  /// Opt-in separado de `published`: um psicólogo pode ter a página própria no
+  /// ar (/p/{slug}) sem querer aparecer na busca pública agregada da home da
+  /// plataforma (/profissionais) — ver DirectoryService. Falso por padrão.
+  listedInDirectory Boolean @default(false)
+
+  /// Preço fixo da sessão, em centavos — exibido na página pública (Site
+  /// Profissional) só quando preenchido, e usado pra gerar o Invoice
+  /// automaticamente no agendamento público (ver AvailabilitySlot). Null
+  /// enquanto o psicólogo não configurar.
+  sessionPriceCents Int?
+  /// Liga/desliga o widget de agendamento público na página /p/{slug}. Fica
+  /// falso por padrão mesmo com horários liberados, pra evitar expor a função
+  /// antes do psicólogo confirmar que quer aceitar reservas com cobrança.
+  bookingEnabled    Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -90,17 +118,21 @@ model Tenant {
   patients           Patient[]
   prontuarioEntries  ProntuarioEntry[]
   appointments       Appointment[]
+  availabilitySlots  AvailabilitySlot[]
   invoices           Invoice[]
   subscription       Subscription?
   enrollments        CourseEnrollment[]
-  testResponses      TestResponse[]
+  testAssignments    TestAssignment[]
   moduleProgress     ModuleProgress[]
   certificates       Certificate[]
+  courseQuizAttempts CourseQuizAttempt[]
   supervisionSessions SupervisionSession[]
+  supervisionMessages SupervisionMessage[]
   leads              Lead[]
-  marketingPosts     MarketingPost[]
+  leadActivities     LeadActivity[]
   communityPosts     CommunityPost[]
   communityReplies   CommunityReply[]
+  aiUsageLogs        AiUsageLog[]
 
   @@map("tenants")
 }
@@ -130,14 +162,33 @@ model User {
   /// pendências pra ele saber o que corrigir antes de reenviar.
   crpRejectionReason String?
 
+  /// Só setado quando role=SUPERVISOR (ver UsersService.createTeamMember).
+  /// Enquanto não for APROVADO pelo admin da plataforma, este usuário não
+  /// pode ser escolhido como supervisorId em SupervisionSession (ver
+  /// SupervisionService.create). Acesso como supervisionado (superviseeId)
+  /// é livre para qualquer psicólogo assinante, sem gate nenhum.
+  supervisorApprovalStatus  SupervisorApprovalStatus?
+  supervisorRejectionReason String?
+
   prontuarioEntries ProntuarioEntry[] @relation("AutorEntry")
-  testResponses     TestResponse[]    @relation("TestResponseAuthor")
+  testsAssigned     TestAssignment[]  @relation("TestAssignedBy")
+  testsCorrected    TestAssignment[]  @relation("TestCorrectedBy")
   moduleProgress    ModuleProgress[]
   certificates      Certificate[]
+  courseQuizAttempts CourseQuizAttempt[]
   supervisionsGiven    SupervisionSession[] @relation("Supervisor")
   supervisionsReceived SupervisionSession[] @relation("Supervisee")
+  supervisionMessagesAsSupervisor SupervisionMessage[] @relation("SupervisionMessageSupervisor")
+  supervisionMessagesAsSupervisee SupervisionMessage[] @relation("SupervisionMessageSupervisee")
+  supervisionMessagesSent         SupervisionMessage[] @relation("SupervisionMessageSender")
+  assignedLeads        Lead[]           @relation("LeadAssignee")
+  leadActivities       LeadActivity[]
   communityPosts       CommunityPost[]
   communityReplies     CommunityReply[]
+  communityReports       CommunityReport[]
+  communityLikes         CommunityLike[]
+  communityNotifications CommunityNotification[]
+  aiUsageLogs            AiUsageLog[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -147,11 +198,17 @@ model Patient {
   id        String   @id @default(uuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  email     String?
-  phone     String?
-  birthDate DateTime?
-  createdAt DateTime @default(now())
+  name       String
+  /// Nome social ou apelido — exibido no lugar do nome civil quando preenchido,
+  /// sem substituir `name` (que segue sendo o nome legal usado em documentos).
+  socialName String?
+  email      String?
+  phone      String?
+  birthDate  DateTime?
+  /// Paciente inativo continua com todo o histórico intacto, só some do
+  /// seletor de agendamento e da listagem padrão (filtro "Ativos").
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
   /// CPF/CNPJ do paciente — exigido pelo Asaas pra gerar cobrança real (ver
   /// AsaasService.createSplitCharge). Sem isso preenchido, a cobrança via
@@ -168,7 +225,7 @@ model Patient {
   prontuarioEntries ProntuarioEntry[]
   appointments      Appointment[]
   invoices          Invoice[]
-  testResponses     TestResponse[]
+  testAssignments   TestAssignment[]
   convertedFromLead Lead?
 
   @@unique([tenantId, email])
@@ -212,8 +269,43 @@ model Appointment {
   videoRoomName String?
   consentAt     DateTime?
 
+  /// Preenchido quando status vira "cancelado" ou "falta" — motivo/observação.
+  cancelReason String?
+
+  invoices Invoice[]
+  availabilitySlot AvailabilitySlot?
+
   @@index([tenantId, startsAt])
   @@map("appointments")
+}
+
+/// Horário que o psicólogo libera na própria Agenda pra aparecer como
+/// disponível no widget de agendamento público (/p/{slug}). Existe separado
+/// de Appointment porque precisa de um estado intermediário ("reservado,
+/// aguardando pagamento") com prazo de expiração — Appointment sozinho não
+/// tem isso. Ciclo de vida: disponivel -> reservado (visitante escolheu,
+/// aguarda pagamento por 15min, ver BookingService) -> confirmado (Asaas
+/// confirmou o pagamento, ver AsaasService.handleWebhook) ou de volta pra
+/// disponivel (expirou sem pagar). Não há job/cron nenhum no projeto — a
+/// expiração é verificada sob demanda (toda leitura de disponibilidade, ver
+/// BookingService.expireStaleHolds) em vez de um worker em background.
+model AvailabilitySlot {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  endsAt    DateTime
+  status    String   @default("disponivel")
+  /// Só setado quando status="reservado" — se `now() > heldUntil` e ainda
+  /// "reservado", a próxima leitura libera o horário de volta.
+  heldUntil DateTime?
+  createdAt DateTime @default(now())
+
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, startsAt])
+  @@map("availability_slots")
 }
 
 /// Cobrança do psicólogo ao PACIENTE (Financeiro) — dinheiro vai direto para
@@ -229,7 +321,15 @@ model Invoice {
   amountCents Int
   status      String   @default("pendente")
   dueDate     DateTime
+  /// Carimbado quando status vira "pago"; limpo se reverter. Base pro resumo
+  /// financeiro (recebido no mês) em vez de usar dueDate como proxy.
+  paidAt      DateTime?
   createdAt   DateTime @default(now())
+
+  /// Sessão de origem da cobrança, opcional — não obrigatório porque cobrança
+  /// avulsa (ex: pacote de sessões) também é um caso real.
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   /// Cobrança real via Asaas, com split pro payoutAccountId do Tenant — ver
   /// AsaasService.createSplitCharge. Fica null enquanto a cobrança for só o
@@ -241,27 +341,123 @@ model Invoice {
   @@map("invoices")
 }
 
-/// Resultado de uma escala aplicada a um paciente (Aplicação de Testes). O
-/// catálogo de escalas (itens, pontuação, corte) NÃO fica no banco — vive como
-/// dado estático versionado em código (apps/api/src/psych-tests/catalog),
-/// porque é conteúdo compartilhado entre todos os tenants, não dado de tenant.
-/// `testSlug` referencia esse catálogo por convenção, sem FK.
-model TestResponse {
-  id          String   @id @default(uuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patientId   String
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  authorId    String
-  author      User     @relation("TestResponseAuthor", fields: [authorId], references: [id])
-  testSlug    String
-  answers     Json
-  score       Int
-  resultLabel String
-  createdAt   DateTime @default(now())
+/// Catálogo de testes/escalas — GLOBAL, sem tenantId, porque é conteúdo
+/// compartilhado entre todas as clínicas (como CourseVideo). Só o admin
+/// da plataforma cadastra/edita (ver admin/tests.*, cadastro manual). Cada
+/// template tem perguntas objetivas (múltipla escolha, usando responseScale)
+/// e/ou subjetivas (texto livre, sem pontuação).
+model TestTemplate {
+  id           String @id @default(uuid())
+  slug         String @unique
+  title        String
+  /// Subgrupo livre (ex: "Ansiedade", "Depressão", "Carreira") — texto, não
+  /// enum, pra admin poder criar categorias novas sem mudar código.
+  category     String
+  source       String
+  disclaimer   String
+  instructions String
+  /// Escala compartilhada pelas perguntas objetivas deste template (ex: 0-3,
+  /// "Nunca".."Quase todos os dias"). Perguntas subjetivas ignoram isso.
+  responseScale Json?
+  /// Faixas de pontuação pra SUGERIR um resultado a partir da soma das
+  /// respostas objetivas SEM subescala — sempre revisável pelo psicólogo.
+  scoreBands    Json?
+  /// Definição das subescalas do instrumento (ex: YSQ tem 18 esquemas,
+  /// Seligman tem 6 dimensões): array de { key, label, scoreBands? }. Cada
+  /// TestQuestion.subscale referencia uma `key` daqui. Instrumentos simples
+  /// (soma única) deixam isso null e usam scoreBands acima.
+  subscales     Json?
+  /// Escores compostos calculados a partir das subescalas (ex: Seligman
+  /// "Total S - Total I"): array de { key, label, formula: [{ subscale,
+  /// weight }], scoreBands? }. Ver scoring.ts.
+  derivedScores Json?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  questions   TestQuestion[]
+  assignments TestAssignment[]
+
+  @@map("test_templates")
+}
+
+model TestQuestion {
+  id             String       @id @default(uuid())
+  testTemplateId String
+  testTemplate   TestTemplate @relation(fields: [testTemplateId], references: [id], onDelete: Cascade)
+  order          Int
+  /// "objetiva" usa TestTemplate.responseScale (ou `options` abaixo, se
+  /// preenchido); "subjetiva" é texto livre.
+  type           String
+  prompt         String
+  /// Item de pontuação invertida (comum em escalas psicométricas reais, ex:
+  /// Rosenberg) — na correção, o valor vira (min+max da escala usada) - valor
+  /// escolhido, em vez de somado direto. Ver scoring.ts. Não combinar com
+  /// `options` preenchido — instrumentos com opções por item (ex: HAD, BDI)
+  /// já codificam a direção certa na própria ordem das opções.
+  reverseScored  Boolean @default(false)
+  /// Opções específicas desta pergunta — sobrepõe TestTemplate.responseScale
+  /// quando preenchido. Necessário pra escalas onde cada item tem frases de
+  /// resposta próprias (ex: HAD, Beck), não uma escala Likert compartilhada.
+  options        Json?
+  /// Referencia uma `key` de TestTemplate.subscales — em instrumentos com
+  /// múltiplas subescalas (ex: YSQ, Seligman), diz a qual dimensão este item
+  /// pertence. Null = item conta pro escore geral (TestTemplate.scoreBands).
+  subscale       String?
+
+  @@index([testTemplateId])
+  @@map("test_questions")
+}
+
+/// Um teste disponibilizado a um paciente específico (Aplicação de Testes).
+/// Ciclo de vida: pendente (psicólogo disponibilizou, paciente ainda não
+/// respondeu) -> respondido (paciente enviou; sem opção de refazer) ->
+/// corrigido (psicólogo revisou/pontuou e decidiu como comunicar). O
+/// paciente NUNCA vê score/resultLabel por este sistema — comunicar o
+/// resultado é sempre decisão manual do psicólogo, nunca automática (mesma
+/// cautela já documentada no disclaimer do GAD-7).
+model TestAssignment {
+  id             String       @id @default(uuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId      String
+  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  testTemplateId String
+  testTemplate   TestTemplate @relation(fields: [testTemplateId], references: [id])
+
+  assignedById String
+  assignedBy   User     @relation("TestAssignedBy", fields: [assignedById], references: [id])
+  assignedAt   DateTime @default(now())
+
+  status String @default("pendente")
+
+  /// Respostas brutas do paciente: { [questionId]: number | string }.
+  answers     Json?
+  submittedAt DateTime?
+  /// Soma automática das perguntas objetivas — só sugestão, nunca o valor
+  /// final (ver finalScore/finalResultLabel).
+  suggestedScore       Int?
+  suggestedResultLabel String?
+  /// Escores por subescala calculados na submissão (ver scoring.ts): array
+  /// de { key, label, score, resultLabel }. Só preenchido quando o template
+  /// usa TestTemplate.subscales. Sempre sugestão — nunca o valor final.
+  suggestedSubscaleScores Json?
+  /// Escores compostos calculados na submissão a partir de derivedScores.
+  suggestedDerivedScores  Json?
+
+  finalScore       Int?
+  finalResultLabel String?
+  /// Como/se o psicólogo decidiu comunicar o resultado ao paciente — nunca
+  /// exibido automaticamente na área do paciente.
+  communicationNote String?
+  correctedAt       DateTime?
+  correctedById     String?
+  correctedBy       User?     @relation("TestCorrectedBy", fields: [correctedById], references: [id])
+
+  attachedToProntuario Boolean @default(false)
+  prontuarioEntryId    String?
 
   @@index([tenantId, patientId])
-  @@map("test_responses")
+  @@map("test_assignments")
 }
 
 /// Compra de curso avulso (Marketplace) OU acesso liberado por já ter
@@ -274,6 +470,7 @@ model CourseEnrollment {
   tenantId          String
   tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   courseSlug        String
+  course            Course           @relation(fields: [courseSlug], references: [slug])
   source            EnrollmentSource
   priceCents        Int?
   paymentProvider   String?
@@ -285,29 +482,28 @@ model CourseEnrollment {
   @@map("course_enrollments")
 }
 
-/// Conclusão de um módulo de curso por um usuário. `courseSlug`/`moduleSlug`
-/// referenciam o catálogo de cursos (apps/api/src/courses/catalog), que — como
-/// o de testes — é dado estático em código, não tabela, porque o conteúdo é
-/// compartilhado entre tenants.
+/// Conclusão de uma aula por um usuário — `lessonId` referencia CourseLesson
+/// (catálogo admin-gerenciável, ver Course/CourseModule/CourseLesson abaixo).
 model ModuleProgress {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseSlug  String
-  moduleSlug  String
-  completedAt DateTime @default(now())
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime     @default(now())
 
-  @@unique([userId, courseSlug, moduleSlug])
+  @@unique([userId, lessonId])
   @@index([tenantId])
   @@map("module_progress")
 }
 
-/// Emitido automaticamente quando um usuário completa todos os módulos de um
-/// curso (ver CoursesService). Sem RLS de propósito — a verificação pública
-/// por `verificationCode` (como autenticidade de diploma) não deve depender
-/// de contexto de tenant, e não é dado clínico sensível.
+/// Emitido automaticamente quando um usuário completa todas as aulas
+/// obrigatórias (não-extra) de um curso (ver CoursesService). Sem RLS de
+/// propósito — a verificação pública por `verificationCode` (como
+/// autenticidade de diploma) não deve depender de contexto de tenant, e não
+/// é dado clínico sensível.
 model Certificate {
   id                String   @id @default(uuid())
   tenantId          String
@@ -315,11 +511,163 @@ model Certificate {
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   courseSlug        String
+  course            Course   @relation(fields: [courseSlug], references: [slug])
   verificationCode  String   @unique @default(uuid())
   issuedAt          DateTime @default(now())
+  /// PNG renderizado automaticamente (nome+curso+data+código compostos sobre
+  /// o CertificateTemplate vigente no momento da emissão) — relativo a
+  /// uploads/certificates/. Null se nenhum CertificateTemplate estava
+  /// configurado quando o certificado foi emitido (nunca re-renderizado
+  /// retroativamente se o modelo mudar depois).
+  filePath          String?
 
   @@unique([userId, courseSlug])
   @@map("certificates")
+}
+
+/// Modelo visual ÚNICO (singleton — sempre uma linha só) usado para renderizar
+/// TODOS os certificados emitidos, de qualquer curso. Posições em % (0-100)
+/// relativas às dimensões da imagem enviada; fontSize em px, ajustado
+/// olhando a pré-visualização (ver CertificatesService/renderer).
+model CertificateTemplate {
+  id             String   @id @default(uuid())
+  imagePath      String
+  nameX          Float    @default(50)
+  nameY          Float    @default(45)
+  nameFontSize   Int      @default(48)
+  courseX        Float    @default(50)
+  courseY        Float    @default(58)
+  courseFontSize Int      @default(28)
+  dateX          Float    @default(50)
+  dateY          Float    @default(70)
+  dateFontSize   Int      @default(18)
+  codeX          Float    @default(50)
+  codeY          Float    @default(92)
+  codeFontSize   Int      @default(12)
+  updatedAt      DateTime @updatedAt
+
+  @@map("certificate_template")
+}
+
+/// Catálogo de cursos — GLOBAL, sem tenantId, cadastrado só pelo admin da
+/// plataforma (nunca pelo psicólogo/clínica), no modelo de plataformas
+/// comerciais (Hotmart/Udemy): Curso > Módulo > Aula, com aulas extras que
+/// não entram na sequência obrigatória. Assinante (Tenant.kind=CLINICA) tem
+/// acesso incluso na assinatura da plataforma; quem não assina compra avulso
+/// via Marketplace (CourseEnrollment) e paga `priceCents`.
+model Course {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  description String
+  priceCents  Int?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  modules      CourseModule[]
+  enrollments  CourseEnrollment[]
+  certificates Certificate[]
+
+  @@map("courses")
+}
+
+model CourseModule {
+  id       String @id @default(uuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  order    Int
+  title    String
+  /// Libera sem assinatura/matrícula — isca/lead-magnet (mesmo papel do
+  /// antigo "bloco grátis").
+  free     Boolean @default(false)
+
+  lessons CourseLesson[]
+
+  @@index([courseId])
+  @@map("course_modules")
+}
+
+model CourseLesson {
+  id          String       @id @default(uuid())
+  moduleId    String
+  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  order       Int
+  title       String
+  description String?
+  youtubeUrl  String?
+  /// Aula extra/bônus: aparece à parte, nunca bloqueia nem é bloqueada pela
+  /// sequência obrigatória de quiz das aulas principais do módulo.
+  isExtra     Boolean @default(false)
+
+  materials CourseLessonMaterial[]
+  quiz      CourseQuiz?
+  progress  ModuleProgress[]
+
+  @@index([moduleId])
+  @@map("course_lessons")
+}
+
+/// Material de apoio pra baixar, anexado pelo admin (apps/api/uploads/
+/// course-materials/) — mesmo padrão de DocumentTemplate.
+model CourseLessonMaterial {
+  id       String       @id @default(uuid())
+  lessonId String
+  lesson   CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  title    String
+  filePath String
+
+  @@index([lessonId])
+  @@map("course_lesson_materials")
+}
+
+/// Quiz objetivo de uma aula. Diferente do módulo clínico de Testes: a nota
+/// SEMPRE aparece pro aluno, e ele pode responder quantas vezes quiser — só
+/// `required` (definido pelo admin) decide se precisa atingir
+/// `passingScorePercent` antes da próxima aula não-extra do módulo abrir.
+model CourseQuiz {
+  id                  String       @id @default(uuid())
+  lessonId            String       @unique
+  lesson              CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  required            Boolean      @default(false)
+  passingScorePercent Int          @default(70)
+
+  questions CourseQuizQuestion[]
+  attempts  CourseQuizAttempt[]
+
+  @@map("course_quizzes")
+}
+
+model CourseQuizQuestion {
+  id     String     @id @default(uuid())
+  quizId String
+  quiz   CourseQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  order  Int
+  prompt String
+  /// [{ "id": "a", "label": "..." }, ...]
+  options         Json
+  correctOptionId String
+
+  @@index([quizId])
+  @@map("course_quiz_questions")
+}
+
+/// Histórico completo de tentativas — nunca sobrescreve, pra sustentar
+/// "responder quantas vezes desejar" com nota sempre visível.
+model CourseQuizAttempt {
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId       String
+  quiz         CourseQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers      Json
+  scorePercent Int
+  passed       Boolean
+  createdAt    DateTime   @default(now())
+
+  @@index([tenantId, userId, quizId])
+  @@map("course_quiz_attempts")
 }
 
 /// Sessão de supervisão clínica entre o psicólogo titular e um supervisor —
@@ -339,9 +687,36 @@ model SupervisionSession {
   notes        String?
   status       String   @default("agendado")
   createdAt    DateTime @default(now())
+  /// Sala Daily.co criada automaticamente ao agendar (ver
+  /// SupervisionService.create/createTeleconsultaRoom) — mesmo padrão do
+  /// Appointment, mas sem gate de consentAt (não é dado do paciente).
+  videoRoomUrl  String?
+  videoRoomName String?
 
   @@index([tenantId, startsAt])
   @@map("supervision_sessions")
+}
+
+/// Chat de texto entre uma dupla supervisor/supervisionado — thread contínua
+/// pelo par (supervisorId, superviseeId), não presa a uma SupervisionSession
+/// específica (conversa persiste entre sessões agendadas). Só pode existir
+/// mensagem entre um par que já tem pelo menos uma SupervisionSession (ver
+/// SupervisionService.resolvePair) — nunca DM livre entre quaisquer users.
+model SupervisionMessage {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisorId String
+  supervisor   User     @relation("SupervisionMessageSupervisor", fields: [supervisorId], references: [id])
+  superviseeId String
+  supervisee   User     @relation("SupervisionMessageSupervisee", fields: [superviseeId], references: [id])
+  senderId     String
+  sender       User     @relation("SupervisionMessageSender", fields: [senderId], references: [id])
+  content      String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, supervisorId, superviseeId, createdAt])
+  @@map("supervision_messages")
 }
 
 /// Lead do funil de captação (CRM), antes de virar Patient. `convertToPatient`
@@ -356,32 +731,49 @@ model Lead {
   source             String?
   stage              LeadStage @default(NOVO)
   notes              String?
+  /// Responsável pelo lead (opcional) — útil em clínica com mais de um profissional.
+  assignedToId       String?
+  assignedTo         User?     @relation("LeadAssignee", fields: [assignedToId], references: [id])
   convertedPatientId String?   @unique
   convertedPatient   Patient?  @relation(fields: [convertedPatientId], references: [id])
   createdAt          DateTime  @default(now())
 
+  activities LeadActivity[]
+
   @@index([tenantId])
+  @@index([tenantId, assignedToId])
   @@map("leads")
 }
 
-/// Rascunho/planejamento de post (Marketing). `complianceFlags` guarda o
-/// resultado do checklist ético (ver marketing/compliance/rules.ts) no momento
-/// da criação — é um alerta, não um bloqueio, e não substitui revisão humana
-/// contra a Resolução CFP nº 03/2007 + NT 01/2022. Publicação de verdade não
-/// está aqui: o InstaPostPro (pasta-irmã deste repo) já resolve isso.
-model MarketingPost {
-  id              String              @id @default(uuid())
-  tenantId        String
-  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  content         String
-  platform        String?
-  scheduledAt     DateTime?
-  status          MarketingPostStatus @default(RASCUNHO)
-  complianceFlags Json?
-  createdAt       DateTime            @default(now())
+/// Histórico cronológico (append-only) de interações com o lead — diferente
+/// de Lead.notes (um campo único, sempre sobrescrito, pra status atual em
+/// uma linha). Cada entrada aqui fica pra sempre, registrando quem fez o quê
+/// e quando (ex: "liguei, sem resposta", "remarcado pra sexta").
+model LeadActivity {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
 
-  @@index([tenantId])
-  @@map("marketing_posts")
+  @@index([tenantId, leadId, createdAt])
+  @@map("lead_activities")
+}
+
+
+/// Categorias fixas do fórum — lista fechada de propósito (como LeadStage),
+/// pra manter o feed organizado sem virar taxonomia livre descontrolada.
+enum CommunityCategory {
+  INDICACAO
+  CASO_CLINICO
+  GESTAO_CONSULTORIO
+  ABORDAGENS_TECNICAS
+  CARREIRA_FORMACAO
+  GERAL
 }
 
 /// Comunidade é o único espaço deliberadamente CROSS-TENANT do sistema — troca
@@ -389,43 +781,146 @@ model MarketingPost {
 /// contrário de toda outra tabela, NÃO tem RLS: tenantId aqui é só atribuição
 /// ("postado por qual clínica"), não isolamento. Ver prisma/rls.sql.
 ///
-/// `authorName`/`tenantName` são snapshot de texto, não join ao vivo: `users`
-/// e `tenants` têm RLS, e uma conexão sem app.tenant_id setado (o caso normal
-/// aqui, já que é leitura cross-tenant) nunca conseguiria montar esse join —
-/// o Prisma erraria com "Field author is required... got null". Capturado uma
-/// vez na criação, quando o autor está no próprio contexto autenticado dele.
+/// `authorName`/`tenantName`/`authorCrpVerified`/`authorSpecialty` são
+/// snapshot de texto, não join ao vivo: `users` e `tenants` têm RLS, e uma
+/// conexão sem app.tenant_id setado (o caso normal aqui, já que é leitura
+/// cross-tenant) nunca conseguiria montar esse join — o Prisma erraria com
+/// "Field author is required... got null". Capturados uma vez na criação,
+/// quando o autor está no próprio contexto autenticado dele. Por serem
+/// snapshot, um selo "CRP verificado" continua valendo mesmo se o status
+/// mudar depois — reflete a situação NO MOMENTO da postagem, não ao vivo.
+///
+/// `removedAt`/`removedReason`: soft-delete pela moderação do admin da
+/// plataforma (ver admin.service.ts) — a linha continua existindo pra
+/// auditoria, só some da listagem padrão.
 model CommunityPost {
-  id         String   @id @default(uuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantName String
-  authorId   String
-  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorName String
-  title      String
-  content    String
-  createdAt  DateTime @default(now())
+  id                String            @id @default(uuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantName        String
+  authorId          String
+  author            User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName        String
+  authorCrpVerified Boolean           @default(false)
+  authorSpecialty   String?
+  category          CommunityCategory @default(GERAL)
+  title             String
+  content           String
+  createdAt         DateTime          @default(now())
+  removedAt         DateTime?
+  removedReason     String?
 
-  replies CommunityReply[]
+  replies       CommunityReply[]
+  reports       CommunityReport[]
+  likes         CommunityLike[]
+  notifications CommunityNotification[]
 
+  @@index([category, createdAt])
   @@map("community_posts")
 }
 
 model CommunityReply {
-  id         String        @id @default(uuid())
-  postId     String
-  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tenantId   String
-  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantName String
-  authorId   String
-  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorName String
-  content    String
-  createdAt  DateTime      @default(now())
+  id                String        @id @default(uuid())
+  postId            String
+  post              CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tenantId          String
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantName        String
+  authorId          String
+  author            User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName        String
+  authorCrpVerified Boolean       @default(false)
+  authorSpecialty   String?
+  content           String
+  createdAt         DateTime      @default(now())
+  removedAt         DateTime?
+  removedReason     String?
+
+  reports       CommunityReport[]
+  likes         CommunityLike[]
+  notifications CommunityNotification[]
 
   @@index([postId])
   @@map("community_replies")
+}
+
+/// Fila de denúncias pro admin da plataforma revisar — post OU resposta,
+/// nunca os dois (exatamente um dos dois FKs preenchido).
+model CommunityReport {
+  id         String          @id @default(uuid())
+  postId     String?
+  post       CommunityPost?  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  replyId    String?
+  reply      CommunityReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User            @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  createdAt  DateTime        @default(now())
+  resolvedAt DateTime?
+
+  @@index([resolvedAt])
+  @@map("community_reports")
+}
+
+/// Curtida em post OU resposta (exatamente um dos dois FKs preenchido) — os
+/// dois `@@unique` abaixo garantem no máximo uma curtida por usuário em cada
+/// post/resposta (funciona mesmo com o outro campo null: Postgres nunca
+/// considera dois NULLs iguais, então a constraint relevante em cada caso é
+/// sempre a que tem o campo populado).
+model CommunityLike {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String?
+  post      CommunityPost?  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  replyId   String?
+  reply     CommunityReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([userId, postId])
+  @@unique([userId, replyId])
+  @@index([postId])
+  @@index([replyId])
+  @@map("community_likes")
+}
+
+/// Notificação in-app (sem infra de e-mail/push neste projeto) — criada
+/// quando alguém responde a um post, pro autor do post. Nunca notifica o
+/// próprio autor respondendo a si mesmo.
+model CommunityNotification {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      CommunityPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  replyId   String?
+  reply     CommunityReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  message   String
+  readAt    DateTime?
+  createdAt DateTime        @default(now())
+
+  @@index([userId, readAt])
+  @@map("community_notifications")
+}
+
+/// Registro de cada chamada de IA (ver AiService) — existe só pra sustentar o
+/// limite diário por clínica (sem isso, nenhum controle de custo existia:
+/// qualquer usuário podia chamar o assistente sem limite nenhum). `feature`
+/// identifica qual função gerou a chamada ('ask' | 'prontuario_summary' |
+/// 'lead_followup'), tokens vêm da resposta real da Anthropic (não estimado).
+model AiUsageLog {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature      String
+  inputTokens  Int?
+  outputTokens Int?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("ai_usage_logs")
 }
 
 /// Assinatura do tenant na própria plataforma (billing do Portal do Psi,
@@ -447,45 +942,9 @@ model Subscription {
   @@map("subscriptions")
 }
 
-/// Conteúdo promocional gerenciado pelo administrador da plataforma (não do
-/// tenant) — novos treinamentos, produtos externos (venda de livro, site
-/// corporativo), etc. Sem RLS de propósito: é intencionalmente visível pra
-/// todo tenant, e escrito só pelo admin (ver AdminModule), nunca pelo
-/// psicólogo. Mesmo motivo de Certificate/Tenant não terem RLS, mas aqui
-/// porque o conteúdo é global por natureza, não porque falta implementar.
-model Offer {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  externalUrl String
-  imageUrl    String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("offers")
-}
-
-/// Vídeo (YouTube não-listado) de um módulo de curso, gerenciado pelo admin —
-/// mesmo motivo de Offer não ter RLS: o catálogo de curso (courseSlug/
-/// moduleSlug) já é dado global compartilhado entre tenants, não tabela por
-/// tenant. Mesclado no catálogo por CoursesService, nunca substitui o
-/// conteúdo em arquivo (slide/exercício/avaliação/roteiro seguem por baixo).
-model CourseModuleVideo {
-  id         String   @id @default(uuid())
-  courseSlug String
-  moduleSlug String
-  youtubeUrl String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([courseSlug, moduleSlug])
-  @@map("course_module_videos")
-}
-
 /// Modelo de documento (contrato, termo, recibo) enviado pelo admin —
 /// apps/api/uploads/document-templates/, fora de pasta pública. Igual a
-/// Offer/CourseModuleVideo, sem RLS: conteúdo global, só o admin escreve. A
+/// CourseModuleVideo, sem RLS: conteúdo global, só o admin escreve. A
 /// restrição de "só assinante CLINICA vê" é feita no service de leitura
 /// (DocumentTemplatesService), não no banco — mesmo padrão do bloco gratuito
 /// em CoursesService.
@@ -499,16 +958,39 @@ model DocumentTemplate {
   @@map("document_templates")
 }
 
-/// Preço avulso de um curso no Marketplace (venda pra quem não assina a
-/// plataforma) — dado admin-editável, propositalmente FORA do manifest
-/// hand-authored em catalog/manifest.ts porque preço muda sem precisar de
-/// deploy. Sem linha aqui = curso ainda não está à venda (CoursesService/
-/// MarketplaceService recusam a compra com mensagem clara, nunca inventam
-/// um valor). Sem RLS: preço de catálogo é global, não por tenant.
-model CoursePrice {
-  courseSlug  String   @id
-  priceCents  Int
-  updatedAt   DateTime @updatedAt
+/// Biblioteca de materiais (Biblioteca no menu) — apostilas, planilhas,
+/// artigos, áudios etc. em qualquer formato, organizados por categoria livre
+/// (igual TestTemplate.category), enviados pelo admin e baixados pelo
+/// assinante (tenant.kind=CLINICA). Mesmo padrão de storage/RLS do
+/// DocumentTemplate: arquivo em apps/api/uploads/library-materials/, sem
+/// RLS (conteúdo global, só admin escreve), restrição de acesso feita no
+/// service de leitura (LibraryService) + EstudanteAccessGuard.
+model LibraryMaterial {
+  id          String   @id @default(uuid())
+  category    String
+  title       String
+  description String?
+  filePath    String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
-  @@map("course_prices")
+  @@map("library_materials")
 }
+
+/// Banner promocional da home pública da PLATAFORMA (/, não confundir com a
+/// página do psicólogo em /p/{slug}) — só 2 posições fixas (1 e 2), geridas
+/// pelo admin. Imagem fica em apps/api/uploads/banners/, servida por rota
+/// pública dedicada (igual profile-photo-upload.config.ts) porque precisa
+/// aparecer pra visitante sem login. Sem RLS/tenantId de propósito: conteúdo
+/// global da plataforma, só o admin escreve (mesmo motivo de DocumentTemplate).
+model Banner {
+  id        String   @id @default(uuid())
+  position  Int      @unique
+  imageUrl  String
+  linkUrl   String?
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@map("banners")
+}
+

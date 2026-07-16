@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { PatientPortalService } from './patient-portal.service';
 import { PatientLoginDto } from './dto/patient-login.dto';
+import { SubmitTestDto } from './dto/submit-test.dto';
 
 @Controller('patient-portal')
 export class PatientPortalController {
@@ -30,5 +31,20 @@ export class PatientPortalController {
   @Post('appointments/:id/consent')
   consent(@Param('id') id: string) {
     return this.portal.consentToTeleconsulta(id);
+  }
+
+  @Get('tests')
+  listTests() {
+    return this.portal.listTests();
+  }
+
+  @Get('tests/:id')
+  getTest(@Param('id') id: string) {
+    return this.portal.getTestToAnswer(id);
+  }
+
+  @Post('tests/:id/submit')
+  submitTest(@Param('id') id: string, @Body() dto: SubmitTestDto) {
+    return this.portal.submitTest(id, dto);
   }
 }

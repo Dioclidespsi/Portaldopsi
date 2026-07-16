@@ -21,6 +21,22 @@ export class AppointmentsService {
     const patient = await tenantPrisma.patient.findUnique({ where: { id: dto.patientId } });
     if (!patient) throw new NotFoundException('Paciente não encontrado.');
 
+    /// Conflito = qualquer agendamento não cancelado do tenant cujo intervalo
+    /// cruza o novo (assume 1 profissional por clínica, como o resto do F1).
+    const conflict = await tenantPrisma.appointment.findFirst({
+      where: {
+        status: { notIn: ['cancelado'] },
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+      },
+      include: { patient: { select: { name: true } } },
+    });
+    if (conflict) {
+      throw new BadRequestException(
+        `Conflito de horário com o agendamento de ${conflict.patient.name} às ${conflict.startsAt.toLocaleString('pt-BR')}.`,
+      );
+    }
+
     return tenantPrisma.appointment.create({
       data: { tenantId, patientId: dto.patientId, startsAt, endsAt },
     });
@@ -48,8 +64,12 @@ export class AppointmentsService {
     return appointment;
   }
 
-  async updateStatus(id: string, status: AppointmentStatus) {
+  async updateStatus(id: string, status: AppointmentStatus, cancelReason?: string) {
     await this.findOne(id);
-    return this.prisma.forCurrentTenant().appointment.update({ where: { id }, data: { status } });
+    const isCancelLike = status === 'cancelado' || status === 'falta';
+    return this.prisma.forCurrentTenant().appointment.update({
+      where: { id },
+      data: { status, cancelReason: isCancelLike ? cancelReason : null },
+    });
   }
 }

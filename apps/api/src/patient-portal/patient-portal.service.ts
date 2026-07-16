@@ -1,10 +1,13 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPatientContext } from '../common/patient-context';
 import { PatientLoginDto } from './dto/patient-login.dto';
+import { SubmitTestDto } from './dto/submit-test.dto';
 import { PatientJwtPayload } from './patient-jwt.types';
+import { computeSuggestedScore } from '../psych-tests/scoring';
 
 @Injectable()
 export class PatientPortalService {
@@ -90,5 +93,84 @@ export class PatientPortalService {
       throw new ForbiddenException('Nenhuma sala de teleconsulta foi criada para este agendamento ainda.');
     }
     return this.ownPatientClient().appointment.update({ where: { id }, data: { consentAt: new Date() } });
+  }
+
+  /**
+   * Nunca inclui score/finalResultLabel/communicationNote — comunicar o
+   * resultado é sempre decisão manual do psicólogo, nunca automática por
+   * aqui (mesmo depois de "corrigido").
+   */
+  async listTests() {
+    const { patientId } = getPatientContext();
+    const assignments = await this.ownPatientClient().testAssignment.findMany({
+      where: { patientId },
+      orderBy: { assignedAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        assignedAt: true,
+        submittedAt: true,
+        testTemplate: { select: { title: true, category: true } },
+      },
+    });
+    return assignments;
+  }
+
+  /** Só retorna o teste pra responder se ainda estiver pendente — sem reabrir depois de respondido. */
+  async getTestToAnswer(id: string) {
+    const { patientId } = getPatientContext();
+    const assignment = await this.ownPatientClient().testAssignment.findUnique({
+      where: { id },
+      include: { testTemplate: { include: { questions: { orderBy: { order: 'asc' } } } } },
+    });
+    if (!assignment || assignment.patientId !== patientId) {
+      throw new NotFoundException('Teste não encontrado.');
+    }
+    if (assignment.status !== 'pendente') {
+      throw new ForbiddenException('Este teste já foi respondido e não pode ser reaberto.');
+    }
+    return assignment;
+  }
+
+  async submitTest(id: string, dto: SubmitTestDto) {
+    const assignment = await this.getTestToAnswer(id);
+    const questions = assignment.testTemplate.questions;
+
+    for (const q of questions) {
+      const value = dto.answers[q.id];
+      if (q.type === 'objetiva' && typeof value !== 'number') {
+        throw new BadRequestException(`Resposta ausente para a pergunta "${q.prompt}".`);
+      }
+      if (q.type === 'subjetiva' && (typeof value !== 'string' || !value.trim())) {
+        throw new BadRequestException(`Resposta ausente para a pergunta "${q.prompt}".`);
+      }
+    }
+
+    const scoreBands = assignment.testTemplate.scoreBands as { maxScore: number; label: string }[] | null;
+    const responseScale = assignment.testTemplate.responseScale as { value: number; label: string }[] | null;
+    const subscales = assignment.testTemplate.subscales as unknown as Parameters<typeof computeSuggestedScore>[4];
+    const derivedScores = assignment.testTemplate.derivedScores as unknown as Parameters<typeof computeSuggestedScore>[5];
+    const { suggestedScore, suggestedResultLabel, suggestedSubscaleScores, suggestedDerivedScores } = computeSuggestedScore(
+      questions,
+      scoreBands,
+      dto.answers,
+      responseScale,
+      subscales,
+      derivedScores,
+    );
+
+    return this.ownPatientClient().testAssignment.update({
+      where: { id },
+      data: {
+        answers: dto.answers,
+        submittedAt: new Date(),
+        status: 'respondido',
+        suggestedScore,
+        suggestedResultLabel,
+        suggestedSubscaleScores: (suggestedSubscaleScores as unknown as Prisma.InputJsonValue) ?? undefined,
+        suggestedDerivedScores: (suggestedDerivedScores as unknown as Prisma.InputJsonValue) ?? undefined,
+      },
+      select: { id: true, status: true, submittedAt: true },
+    });
   }
 }

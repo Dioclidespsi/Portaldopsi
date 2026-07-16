@@ -148,7 +148,7 @@ export default function PatientDetailPage() {
   return (
     <div className="shell shell-wide">
       <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>{patient.name}</h2>
+      <h2 style={{ fontSize: '1.05rem' }}>{patient.name}{patient.socialName && ` (${patient.socialName})`}</h2>
       <p className="sub">{patient.email ?? '—'} · {patient.phone ?? '—'}</p>
       {error && <span className="error">{error}</span>}
 

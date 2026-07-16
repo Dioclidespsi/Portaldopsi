@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PsychTestsService } from './psych-tests.service';
-import { SubmitResponseDto } from './dto/submit-response.dto';
+import { AssignTestDto } from './dto/assign-test.dto';
+import { CorrectTestDto } from './dto/correct-test.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -11,23 +12,33 @@ import { STAFF_ROLES } from '../common/roles';
 export class PsychTestsController {
   constructor(private readonly psychTests: PsychTestsService) {}
 
-  @Get()
+  @Get('catalog')
   listCatalog() {
     return this.psychTests.listCatalog();
   }
 
-  @Get('responses')
-  listResponses(@Query('patientId') patientId: string) {
+  @Post('assign')
+  assign(@Body() dto: AssignTestDto) {
+    return this.psychTests.assign(dto);
+  }
+
+  @Get('assignments')
+  listForPatient(@Query('patientId') patientId: string) {
     return this.psychTests.listForPatient(patientId);
   }
 
-  @Get(':slug')
-  getDefinition(@Param('slug') slug: string) {
-    return this.psychTests.getDefinition(slug);
+  @Get('assignments/:id')
+  findOne(@Param('id') id: string) {
+    return this.psychTests.findOne(id);
   }
 
-  @Post(':slug/responses')
-  submit(@Param('slug') slug: string, @Body() dto: SubmitResponseDto) {
-    return this.psychTests.submit(slug, dto.patientId, dto.answers);
+  @Patch('assignments/:id/correct')
+  correct(@Param('id') id: string, @Body() dto: CorrectTestDto) {
+    return this.psychTests.correct(id, dto);
+  }
+
+  @Post('assignments/:id/attach-prontuario')
+  attachToProntuario(@Param('id') id: string) {
+    return this.psychTests.attachToProntuario(id);
   }
 }

@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreateTeamMemberDto } from './dto/create-team-member.dto';
 import { CRP_UPLOAD_DIR } from './crp-upload.config';
-import { CrpStatus } from '@prisma/client';
+import { CrpStatus, Role } from '@prisma/client';
 
 const SALT_ROUNDS = 12;
 
@@ -23,8 +23,17 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     return tenantPrisma.user.create({
-      data: { tenantId, name: dto.name, email: dto.email, passwordHash, role: dto.role },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      data: {
+        tenantId,
+        name: dto.name,
+        email: dto.email,
+        passwordHash,
+        role: dto.role,
+        // Ativar como supervisor exige aprovação do admin da plataforma (CRP já é
+        // verificado no cadastro do assinante — checar de novo aqui seria redundante).
+        supervisorApprovalStatus: dto.role === Role.SUPERVISOR ? 'PENDENTE' : undefined,
+      },
+      select: { id: true, name: true, email: true, role: true, createdAt: true, supervisorApprovalStatus: true },
     });
   }
 
@@ -42,6 +51,8 @@ export class UsersService {
         crpNumber: true,
         crpStatus: true,
         crpRejectionReason: true,
+        supervisorApprovalStatus: true,
+        supervisorRejectionReason: true,
       },
     });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
@@ -50,7 +61,7 @@ export class UsersService {
 
   async listForTenant() {
     return this.prisma.forCurrentTenant().user.findMany({
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, createdAt: true, supervisorApprovalStatus: true },
       orderBy: { createdAt: 'asc' },
     });
   }

@@ -70,17 +70,24 @@ export function fetchMe() {
 export interface Patient {
   id: string;
   name: string;
+  socialName?: string;
   email?: string;
   phone?: string;
   cpfCnpj?: string;
+  active: boolean;
 }
 
-export function listPatients() {
-  return request<Patient[]>('/patients');
+export function listPatients(active?: boolean) {
+  const qs = active === undefined ? '' : `?active=${active}`;
+  return request<Patient[]>(`/patients${qs}`);
 }
 
-export function createPatient(data: { name: string; email?: string; phone?: string; cpfCnpj?: string }) {
+export function createPatient(data: { name: string; socialName?: string; email?: string; phone?: string; cpfCnpj?: string }) {
   return request<Patient>('/patients', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function setPatientActive(id: string, active: boolean) {
+  return request<Patient>(`/patients/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) });
 }
 
 export interface Appointment {
@@ -91,18 +98,47 @@ export interface Appointment {
   patient: { name: string };
   videoRoomUrl?: string | null;
   consentAt?: string | null;
+  cancelReason?: string | null;
 }
 
-export function listAppointments() {
-  return request<Appointment[]>('/appointments');
+export function listAppointments(params?: { from?: string; to?: string; patientId?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  if (params?.patientId) qs.set('patientId', params.patientId);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return request<Appointment[]>(`/appointments${suffix}`);
 }
 
 export function createAppointment(data: { patientId: string; startsAt: string; endsAt: string }) {
   return request<Appointment>('/appointments', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function updateAppointmentStatus(id: string, status: string) {
-  return request<Appointment>(`/appointments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+export function updateAppointmentStatus(id: string, status: string, cancelReason?: string) {
+  return request<Appointment>(`/appointments/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, cancelReason }),
+  });
+}
+
+export interface AvailabilitySlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  heldUntil?: string | null;
+}
+
+export function listAvailability() {
+  return request<AvailabilitySlot[]>('/availability');
+}
+
+export function createAvailabilitySlot(data: { startsAt: string; endsAt: string }) {
+  return request<AvailabilitySlot>('/availability', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function deleteAvailabilitySlot(id: string) {
+  return request(`/availability/${id}`, { method: 'DELETE' });
 }
 
 export interface Invoice {
@@ -110,16 +146,35 @@ export interface Invoice {
   amountCents: number;
   dueDate: string;
   status: string;
+  paidAt?: string | null;
   patient: { name: string };
+  appointmentId?: string | null;
+  appointment?: { startsAt: string } | null;
   asaasPaymentId?: string | null;
   paymentLink?: string | null;
 }
 
-export function listInvoices() {
-  return request<Invoice[]>('/invoices');
+export function listInvoices(params?: { status?: string; from?: string; to?: string; patientId?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  if (params?.patientId) qs.set('patientId', params.patientId);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return request<Invoice[]>(`/invoices${suffix}`);
 }
 
-export function createInvoice(data: { patientId: string; amountCents: number; dueDate: string }) {
+export interface InvoiceSummary {
+  receivedThisMonthCents: number;
+  pendingCents: number;
+  overdueCents: number;
+}
+
+export function fetchInvoiceSummary() {
+  return request<InvoiceSummary>('/invoices/summary');
+}
+
+export function createInvoice(data: { patientId: string; amountCents: number; dueDate: string; appointmentId?: string }) {
   return request<Invoice>('/invoices', { method: 'POST', body: JSON.stringify(data) });
 }
 
@@ -142,24 +197,62 @@ export interface Profile {
   name: string;
   slug: string;
   bio?: string | null;
+  attendanceInfo?: string | null;
   photoUrl?: string | null;
   specialties?: string | null;
   publicEmail?: string | null;
   publicPhone?: string | null;
+  colorPalette: string;
   published: boolean;
   payoutProvider?: string | null;
   payoutAccountId?: string | null;
+  sessionPriceCents?: number | null;
+  bookingEnabled: boolean;
+  listedInDirectory: boolean;
 }
 
 export function fetchOwnProfile() {
   return request<Profile>('/profile');
 }
 
-export function updateProfile(data: Partial<Pick<Profile, 'bio' | 'photoUrl' | 'specialties' | 'publicEmail' | 'publicPhone' | 'published'>>) {
+export function updateProfile(
+  data: Partial<
+    Pick<
+      Profile,
+      | 'bio'
+      | 'attendanceInfo'
+      | 'photoUrl'
+      | 'specialties'
+      | 'publicEmail'
+      | 'publicPhone'
+      | 'published'
+      | 'colorPalette'
+      | 'sessionPriceCents'
+      | 'bookingEnabled'
+      | 'listedInDirectory'
+    >
+  >,
+) {
   return request<Profile>('/profile', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
-export type PublicProfile = Omit<Profile, 'published'>;
+export async function uploadProfilePhoto(file: File) {
+  const token = getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/profile/photo`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<Profile>;
+}
+
+export type PublicProfile = Omit<Profile, 'published'> & { crpVerified: boolean };
 
 /** Chamada de Server Component (sem token, sem localStorage) — não passa por request(). */
 export async function fetchPublicProfile(slug: string): Promise<PublicProfile | null> {
@@ -168,43 +261,190 @@ export async function fetchPublicProfile(slug: string): Promise<PublicProfile | 
   return res.json();
 }
 
-export interface TestDefinition {
+export interface PublicBanner {
+  id: string;
+  position: number;
+  imageUrl: string;
+  linkUrl?: string | null;
+}
+
+/** Banners da home da plataforma (configurados em /admin/banners) — usado em app/page.tsx. */
+export async function fetchPublicBanners(): Promise<PublicBanner[]> {
+  const res = await fetch(`${API_URL}/public/banners`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export interface DirectoryResult {
+  slug: string;
+  name: string;
+  photoUrl?: string | null;
+  specialties?: string | null;
+  bio?: string | null;
+  colorPalette: string;
+}
+
+/** Busca pública de profissionais (só aparece quem ativou "listedInDirectory") — usado em app/profissionais/page.tsx. */
+export async function searchDirectory(params: { q?: string; specialty?: string }): Promise<DirectoryResult[]> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.specialty) qs.set('specialty', params.specialty);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${API_URL}/public/directory${suffix}`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+/** Formulário de contato da página pública — vira Lead automaticamente no CRM do profissional. */
+export async function submitPublicLead(slug: string, data: { name: string; contact: string; message?: string }) {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface PublicSlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+/** Agendamento público — só retorna algo além de slots vazios se o profissional ligou bookingEnabled e definiu sessionPriceCents. */
+export async function fetchPublicAvailability(slug: string): Promise<{ sessionPriceCents: number | null; slots: PublicSlot[] }> {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/availability`, { cache: 'no-store' });
+  if (!res.ok) return { sessionPriceCents: null, slots: [] };
+  return res.json();
+}
+
+export interface PublicBookingResult {
+  appointmentId: string;
+  holdExpiresAt: string;
+  paymentLink: string;
+}
+
+/** Reserva o horário por 15min e gera o link de pagamento via Asaas (split pro profissional). */
+export async function submitPublicBooking(
+  slug: string,
+  data: { slotId: string; name: string; email: string; phone: string; cpfCnpj: string },
+) {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<PublicBookingResult>;
+}
+
+export interface TestQuestion {
+  id: string;
+  order: number;
+  type: 'objetiva' | 'subjetiva';
+  prompt: string;
+  reverseScored?: boolean;
+  options?: { value: number; label: string }[] | null;
+  subscale?: string | null;
+}
+
+export interface ScoreBand {
+  maxScore: number;
+  label: string;
+}
+
+export interface SubscaleDef {
+  key: string;
+  label: string;
+  scoreBands?: ScoreBand[] | null;
+}
+
+export interface DerivedScoreDef {
+  key: string;
+  label: string;
+  formula: { subscale: string; weight: number }[];
+  scoreBands?: ScoreBand[] | null;
+}
+
+export interface NamedScoreResult {
+  key: string;
+  label: string;
+  score: number;
+  resultLabel: string | null;
+}
+
+export interface TestTemplate {
+  id: string;
   slug: string;
   title: string;
   category: string;
   source: string;
   disclaimer: string;
   instructions: string;
-  responseScale: { value: number; label: string }[];
-  items: { id: string; text: string }[];
-  scoreBands: { maxScore: number; label: string }[];
+  responseScale?: { value: number; label: string }[] | null;
+  scoreBands?: ScoreBand[] | null;
+  subscales?: SubscaleDef[] | null;
+  derivedScores?: DerivedScoreDef[] | null;
+  active: boolean;
+  questions: TestQuestion[];
 }
 
-export interface TestResponseRecord {
+export interface TestAssignment {
   id: string;
-  testSlug: string;
-  score: number;
-  resultLabel: string;
-  createdAt: string;
+  patientId: string;
+  testTemplateId: string;
+  assignedAt: string;
+  status: 'pendente' | 'respondido' | 'corrigido';
+  answers?: Record<string, number | string> | null;
+  submittedAt?: string | null;
+  suggestedScore?: number | null;
+  suggestedResultLabel?: string | null;
+  suggestedSubscaleScores?: NamedScoreResult[] | null;
+  suggestedDerivedScores?: NamedScoreResult[] | null;
+  finalScore?: number | null;
+  finalResultLabel?: string | null;
+  communicationNote?: string | null;
+  correctedAt?: string | null;
+  attachedToProntuario: boolean;
+  prontuarioEntryId?: string | null;
+  testTemplate: TestTemplate;
 }
 
 export function listTestCatalog() {
-  return request<TestDefinition[]>('/psych-tests');
+  return request<TestTemplate[]>('/psych-tests/catalog');
 }
 
-export function getTestDefinition(slug: string) {
-  return request<TestDefinition>(`/psych-tests/${slug}`);
-}
-
-export function submitTestResponse(slug: string, patientId: string, answers: Record<string, number>) {
-  return request<TestResponseRecord>(`/psych-tests/${slug}/responses`, {
+export function assignTest(patientId: string, testTemplateId: string) {
+  return request<TestAssignment>('/psych-tests/assign', {
     method: 'POST',
-    body: JSON.stringify({ patientId, answers }),
+    body: JSON.stringify({ patientId, testTemplateId }),
   });
 }
 
-export function listTestResponses(patientId: string) {
-  return request<TestResponseRecord[]>(`/psych-tests/responses?patientId=${encodeURIComponent(patientId)}`);
+export function listTestAssignments(patientId: string) {
+  return request<TestAssignment[]>(`/psych-tests/assignments?patientId=${encodeURIComponent(patientId)}`);
+}
+
+export function getTestAssignment(id: string) {
+  return request<TestAssignment>(`/psych-tests/assignments/${id}`);
+}
+
+export function correctTestAssignment(id: string, data: { finalScore?: number; finalResultLabel?: string; communicationNote?: string }) {
+  return request<TestAssignment>(`/psych-tests/assignments/${id}/correct`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function attachTestToProntuario(id: string) {
+  return request<TestAssignment>(`/psych-tests/assignments/${id}/attach-prontuario`, { method: 'POST' });
 }
 
 export interface TeamMember {
@@ -213,6 +453,8 @@ export interface TeamMember {
   email: string;
   role: string;
   createdAt: string;
+  /** Só relevante quando role=SUPERVISOR — null pra qualquer outro papel. */
+  supervisorApprovalStatus?: 'PENDENTE' | 'APROVADO' | 'REJEITADO' | null;
 }
 
 export function listTeamMembers() {
@@ -223,44 +465,59 @@ export function createTeamMember(data: { name: string; email: string; password: 
   return request<TeamMember>('/users', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export interface CourseModuleView {
-  slug: string;
-  moduleNumber: string;
-  title: string;
-  files: string[];
-  completed: boolean;
-  locked: boolean;
-  videoUrl: string | null;
+export interface CourseQuizSummary {
+  id: string;
+  required: boolean;
+  passingScorePercent: number;
+  questionCount: number;
+  bestScorePercent: number | null;
+  passed: boolean;
+  attemptCount: number;
 }
 
-export interface CourseBlocoView {
-  number: number;
+export interface CourseLessonView {
+  id: string;
+  order: number;
+  title: string;
+  description?: string | null;
+  youtubeUrl?: string | null;
+  isExtra: boolean;
+  completed: boolean;
+  locked: boolean;
+  materials: { id: string; title: string }[];
+  quiz: CourseQuizSummary | null;
+}
+
+export interface CourseModuleView {
+  id: string;
+  order: number;
   title: string;
   free: boolean;
-  bundleOnly: boolean;
-  modules: CourseModuleView[];
+  locked: boolean;
+  lessons: CourseLessonView[];
 }
 
 export interface CourseView {
+  id: string;
   slug: string;
   title: string;
   description: string;
   priceCents: number | null;
-  blocos: CourseBlocoView[];
+  modules: CourseModuleView[];
 }
 
 export function listCourseCatalog() {
   return request<CourseView[]>('/courses');
 }
 
-export function markModuleComplete(courseSlug: string, moduleSlug: string) {
-  return request<{ completed: boolean }>(`/courses/${courseSlug}/modules/${moduleSlug}/complete`, { method: 'POST' });
+export function markLessonComplete(lessonId: string) {
+  return request<{ completed: boolean }>(`/courses/lessons/${lessonId}/complete`, { method: 'POST' });
 }
 
 /** Download autenticado: precisa do header Authorization, então não dá para usar um <a href> puro. */
-export async function downloadCourseFile(courseSlug: string, moduleSlug: string, fileType: string, suggestedName: string) {
+export async function downloadCourseMaterial(materialId: string, suggestedName: string) {
   const token = getToken();
-  const res = await fetch(`${API_URL}/courses/${courseSlug}/modules/${moduleSlug}/files/${fileType}`, {
+  const res = await fetch(`${API_URL}/courses/materials/${materialId}/download`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new Error(`Erro ${res.status} ao baixar arquivo.`);
@@ -273,15 +530,68 @@ export async function downloadCourseFile(courseSlug: string, moduleSlug: string,
   URL.revokeObjectURL(url);
 }
 
+export interface QuizOption {
+  id: string;
+  label: string;
+}
+
+export interface QuizQuestionForStudent {
+  id: string;
+  prompt: string;
+  options: QuizOption[];
+}
+
+export interface QuizAttemptSummary {
+  id: string;
+  scorePercent: number;
+  passed: boolean;
+  createdAt: string;
+}
+
+export interface QuizForStudent {
+  id: string;
+  required: boolean;
+  passingScorePercent: number;
+  questions: QuizQuestionForStudent[];
+  attempts: QuizAttemptSummary[];
+}
+
+export function getLessonQuiz(lessonId: string) {
+  return request<QuizForStudent>(`/courses/lessons/${lessonId}/quiz`);
+}
+
+export function submitQuizAttempt(lessonId: string, answers: Record<string, string>) {
+  return request<{ scorePercent: number; passed: boolean; correctCount: number; totalCount: number }>(
+    `/courses/lessons/${lessonId}/quiz/attempts`,
+    { method: 'POST', body: JSON.stringify({ answers }) },
+  );
+}
+
 export interface CertificateRecord {
   id: string;
   courseSlug: string;
+  course: { title: string };
   verificationCode: string;
   issuedAt: string;
 }
 
 export function listMyCertificates() {
   return request<CertificateRecord[]>('/certificates');
+}
+
+export async function downloadCertificate(id: string, suggestedName: string) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/certificates/${id}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = suggestedName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export interface CertificateVerification {
@@ -298,30 +608,68 @@ export async function verifyCertificate(code: string): Promise<CertificateVerifi
   return res.json();
 }
 
-export interface LibraryResource {
-  slug: string;
-  title: string;
+export interface LibraryMaterial {
+  id: string;
   category: string;
-  summary: string;
-  whereToFind: string;
+  title: string;
+  description?: string | null;
+  createdAt: string;
 }
 
 export function listLibrary() {
-  return request<LibraryResource[]>('/library');
+  return request<LibraryMaterial[]>('/library');
+}
+
+export async function downloadLibraryMaterial(id: string, suggestedName: string) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/library/${id}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = suggestedName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export interface SupervisionSession {
   id: string;
+  supervisorId: string;
+  superviseeId: string;
   startsAt: string;
   endsAt: string;
   status: string;
   notes?: string | null;
   supervisor: { name: string };
   supervisee: { name: string };
+  videoRoomUrl?: string | null;
+  videoRoomName?: string | null;
 }
 
 export function listSupervisionSessions() {
   return request<SupervisionSession[]>('/supervision-sessions');
+}
+
+export function createSupervisionTeleconsultaRoom(sessionId: string) {
+  return request<SupervisionSession>(`/supervision-sessions/${sessionId}/teleconsulta/room`, { method: 'POST' });
+}
+
+export interface SupervisionMessage {
+  id: string;
+  content: string;
+  createdAt: string;
+  sender: { id: string; name: string };
+}
+
+export function listSupervisionMessages(partnerId: string) {
+  return request<SupervisionMessage[]>(`/supervision-sessions/messages/${partnerId}`);
+}
+
+export function sendSupervisionMessage(partnerId: string, content: string) {
+  return request<SupervisionMessage>(`/supervision-sessions/messages/${partnerId}`, { method: 'POST', body: JSON.stringify({ content }) });
 }
 
 export function createSupervisionSession(data: { supervisorId: string; startsAt: string; endsAt: string }) {
@@ -337,7 +685,7 @@ export interface MarketplaceCourse {
   title: string;
   description: string;
   priceCents: number | null;
-  blocos: { number: number; title: string; free: boolean; moduleCount: number }[];
+  modules: { order: number; title: string; free: boolean; lessonCount: number }[];
 }
 
 /** Chamada pública (vitrine) — sem token, funciona sem estar logado. */
@@ -354,65 +702,86 @@ export interface Lead {
   source?: string | null;
   stage: string;
   notes?: string | null;
+  assignedToId?: string | null;
+  assignedTo?: { id: string; name: string } | null;
   convertedPatientId?: string | null;
   createdAt: string;
 }
 
-export function listLeads() {
-  return request<Lead[]>('/leads');
+export function listLeads(filters?: { search?: string; stage?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.stage) params.set('stage', filters.stage);
+  const qs = params.toString();
+  return request<Lead[]>(`/leads${qs ? `?${qs}` : ''}`);
 }
 
 export function createLead(data: { name: string; contact?: string; source?: string }) {
   return request<Lead>('/leads', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function updateLead(id: string, data: { stage?: string; notes?: string }) {
+export function updateLead(id: string, data: { name?: string; contact?: string; source?: string; stage?: string; notes?: string; assignedToId?: string | null }) {
   return request<Lead>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 }
 
-export function convertLead(id: string) {
-  return request<Patient>(`/leads/${id}/convert`, { method: 'POST' });
+export function deleteLead(id: string) {
+  return request(`/leads/${id}`, { method: 'DELETE' });
 }
 
-export interface ComplianceFlag {
-  match: string;
-  reason: string;
-}
-
-export interface MarketingPost {
+export interface LeadActivity {
   id: string;
   content: string;
-  platform?: string | null;
-  scheduledAt?: string | null;
-  status: string;
-  complianceFlags?: ComplianceFlag[] | null;
   createdAt: string;
+  author: { id: string; name: string };
 }
 
-export function checkMarketingContent(content: string) {
-  return request<ComplianceFlag[]>('/marketing/check', { method: 'POST', body: JSON.stringify({ content }) });
+export function listLeadActivities(leadId: string) {
+  return request<LeadActivity[]>(`/leads/${leadId}/activities`);
 }
 
-export function listMarketingPosts() {
-  return request<MarketingPost[]>('/marketing/posts');
+export function addLeadActivity(leadId: string, content: string) {
+  return request<LeadActivity>(`/leads/${leadId}/activities`, { method: 'POST', body: JSON.stringify({ content }) });
 }
 
-export function createMarketingPost(data: { content: string; platform?: string; scheduledAt?: string }) {
-  return request<MarketingPost>('/marketing/posts', { method: 'POST', body: JSON.stringify(data) });
+export interface LeadFunnelReport {
+  total: number;
+  countByStage: Record<string, number>;
+  conversionRate: number;
+  staleCount: number;
+  staleDaysThreshold: number;
 }
 
-export function updateMarketingPostStatus(id: string, status: string) {
-  return request<MarketingPost>(`/marketing/posts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+export function getLeadFunnelReport() {
+  return request<LeadFunnelReport>('/leads/report');
 }
+
+export function convertLead(id: string) {
+  return request<{ patient: Patient; matchedExisting: boolean }>(`/leads/${id}/convert`, { method: 'POST' });
+}
+
+export type CommunityCategory = 'INDICACAO' | 'CASO_CLINICO' | 'GESTAO_CONSULTORIO' | 'ABORDAGENS_TECNICAS' | 'CARREIRA_FORMACAO' | 'GERAL';
+
+export const COMMUNITY_CATEGORY_LABEL: Record<CommunityCategory, string> = {
+  INDICACAO: 'Indicação/Encaminhamento',
+  CASO_CLINICO: 'Caso Clínico',
+  GESTAO_CONSULTORIO: 'Gestão de Consultório',
+  ABORDAGENS_TECNICAS: 'Abordagens e Técnicas',
+  CARREIRA_FORMACAO: 'Carreira e Formação',
+  GERAL: 'Geral',
+};
 
 export interface CommunityPost {
   id: string;
   title: string;
   content: string;
+  category: CommunityCategory;
   createdAt: string;
   authorName: string;
   tenantName: string;
-  _count?: { replies: number };
+  authorCrpVerified: boolean;
+  authorSpecialty?: string | null;
+  likedByMe: boolean;
+  _count?: { replies: number; likes: number };
 }
 
 export interface CommunityReply {
@@ -421,17 +790,33 @@ export interface CommunityReply {
   createdAt: string;
   authorName: string;
   tenantName: string;
+  authorCrpVerified: boolean;
+  authorSpecialty?: string | null;
+  likedByMe: boolean;
+  _count?: { likes: number };
 }
 
 export interface CommunityPostDetail extends CommunityPost {
   replies: CommunityReply[];
 }
 
-export function listCommunityPosts() {
-  return request<CommunityPost[]>('/community/posts');
+export interface CommunityPostList {
+  posts: CommunityPost[];
+  total: number;
+  page: number;
+  take: number;
 }
 
-export function createCommunityPost(data: { title: string; content: string }) {
+export function listCommunityPosts(filters?: { category?: CommunityCategory; search?: string; page?: number }) {
+  const params = new URLSearchParams();
+  if (filters?.category) params.set('category', filters.category);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.page) params.set('page', String(filters.page));
+  const qs = params.toString();
+  return request<CommunityPostList>(`/community/posts${qs ? `?${qs}` : ''}`);
+}
+
+export function createCommunityPost(data: { title: string; content: string; category: CommunityCategory }) {
   return request<CommunityPost>('/community/posts', { method: 'POST', body: JSON.stringify(data) });
 }
 
@@ -441,6 +826,43 @@ export function getCommunityPost(id: string) {
 
 export function replyToCommunityPost(id: string, content: string) {
   return request<CommunityReply>(`/community/posts/${id}/replies`, { method: 'POST', body: JSON.stringify({ content }) });
+}
+
+export function toggleCommunityPostLike(id: string) {
+  return request<{ liked: boolean; count: number }>(`/community/posts/${id}/like`, { method: 'POST' });
+}
+
+export function toggleCommunityReplyLike(id: string) {
+  return request<{ liked: boolean; count: number }>(`/community/replies/${id}/like`, { method: 'POST' });
+}
+
+export function reportCommunityPost(id: string, reason: string) {
+  return request(`/community/posts/${id}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
+}
+
+export function reportCommunityReply(id: string, reason: string) {
+  return request(`/community/replies/${id}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
+}
+
+export interface CommunityNotification {
+  id: string;
+  postId: string;
+  replyId?: string | null;
+  message: string;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export function listCommunityNotifications() {
+  return request<CommunityNotification[]>('/community/notifications');
+}
+
+export function markCommunityNotificationRead(id: string) {
+  return request<CommunityNotification>(`/community/notifications/${id}/read`, { method: 'POST' });
+}
+
+export function markAllCommunityNotificationsRead() {
+  return request('/community/notifications/read-all', { method: 'POST' });
 }
 
 export interface PatientDetail extends Patient {
@@ -475,12 +897,22 @@ export function summarizeProntuarioWithAi(patientId: string) {
   return request<{ summary: string }>(`/ai/prontuario/${patientId}/summarize`, { method: 'POST' });
 }
 
-export function suggestCompliantRewrite(content: string, flagReasons: string[]) {
-  return request<{ suggestion: string }>('/ai/marketing/rewrite', { method: 'POST', body: JSON.stringify({ content, flagReasons }) });
+export interface AiChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
-export function askAiAssistant(question: string) {
-  return request<{ answer: string }>('/ai/ask', { method: 'POST', body: JSON.stringify({ question }) });
+export function askAiAssistant(question: string, history?: AiChatTurn[]) {
+  return request<{ answer: string }>('/ai/ask', { method: 'POST', body: JSON.stringify({ question, history }) });
+}
+
+export interface AiUsage {
+  used: number;
+  limit: number;
+}
+
+export function getAiUsage() {
+  return request<AiUsage>('/ai/usage');
 }
 
 export function listPatientAppointments(patientId: string) {
@@ -505,6 +937,13 @@ export interface Plan {
 
 export function listPlans() {
   return request<Record<PlanKey, Plan>>('/billing/plans');
+}
+
+/** Mesma rota de listPlans(), mas via fetch puro (sem localStorage) — segura pra chamar de Server Component, igual fetchPublicBanners/fetchPublicProfile. */
+export async function fetchPublicPlans(): Promise<Record<PlanKey, Plan> | null> {
+  const res = await fetch(`${API_URL}/billing/plans`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  return res.json();
 }
 
 export interface SubscriptionInfo {
@@ -544,20 +983,6 @@ export async function submitCrp(crpNumber: string, document: File) {
     throw new Error(body.message ?? `Erro ${res.status}`);
   }
   return res.json();
-}
-
-export interface Offer {
-  id: string;
-  title: string;
-  description: string;
-  externalUrl: string;
-  imageUrl?: string | null;
-  active: boolean;
-  createdAt: string;
-}
-
-export function listOffers() {
-  return request<Offer[]>('/offers');
 }
 
 export interface DocumentTemplate {

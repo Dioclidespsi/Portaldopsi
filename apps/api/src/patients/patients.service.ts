@@ -5,6 +5,7 @@ import { getRequestContext } from '../common/tenant-context';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { CreateProntuarioEntryDto } from './dto/create-prontuario-entry.dto';
 import { EnablePortalDto } from './dto/enable-portal.dto';
+import { UpdatePatientActiveDto } from './dto/update-patient-active.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -25,10 +26,11 @@ export class PatientsService {
       data: {
         tenantId,
         name: dto.name,
+        socialName: dto.socialName,
         email: dto.email,
-        phone: dto.phone,
+        phone: dto.phone ? dto.phone.replace(/\D/g, '') : undefined,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-        cpfCnpj: dto.cpfCnpj,
+        cpfCnpj: dto.cpfCnpj ? dto.cpfCnpj.replace(/\D/g, '') : undefined,
       },
     });
   }
@@ -47,14 +49,25 @@ export class PatientsService {
     });
   }
 
-  list() {
-    return this.prisma.forCurrentTenant().patient.findMany({ orderBy: { name: 'asc' } });
+  list(active?: boolean) {
+    return this.prisma.forCurrentTenant().patient.findMany({
+      where: active === undefined ? undefined : { active },
+      orderBy: { name: 'asc' },
+    });
   }
 
   async findOne(id: string) {
     const patient = await this.prisma.forCurrentTenant().patient.findUnique({ where: { id } });
     if (!patient) throw new NotFoundException('Paciente não encontrado.');
     return patient;
+  }
+
+  async setActive(id: string, dto: UpdatePatientActiveDto) {
+    await this.findOne(id);
+    return this.prisma.forCurrentTenant().patient.update({
+      where: { id },
+      data: { active: dto.active },
+    });
   }
 
   /** Entradas de prontuário são append-only — ver comentário no schema.prisma. */
