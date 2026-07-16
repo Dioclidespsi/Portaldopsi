@@ -1,3 +1,5 @@
+import type { CourseView, QuizForStudent, CertificateRecord } from './api';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 const PATIENT_TOKEN_KEY = 'portal-do-psi:patient-token';
 
@@ -137,6 +139,60 @@ export function listOwnMeditationTracks() {
 export function meditationAudioUrl(id: string): string {
   const token = getPatientToken();
   return `${API_URL}/patient-portal/meditation-tracks/${id}/audio?token=${encodeURIComponent(token ?? '')}`;
+}
+
+/** Vitrine — sem progresso, mesmo catálogo de /loja. */
+export function listOwnCourseCatalog() {
+  return request<{ slug: string; title: string; description: string; priceCents: number | null; modules: { order: number; title: string; free: boolean; lessonCount: number }[] }[]>(
+    '/patient-portal/courses',
+  );
+}
+
+/** Com progresso/bloqueio, já considerando o que o paciente comprou. */
+export function listOwnCoursesWithProgress() {
+  return request<CourseView[]>('/patient-portal/courses/mine');
+}
+
+export function purchaseOwnCourse(slug: string, cpfCnpj: string) {
+  return request<{ paymentId: string; paymentLink: string }>(`/patient-portal/courses/${slug}/purchase`, {
+    method: 'POST',
+    body: JSON.stringify({ cpfCnpj }),
+  });
+}
+
+export function markOwnLessonComplete(lessonId: string) {
+  return request<{ completed: boolean }>(`/patient-portal/courses/lessons/${lessonId}/complete`, { method: 'POST' });
+}
+
+export function getOwnLessonQuiz(lessonId: string) {
+  return request<QuizForStudent>(`/patient-portal/courses/lessons/${lessonId}/quiz`);
+}
+
+export function submitOwnQuizAttempt(lessonId: string, answers: Record<string, string>) {
+  return request<{ scorePercent: number; passed: boolean; correctCount: number; totalCount: number }>(
+    `/patient-portal/courses/lessons/${lessonId}/quiz`,
+    { method: 'POST', body: JSON.stringify({ answers }) },
+  );
+}
+
+export function listOwnCertificates() {
+  return request<CertificateRecord[]>('/patient-portal/certificates');
+}
+
+/** Download autenticado: precisa do header Authorization, então não dá pra usar um <a href> puro. */
+export async function downloadOwnCertificate(id: string, suggestedName: string) {
+  const token = getPatientToken();
+  const res = await fetch(`${API_URL}/patient-portal/certificates/${id}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status} ao baixar certificado.`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = suggestedName;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Nunca traz score/resultLabel — comunicar o resultado é decisão do psicólogo, não deste app. */

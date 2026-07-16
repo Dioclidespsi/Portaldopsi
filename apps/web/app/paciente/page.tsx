@@ -140,6 +140,9 @@ export default function PatientDashboardPage() {
           <Link href="/paciente/meditacao">
             <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Meditação</button>
           </Link>
+          <Link href="/paciente/cursos">
+            <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Cursos</button>
+          </Link>
           <button onClick={onLogout} style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
             Sair
           </button>
