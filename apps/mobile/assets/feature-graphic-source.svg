@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500">
+  <rect width="1024" height="500" fill="#1f6f63"/>
+  <rect x="72" y="122" width="256" height="256" rx="48" fill="#ffffff" fill-opacity="0.12"/>
+  <text x="200" y="322" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="180" font-weight="600" fill="#ffffff" text-anchor="middle">&#968;</text>
+  <text x="392" y="250" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" fill="#ffffff">Portal do Psi</text>
+  <text x="392" y="308" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="32" font-weight="400" fill="#e7f2f0">Agende consultas e acompanhe</text>
+  <text x="392" y="350" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="32" font-weight="400" fill="#e7f2f0">sua jornada com seu psicólogo</text>
+</svg>
