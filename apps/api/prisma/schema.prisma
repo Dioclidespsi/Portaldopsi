@@ -127,6 +127,7 @@ model Tenant {
   moduleProgress     ModuleProgress[]
   certificates       Certificate[]
   courseQuizAttempts CourseQuizAttempt[]
+  pushSubscriptions  PushSubscription[]
   supervisionSessions SupervisionSession[]
   supervisionMessages SupervisionMessage[]
   leads              Lead[]
@@ -240,6 +241,7 @@ model Patient {
   courseQuizAttempts CourseQuizAttempt[]
   certificates       Certificate[]
   homeworks          Homework[]
+  pushSubscriptions  PushSubscription[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -287,6 +289,23 @@ model Homework {
 
   @@index([tenantId, patientId])
   @@map("homeworks")
+}
+
+/// Aplicativo do Paciente: token FCM de um dispositivo autorizado a receber
+/// push (lembrete de consulta, dever de casa atribuído, etc). Paciente pode
+/// ter vários tokens (celular + desktop) — cada um é uma linha própria,
+/// removida no logout do dispositivo ou quando o FCM reporta o token inválido.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  fcmToken  String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, patientId])
+  @@map("push_subscriptions")
 }
 
 model Appointment {

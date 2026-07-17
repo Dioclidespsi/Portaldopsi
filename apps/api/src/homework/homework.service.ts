@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreateHomeworkDto } from './dto/create-homework.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class HomeworkService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(dto: CreateHomeworkDto) {
     const { tenantId, userId } = getRequestContext();
@@ -13,7 +17,7 @@ export class HomeworkService {
     const patient = await tenantPrisma.patient.findUnique({ where: { id: dto.patientId } });
     if (!patient) throw new NotFoundException('Paciente não encontrado.');
 
-    return tenantPrisma.homework.create({
+    const homework = await tenantPrisma.homework.create({
       data: {
         tenantId,
         patientId: dto.patientId,
@@ -23,6 +27,13 @@ export class HomeworkService {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       },
     });
+
+    await this.notifications.notifyPatient(tenantId, dto.patientId, {
+      title: 'Novo dever de casa',
+      body: dto.title,
+    });
+
+    return homework;
   }
 
   listByPatient(patientId: string) {

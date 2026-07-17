@@ -101,6 +101,14 @@ export function bookOwnAppointment(slotId: string) {
   });
 }
 
+export function registerPushToken(fcmToken: string) {
+  return request<{ id: string }>('/patient-portal/push-subscriptions', { method: 'POST', body: JSON.stringify({ fcmToken }) });
+}
+
+export function unregisterPushToken(fcmToken: string) {
+  return request<{ removed: boolean }>('/patient-portal/push-subscriptions/unsubscribe', { method: 'POST', body: JSON.stringify({ fcmToken }) });
+}
+
 export interface PatientHomework {
   id: string;
   title: string;

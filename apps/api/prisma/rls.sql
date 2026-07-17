@@ -54,6 +54,15 @@ DROP POLICY IF EXISTS tenant_isolation ON appointments;
 CREATE POLICY tenant_isolation ON appointments
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
+-- Sem exceção '__system__', de propósito — mesmo padrão de patients/appointments
+-- (dado sensível). O job diário de lembrete (NotificationsService) itera tenant
+-- por tenant com forTenant(id) em vez de ler tudo de uma vez.
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON push_subscriptions;
+CREATE POLICY tenant_isolation ON push_subscriptions
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
 -- Sem exceção '__system__' de propósito, igual appointments/patients: o
 -- agendamento público (BookingService) sempre resolve o tenantId pelo slug
 -- primeiro e usa forTenant(id) explícito, nunca forSystem() — ver

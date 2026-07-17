@@ -15,7 +15,9 @@ import {
   PatientAppointment,
   PatientMe,
   PatientSlot,
+  registerPushToken,
 } from '../../lib/patient-api';
+import { onForegroundPush, requestPushToken } from '../../lib/firebase';
 
 const STATUS_LABEL: Record<string, string> = {
   agendado: 'Agendado',
@@ -45,6 +47,9 @@ export default function PatientDashboardPage() {
   const [booking, setBooking] = useState(false);
   const [bookingResult, setBookingResult] = useState<{ paymentLink: string; holdExpiresAt: string } | null>(null);
 
+  const [showPushBanner, setShowPushBanner] = useState(false);
+  const [pushToast, setPushToast] = useState<string | null>(null);
+
   useEffect(() => {
     Promise.all([fetchPatientMe(), listOwnAppointments()])
       .then(([meData, appts]) => {
@@ -54,6 +59,21 @@ export default function PatientDashboardPage() {
       .catch(() => router.push('/paciente/login'))
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') setShowPushBanner(true);
+    onForegroundPush((title, body) => setPushToast(`${title} — ${body}`));
+  }, []);
+
+  async function onEnablePush() {
+    const token = await requestPushToken();
+    if (token) {
+      await registerPushToken(token).catch(() => undefined);
+      setShowPushBanner(false);
+    } else {
+      setShowPushBanner(false);
+    }
+  }
 
   function onOpenBooking() {
     setShowBooking(true);
@@ -124,6 +144,29 @@ export default function PatientDashboardPage() {
 
   return (
     <div className="shell shell-wide">
+      {pushToast && (
+        <div className="callout-box" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.88rem' }}>{pushToast}</span>
+          <button type="button" onClick={() => setPushToast(null)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
+            Fechar
+          </button>
+        </div>
+      )}
+      {showPushBanner && (
+        <div className="callout-box" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
+          <span style={{ fontSize: '0.88rem' }}>Ative as notificações pra receber lembretes de consulta e avisos de dever de casa.</span>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button type="button" onClick={onEnablePush} style={{ fontSize: '0.82rem', padding: '0.4rem 0.7rem' }}>Ativar</button>
+            <button
+              type="button"
+              onClick={() => setShowPushBanner(false)}
+              style={{ fontSize: '0.82rem', padding: '0.4rem 0.7rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+            >
+              Agora não
+            </button>
+          </div>
+        </div>
+      )}
       <div className="topbar">
         <div>
           <h1>Olá, {me.name}</h1>

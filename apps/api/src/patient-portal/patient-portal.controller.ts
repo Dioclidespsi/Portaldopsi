@@ -8,6 +8,7 @@ import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
 import { BookAppointmentDto } from './dto/book-appointment.dto';
 import { CompleteHomeworkDto } from './dto/complete-homework.dto';
+import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 import { MEDITATION_UPLOAD_DIR } from '../meditation/meditation-upload.config';
 import { PurchaseCourseDto } from './dto/purchase-course.dto';
 import { SubmitQuizAttemptDto } from '../courses/dto/submit-quiz-attempt.dto';
@@ -64,6 +65,16 @@ export class PatientPortalController {
   @Post('bookings')
   book(@Body() dto: BookAppointmentDto) {
     return this.portal.bookAppointment(dto.slotId);
+  }
+
+  @Post('push-subscriptions')
+  subscribeToPush(@Body() dto: RegisterPushTokenDto) {
+    return this.portal.subscribeToPush(dto);
+  }
+
+  @Post('push-subscriptions/unsubscribe')
+  unsubscribeFromPush(@Body() dto: RegisterPushTokenDto) {
+    return this.portal.unsubscribeFromPush(dto.fcmToken);
   }
 
   @Get('homework')

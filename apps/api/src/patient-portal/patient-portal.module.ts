@@ -9,9 +9,10 @@ import { BookingModule } from '../booking/booking.module';
 import { CoursesModule } from '../courses/courses.module';
 import { CertificatesModule } from '../certificates/certificates.module';
 import { AsaasModule } from '../asaas/asaas.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, AvailabilityModule, BookingModule, CoursesModule, CertificatesModule, AsaasModule],
+  imports: [AuthModule, AvailabilityModule, BookingModule, CoursesModule, CertificatesModule, AsaasModule, NotificationsModule],
   controllers: [PatientPortalController],
   providers: [PatientPortalService, PatientCoursesService],
 })

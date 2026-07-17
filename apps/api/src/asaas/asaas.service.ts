@@ -6,6 +6,7 @@ import { getRequestContext } from '../common/tenant-context';
 import { CreatePayoutAccountDto } from './dto/create-payout-account.dto';
 import { CreatePlatformSubscriptionDto } from './dto/create-platform-subscription.dto';
 import { PLANS } from '../billing/plans';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /**
  * Integração com o Asaas (gateway nacional escolhido no §03 do doc de
@@ -35,6 +36,7 @@ export class AsaasService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
   ) {
     this.apiKey = this.config.get<string>('ASAAS_API_KEY') || undefined;
     this.baseUrl = this.config.get<string>('ASAAS_BASE_URL') || 'https://api-sandbox.asaas.com/v3';
@@ -268,8 +270,12 @@ export class AsaasService {
         for (const inv of paidInvoices) {
           if (!inv.appointmentId) continue;
           const tenantPrisma = this.prisma.forTenant(inv.tenantId);
-          await tenantPrisma.appointment.update({ where: { id: inv.appointmentId }, data: { status: 'confirmado' } });
+          const appointment = await tenantPrisma.appointment.update({ where: { id: inv.appointmentId }, data: { status: 'confirmado' } });
           await tenantPrisma.availabilitySlot.updateMany({ where: { appointmentId: inv.appointmentId }, data: { status: 'confirmado', heldUntil: null } });
+          await this.notifications.notifyPatient(inv.tenantId, appointment.patientId, {
+            title: 'Consulta confirmada',
+            body: `Sua sessão de ${appointment.startsAt.toLocaleString('pt-BR')} foi confirmada.`,
+          });
         }
       }
     }

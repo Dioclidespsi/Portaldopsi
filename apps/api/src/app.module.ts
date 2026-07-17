@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -29,11 +30,13 @@ import { BannersModule } from './banners/banners.module';
 import { DirectoryModule } from './directory/directory.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { HomeworkModule } from './homework/homework.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { EstudanteAccessGuard } from './common/estudante-access.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -62,6 +65,7 @@ import { EstudanteAccessGuard } from './common/estudante-access.guard';
     DirectoryModule,
     PlatformSettingsModule,
     HomeworkModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: EstudanteAccessGuard }],
 })

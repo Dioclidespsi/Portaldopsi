@@ -11,6 +11,8 @@ import { PatientJwtPayload } from './patient-jwt.types';
 import { computeSuggestedScore } from '../psych-tests/scoring';
 import { AvailabilityService } from '../availability/availability.service';
 import { BookingService } from '../booking/booking.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 
 const SALT_ROUNDS = 12;
 
@@ -21,6 +23,7 @@ export class PatientPortalService {
     private readonly jwt: JwtService,
     private readonly availability: AvailabilityService,
     private readonly booking: BookingService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -184,6 +187,16 @@ export class PatientPortalService {
     const track = await this.prisma.meditationTrack.findUnique({ where: { id } });
     if (!track || !track.active) throw new NotFoundException('Trilha não encontrada.');
     return track.audioPath;
+  }
+
+  subscribeToPush(dto: RegisterPushTokenDto) {
+    const { tenantId, patientId } = getPatientContext();
+    return this.notifications.registerToken(tenantId, patientId, dto.fcmToken);
+  }
+
+  unsubscribeFromPush(fcmToken: string) {
+    const { tenantId } = getPatientContext();
+    return this.notifications.unregisterToken(tenantId, fcmToken);
   }
 
   async listHomework() {
