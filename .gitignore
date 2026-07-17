@@ -22,3 +22,8 @@ apps/mobile/android/.gradle/
 apps/mobile/android/build/
 apps/mobile/android/local.properties
 
+# Fase 9 — chave de assinatura de release da Play Store: NUNCA vai pro git,
+# nem em base64. Fica só como GitHub Secret (ver .github/workflows/build-native.yml)
+# e numa cópia de segurança sua fora deste repositório.
+apps/mobile/keystore-secret/
+

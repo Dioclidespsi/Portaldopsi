@@ -160,6 +160,7 @@ export default async function HomePage() {
           <Link href="/loja" style={{ color: 'var(--ink-soft)', textDecoration: 'none' }}>Cursos</Link>
           <Link href="/login" style={{ color: 'var(--ink-soft)', textDecoration: 'none' }}>Sou psicólogo(a)</Link>
           <Link href="/paciente/login" style={{ color: 'var(--ink-soft)', textDecoration: 'none' }}>Sou paciente</Link>
+          <Link href="/privacidade" style={{ color: 'var(--ink-soft)', textDecoration: 'none' }}>Privacidade</Link>
         </div>
         <p style={{ margin: 0 }}>Portal do Psi</p>
       </footer>

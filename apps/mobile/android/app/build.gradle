@@ -16,10 +16,29 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Assinatura de release vem de variáveis de ambiente (ANDROID_KEYSTORE_PATH
+    // etc.) setadas pelo workflow de CI a partir de GitHub Secrets — nunca um
+    // arquivo committado. Sem essas variáveis (build local, sem intenção de
+    // publicar), o release simplesmente sai sem assinatura, sem quebrar nada.
+    def hasReleaseSigning = System.getenv("ANDROID_KEYSTORE_PATH") != null
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                storeType "PKCS12"
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
