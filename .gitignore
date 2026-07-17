@@ -9,3 +9,16 @@ apps/api/uploads/
 *.tsbuildinfo
 __pycache__/
 apps/api/course-content/
+
+# Fase 8 — cascas nativas (Capacitor/Tauri): build output real fica fora do
+# git, mas o dist/ placeholder do Tauri precisa existir num clone novo
+# (frontendDist em tauri.conf.json, nunca servido de verdade — ver app.windows[0].url).
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+!apps/desktop/dist/
+!apps/desktop/dist/index.html
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/local.properties
+

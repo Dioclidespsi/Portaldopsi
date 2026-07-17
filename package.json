@@ -9,7 +9,9 @@
     "dev:web": "npm run dev --workspace apps/web",
     "build:api": "npm run build --workspace apps/api",
     "build:web": "npm run build --workspace apps/web",
-    "start:api": "npm run start:prod --workspace apps/api"
+    "start:api": "npm run start:prod --workspace apps/api",
+    "build:android": "npm run sync --workspace apps/mobile && npm run open:android --workspace apps/mobile",
+    "build:desktop": "npm run build --workspace apps/desktop"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,

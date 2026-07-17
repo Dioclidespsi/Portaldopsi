@@ -1,0 +1,13 @@
+{
+  "name": "@portal-do-psi/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Casca nativa Windows/Mac (Tauri) do Portal do Psi — abre https://portaldopsi.com.br numa janela nativa, sem duplicar código do site.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}
