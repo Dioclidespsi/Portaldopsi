@@ -22,6 +22,9 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: npm ci
       - run: npm run sync --workspace apps/mobile
+      # git no Windows não preserva o bit de execução do gradlew — reforça aqui
+      # independente do que estiver commitado (ver update-index --chmod=+x).
+      - run: chmod +x apps/mobile/android/gradlew
       # APK de debug, sem assinatura — suficiente pra instalar e testar num
       # aparelho. Pra publicar na Play Store precisa de build assinado (Fase 9).
       - working-directory: apps/mobile/android
