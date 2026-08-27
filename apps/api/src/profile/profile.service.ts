@@ -2,8 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { VideoApprovalStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
+import { extractYouTubeId } from '../common/youtube';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreatePublicLeadDto } from './dto/create-public-lead.dto';
 import { PROFILE_PHOTO_UPLOAD_DIR } from './profile-photo-upload.config';
@@ -20,6 +22,14 @@ const PUBLIC_FIELDS = {
   specialties: true,
   publicEmail: true,
   publicPhone: true,
+  publicAddress: true,
+  publicCity: true,
+  publicState: true,
+  socialInstagram: true,
+  socialYoutube: true,
+  socialFacebook: true,
+  socialLinkedin: true,
+  socialTiktok: true,
   colorPalette: true,
   /// Só faz sentido mostrar preço/CTA de agendamento se bookingEnabled — o
   /// frontend decide se mostra o widget checando os dois campos juntos (ver
@@ -39,9 +49,26 @@ export class ProfileService {
    * `tenants` não tem RLS (ver schema.prisma), então o isolamento aqui depende
    * inteiramente de usar o tenantId do contexto autenticado — nunca um id
    * vindo do corpo da requisição.
+   *
+   * Publicar a página (`published: true`) exige CRP verificado, mesmo no
+   * plano Free — é licença profissional, não feature paga. Só checa quando
+   * o pedido está de fato tentando LIGAR a publicação: já publicado
+   * continuando publicado, ou desligando, nunca é bloqueado por isso.
    */
-  updateOwn(dto: UpdateProfileDto) {
+  async updateOwn(dto: UpdateProfileDto) {
     const { tenantId } = getRequestContext();
+
+    if (dto.published) {
+      const tenantPrisma = this.prisma.forTenant(tenantId);
+      const verifiedTitular = await tenantPrisma.user.findFirst({
+        where: { role: 'PSICOLOGO_TITULAR', crpStatus: 'VERIFICADO' },
+        select: { id: true },
+      });
+      if (!verifiedTitular) {
+        throw new BadRequestException('Seu CRP precisa estar verificado antes de publicar sua página profissional.');
+      }
+    }
+
     return this.prisma.tenant.update({ where: { id: tenantId }, data: dto });
   }
 
@@ -90,16 +117,73 @@ export class ProfileService {
    * desta clínica tiver CRP verificado pelo admin da plataforma.
    */
   async getPublic(slug: string) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { slug }, select: { ...PUBLIC_FIELDS, id: true, published: true } });
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug },
+      select: { ...PUBLIC_FIELDS, id: true, published: true, presentationVideoStatus: true, presentationVideoUrl: true },
+    });
     if (!tenant || !tenant.published) {
       throw new NotFoundException('Página não encontrada ou ainda não publicada.');
     }
-    const verifiedTitular = await this.prisma.forTenant(tenant.id).user.findFirst({
-      where: { role: 'PSICOLOGO_TITULAR', crpStatus: 'VERIFICADO' },
-      select: { id: true },
+    const tenantPrisma = this.prisma.forTenant(tenant.id);
+    const [verifiedTitular, blocks] = await Promise.all([
+      tenantPrisma.user.findFirst({
+        where: { role: 'PSICOLOGO_TITULAR', crpStatus: 'VERIFICADO' },
+        select: { id: true, crpNumber: true },
+      }),
+      tenantPrisma.siteProfileBlock.findMany({
+        orderBy: { position: 'asc' },
+        select: { id: true, type: true, fields: true, position: true },
+      }),
+    ]);
+    const { id, published, presentationVideoStatus, presentationVideoUrl, ...publicProfile } = tenant;
+    return {
+      ...publicProfile,
+      crpVerified: Boolean(verifiedTitular),
+      /// Só expõe o número quando o CRP está verificado — nunca um valor não conferido pela equipe.
+      crpNumber: verifiedTitular?.crpNumber ?? null,
+      presentationVideoUrl: presentationVideoStatus === VideoApprovalStatus.PUBLICADO ? presentationVideoUrl : null,
+      /// Conteúdo repetível (formação, experiência, credenciais, FAQ) — ver
+      /// SiteProfileBlock. Lista vazia quando o psicólogo não preencheu nada,
+      /// nunca um placeholder fabricado.
+      blocks,
+    };
+  }
+
+  /**
+   * Só o link é cadastrado (nunca um arquivo) — vídeo hospedado pelo próprio
+   * profissional no YouTube como "não listado". Cadastrar outro link
+   * sobrescreve o anterior e volta pra EM_ANALISE — nunca publica direto,
+   * mesmo que já tivesse sido aprovado antes. Nunca mistura estado de uma
+   * tentativa anterior, mesmo padrão de UsersService.submitCrp.
+   */
+  async setPresentationVideoUrl(url: string) {
+    const videoId = extractYouTubeId(url);
+    if (!videoId) throw new BadRequestException('Cole um link válido de vídeo do YouTube.');
+    const { tenantId } = getRequestContext();
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        presentationVideoUrl: url,
+        presentationVideoStatus: VideoApprovalStatus.EM_ANALISE,
+        presentationVideoRejectionReason: null,
+      },
+      select: { id: true, presentationVideoStatus: true },
     });
-    const { id, published, ...publicProfile } = tenant;
-    return { ...publicProfile, crpVerified: Boolean(verifiedTitular) };
+  }
+
+  /** Some da página pública (mesmo se já estava PUBLICADO) e limpa o link — o profissional pode cadastrar outro depois. */
+  async removePresentationVideo() {
+    const { tenantId } = getRequestContext();
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        presentationVideoUrl: null,
+        presentationVideoStatus: VideoApprovalStatus.NAO_ENVIADO,
+        presentationVideoRejectionReason: null,
+      },
+      select: { id: true, presentationVideoStatus: true },
+    });
   }
 
   /**

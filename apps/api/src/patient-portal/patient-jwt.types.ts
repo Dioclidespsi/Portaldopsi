@@ -1,5 +1,4 @@
 export interface PatientJwtPayload {
-  sub: string; // patientId
-  tenantId: string;
+  sub: string; // patientAccountId — conta global, cross-clínica (ver PatientAccount)
   kind: 'PACIENTE';
 }

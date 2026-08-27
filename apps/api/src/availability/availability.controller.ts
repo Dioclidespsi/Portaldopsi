@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AvailabilityService } from './availability.service';
 import { CreateSlotDto } from './dto/create-slot.dto';
+import { CreateSlotBlockDto } from './dto/create-slot-block.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -14,6 +15,11 @@ export class AvailabilityController {
   @Post()
   create(@Body() dto: CreateSlotDto) {
     return this.availability.createSlot(dto);
+  }
+
+  @Post('block')
+  createBlock(@Body() dto: CreateSlotBlockDto) {
+    return this.availability.createSlotBlock(dto);
   }
 
   @Get()

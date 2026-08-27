@@ -5,6 +5,26 @@ import { patientStorage } from '../common/patient-context';
 import { PatientJwtPayload } from './patient-jwt.types';
 
 /**
+ * Verifica um token cru de paciente (sem o prefixo "Bearer "). Extraído do
+ * middleware pra ser reaproveitado por BookingService, que precisa aceitar
+ * uma requisição SEM token (visitante anônimo agendando pela primeira vez)
+ * mas rejeitar explicitamente um token presente e inválido — nunca cair
+ * pro fluxo anônimo em silêncio nesse segundo caso.
+ */
+export function verifyPatientToken(jwt: JwtService, token: string): PatientJwtPayload {
+  let payload: PatientJwtPayload;
+  try {
+    payload = jwt.verify<PatientJwtPayload>(token);
+  } catch {
+    throw new UnauthorizedException('Token inválido ou expirado.');
+  }
+  if (payload.kind !== 'PACIENTE') {
+    throw new UnauthorizedException('Token não é de paciente.');
+  }
+  return payload;
+}
+
+/**
  * Espelha auth/auth.middleware.ts, mas para o token de paciente — payload tem
  * `kind: 'PACIENTE'` em vez de `role`, e abre `patientStorage`, não
  * `tenantStorage`. As duas nunca se misturam: rotas de paciente ficam fora
@@ -27,17 +47,7 @@ export class PatientAuthMiddleware implements NestMiddleware {
       throw new UnauthorizedException('Token ausente.');
     }
 
-    let payload: PatientJwtPayload;
-    try {
-      payload = this.jwt.verify<PatientJwtPayload>(token);
-    } catch {
-      throw new UnauthorizedException('Token inválido ou expirado.');
-    }
-
-    if (payload.kind !== 'PACIENTE') {
-      throw new UnauthorizedException('Token não é de paciente.');
-    }
-
-    patientStorage.run({ tenantId: payload.tenantId, patientId: payload.sub }, () => next());
+    const payload = verifyPatientToken(this.jwt, token);
+    patientStorage.run({ patientAccountId: payload.sub }, () => next());
   }
 }

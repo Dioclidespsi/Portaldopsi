@@ -8,10 +8,10 @@ import { activatePatientPortal, savePatientToken } from '../../../lib/patient-ap
 function AtivarForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const slug = searchParams.get('slug') ?? '';
   const token = searchParams.get('token') ?? '';
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +24,7 @@ function AtivarForm() {
     }
     setLoading(true);
     try {
-      const { accessToken } = await activatePatientPortal({ slug, token, password });
+      const { accessToken } = await activatePatientPortal({ token, password, termsAccepted });
       savePatientToken(accessToken);
       router.push('/paciente');
     } catch (err) {
@@ -34,7 +34,7 @@ function AtivarForm() {
     }
   }
 
-  if (!slug || !token) {
+  if (!token) {
     return (
       <div className="shell">
         <Link href="/" className="back-home">← Portal do Psi</Link>
@@ -48,7 +48,11 @@ function AtivarForm() {
     <div className="shell">
       <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Ativar meu acesso</h1>
-      <p className="sub">Crie uma senha pra entrar no seu portal daqui em diante.</p>
+      <p className="sub">
+        Crie uma senha pra entrar no seu portal daqui em diante — vale pra qualquer profissional que
+        você atender pelo Portal do Psi. Se você já tiver uma conta de outro atendimento, a gente só
+        confirma o vínculo com esta clínica e sua senha continua a mesma de antes.
+      </p>
       <form onSubmit={onSubmit}>
         <label>
           Senha
@@ -57,6 +61,19 @@ function AtivarForm() {
         <label>
           Confirmar senha
           <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.4rem' }}>
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            required
+            style={{ width: 'auto' }}
+          />
+          Li e aceito o{' '}
+          <Link href="/termos-paciente" target="_blank">
+            Termo de Uso do Paciente
+          </Link>
         </label>
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Ativando…' : 'Ativar e entrar'}</button>

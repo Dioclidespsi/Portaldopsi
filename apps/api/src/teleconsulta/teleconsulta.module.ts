@@ -5,5 +5,6 @@ import { TeleconsultaService } from './teleconsulta.service';
 @Module({
   controllers: [TeleconsultaController],
   providers: [TeleconsultaService],
+  exports: [TeleconsultaService],
 })
 export class TeleconsultaModule {}

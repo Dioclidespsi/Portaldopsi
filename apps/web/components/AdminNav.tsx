@@ -6,10 +6,17 @@ import { clearAdminToken } from '../lib/admin-api';
 
 const LINKS = [
   { href: '/admin', label: 'Verificação de CRP' },
+  { href: '/admin/usuarios', label: 'Usuários' },
+  { href: '/admin/financeiro', label: 'Financeiro' },
+  { href: '/admin/estudantes', label: 'Estudantes' },
   { href: '/admin/supervisores', label: 'Supervisores' },
   { href: '/admin/comunidade', label: 'Comunidade' },
+  { href: '/admin/comentarios', label: 'Comentários dos sites' },
+  { href: '/admin/programa-piloto', label: 'Programa Piloto' },
+  { href: '/admin/videos', label: 'Vídeos de apresentação' },
   { href: '/admin/cursos', label: 'Cursos' },
-  { href: '/admin/documentos', label: 'Documentos' },
+  { href: '/admin/contratos', label: 'Contratos' },
+  { href: '/admin/prontuarios', label: 'Prontuários (CRP)' },
   { href: '/admin/biblioteca', label: 'Biblioteca' },
   { href: '/admin/certificados', label: 'Certificados' },
   { href: '/admin/testes', label: 'Testes' },

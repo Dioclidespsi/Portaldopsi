@@ -1,12 +1,20 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
+import { TeleconsultaService } from '../teleconsulta/teleconsulta.service';
+import { EmailService } from '../email/email.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { AppointmentStatus } from './dto/update-appointment-status.dto';
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AppointmentsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly teleconsulta: TeleconsultaService,
+    private readonly email: EmailService,
+  ) {}
 
   async create(dto: CreateAppointmentDto) {
     const startsAt = new Date(dto.startsAt);
@@ -37,9 +45,30 @@ export class AppointmentsService {
       );
     }
 
-    return tenantPrisma.appointment.create({
+    const appointment = await tenantPrisma.appointment.create({
       data: { tenantId, patientId: dto.patientId, startsAt, endsAt },
     });
+
+    // Best-effort: mesma lógica de BookingService.claimSlotForPatient — sala
+    // pronta assim que agendado, sem depender do clique manual em "Criar sala".
+    try {
+      await this.teleconsulta.createRoom(appointment.id, tenantId);
+    } catch (err) {
+      this.logger.warn(`Falha ao criar sala de teleconsulta automaticamente para o agendamento ${appointment.id}: ${(err as Error).message}`);
+    }
+
+    // Best-effort: agendamento manual não passa por pagamento (já nasce
+    // "confirmado" na prática), então o e-mail de confirmação sai direto aqui.
+    try {
+      const professional = await tenantPrisma.user.findFirst({ where: { role: 'PSICOLOGO_TITULAR' }, select: { name: true, email: true } });
+      if (professional) {
+        await this.email.sendBookingConfirmation({ patient, professional, startsAt: appointment.startsAt });
+      }
+    } catch (err) {
+      this.logger.warn(`Falha ao enviar e-mail de confirmação do agendamento ${appointment.id}: ${(err as Error).message}`);
+    }
+
+    return appointment;
   }
 
   list(from?: string, to?: string, patientId?: string) {
@@ -70,6 +99,7 @@ export class AppointmentsService {
     return this.prisma.forCurrentTenant().appointment.update({
       where: { id },
       data: { status, cancelReason: isCancelLike ? cancelReason : null },
+      include: { patient: { select: { name: true } } },
     });
   }
 }

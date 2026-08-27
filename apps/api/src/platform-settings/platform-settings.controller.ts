@@ -22,6 +22,6 @@ export class PlatformSettingsController {
   @Patch('admin/settings')
   @UseGuards(AdminTokenGuard)
   update(@Body() dto: UpdatePlatformSettingsDto) {
-    return this.settings.update(dto.colorPalette);
+    return this.settings.update(dto);
   }
 }

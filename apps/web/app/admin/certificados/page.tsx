@@ -4,9 +4,12 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNav from '../../../components/AdminNav';
 import {
+  AdminIssuedCertificate,
   CertificateTemplatePositions,
+  downloadIssuedCertificate,
   getAdminToken,
   getCertificateTemplate,
+  listIssuedCertificates,
   previewCertificateTemplate,
   upsertCertificateTemplate,
 } from '../../../lib/admin-api';
@@ -34,22 +37,33 @@ export default function AdminCertificatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [issued, setIssued] = useState<AdminIssuedCertificate[]>([]);
 
   useEffect(() => {
     if (!getAdminToken()) {
       router.push('/admin/login');
       return;
     }
-    getCertificateTemplate()
-      .then((t) => {
+    Promise.all([getCertificateTemplate(), listIssuedCertificates()])
+      .then(([t, list]) => {
         if (t) {
           setHasTemplate(true);
           setPositions(t);
         }
+        setIssued(list);
       })
       .catch(() => router.push('/admin/login'))
       .finally(() => setLoading(false));
   }, [router]);
+
+  async function onDownloadIssued(cert: AdminIssuedCertificate) {
+    setError(null);
+    try {
+      await downloadIssuedCertificate(cert.id, `certificado-${cert.verificationCode}.png`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   function updatePosition(key: keyof CertificateTemplatePositions, value: string) {
     setPositions((prev) => ({ ...prev, [key]: Number(value) }));
@@ -140,6 +154,27 @@ export default function AdminCertificatesPage() {
           <img src={previewUrl} alt="Pré-visualização do certificado" style={{ maxWidth: '100%', border: '1px solid var(--line)', borderRadius: '8px' }} />
         </div>
       )}
+
+      <h3 style={{ fontSize: '0.92rem', marginTop: '2rem' }}>Certificados emitidos ({issued.length})</h3>
+      <table>
+        <thead><tr><th>Curso</th><th>Aluno</th><th>Clínica</th><th>Emitido em</th><th></th></tr></thead>
+        <tbody>
+          {issued.map((cert) => (
+            <tr key={cert.id}>
+              <td>{cert.course.title}</td>
+              <td>{cert.user?.name ?? cert.patient?.name ?? '—'}</td>
+              <td>{cert.tenant.name}</td>
+              <td>{new Date(cert.issuedAt).toLocaleDateString('pt-BR')}</td>
+              <td>
+                <button onClick={() => onDownloadIssued(cert)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
+                  Ver/baixar
+                </button>
+              </td>
+            </tr>
+          ))}
+          {issued.length === 0 && <tr><td colSpan={5} style={{ color: 'var(--ink-soft)' }}>Nenhum certificado emitido ainda.</td></tr>}
+        </tbody>
+      </table>
     </div>
   );
 }

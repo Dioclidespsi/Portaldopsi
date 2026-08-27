@@ -1,20 +1,15 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { PatientPortalController } from './patient-portal.controller';
 import { PatientPortalService } from './patient-portal.service';
-import { PatientCoursesService } from './patient-courses.service';
 import { PatientAuthMiddleware } from './patient-auth.middleware';
 import { AuthModule } from '../auth/auth.module';
-import { AvailabilityModule } from '../availability/availability.module';
-import { BookingModule } from '../booking/booking.module';
-import { CoursesModule } from '../courses/courses.module';
-import { CertificatesModule } from '../certificates/certificates.module';
-import { AsaasModule } from '../asaas/asaas.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { TeleconsultaModule } from '../teleconsulta/teleconsulta.module';
 
 @Module({
-  imports: [AuthModule, AvailabilityModule, BookingModule, CoursesModule, CertificatesModule, AsaasModule, NotificationsModule],
+  imports: [AuthModule, NotificationsModule, TeleconsultaModule],
   controllers: [PatientPortalController],
-  providers: [PatientPortalService, PatientCoursesService],
+  providers: [PatientPortalService],
 })
 export class PatientPortalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

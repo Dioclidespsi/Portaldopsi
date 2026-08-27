@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreatePublicLeadDto } from './dto/create-public-lead.dto';
+import { SetPresentationVideoUrlDto } from './dto/set-presentation-video-url.dto';
 import { profilePhotoUploadOptions } from './profile-photo-upload.config';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -35,6 +36,22 @@ export class ProfileController {
     return this.profile.uploadPhoto(file);
   }
 
+  /** Só cadastra o link (YouTube não listado) — fica em EM_ANALISE até o admin da plataforma aprovar. */
+  @Post('profile/video')
+  @UseGuards(RolesGuard)
+  @Roles(Role.PSICOLOGO_TITULAR)
+  setVideoUrl(@Body() dto: SetPresentationVideoUrlDto) {
+    return this.profile.setPresentationVideoUrl(dto.url);
+  }
+
+  /** Some da página pública mesmo se já estava PUBLICADO — o profissional pode cadastrar outro link depois. */
+  @Delete('profile/video')
+  @UseGuards(RolesGuard)
+  @Roles(Role.PSICOLOGO_TITULAR)
+  removeVideo() {
+    return this.profile.removePresentationVideo();
+  }
+
   /** Pública — excluída do AuthMiddleware em auth.module.ts. */
   @Get('public/tenants/:slug')
   getPublic(@Param('slug') slug: string) {
@@ -47,7 +64,7 @@ export class ProfileController {
     return this.profile.createPublicLead(slug, dto);
   }
 
-  /** Pública — excluída do AuthMiddleware em auth.module.ts. Serve a foto de perfil sem autenticação (aparece em /p/{slug}). */
+  /** Pública — excluída do AuthMiddleware em auth.module.ts. Serve a foto de perfil sem autenticação (aparece em /{slug}). */
   @Get('public/photos/:filename')
   async getPhoto(@Param('filename') filename: string, @Res() res: Response) {
     const absolutePath = this.profile.getPhotoPath(filename);

@@ -6,9 +6,23 @@ import AdminNav from '../../../components/AdminNav';
 import { getAdminToken, getPlatformSettings, updatePlatformSettings } from '../../../lib/admin-api';
 import { SITE_PALETTES } from '../../../lib/site-palettes';
 
+function centsToReaisInput(cents: number | null): string {
+  return cents === null ? '' : (cents / 100).toFixed(2).replace('.', ',');
+}
+
+function reaisInputToCents(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(',', '.');
+  const reais = Number(normalized);
+  return Number.isFinite(reais) ? Math.round(reais * 100) : null;
+}
+
 export default function AdminAparenciaPage() {
   const router = useRouter();
   const [colorPalette, setColorPalette] = useState('salvia');
+  const [monthlyPrice, setMonthlyPrice] = useState('');
+  const [yearlyPrice, setYearlyPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -20,7 +34,11 @@ export default function AdminAparenciaPage() {
       return;
     }
     getPlatformSettings()
-      .then((s) => setColorPalette(s.colorPalette))
+      .then((s) => {
+        setColorPalette(s.colorPalette);
+        setMonthlyPrice(centsToReaisInput(s.subscriptionMonthlyPriceCents));
+        setYearlyPrice(centsToReaisInput(s.subscriptionYearlyPriceCents));
+      })
       .catch(() => router.push('/admin/login'))
       .finally(() => setLoading(false));
   }, [router]);
@@ -31,8 +49,14 @@ export default function AdminAparenciaPage() {
     setSaved(false);
     setSaving(true);
     try {
-      const updated = await updatePlatformSettings(colorPalette);
+      const updated = await updatePlatformSettings({
+        colorPalette,
+        subscriptionMonthlyPriceCents: reaisInputToCents(monthlyPrice),
+        subscriptionYearlyPriceCents: reaisInputToCents(yearlyPrice),
+      });
       setColorPalette(updated.colorPalette);
+      setMonthlyPrice(centsToReaisInput(updated.subscriptionMonthlyPriceCents));
+      setYearlyPrice(centsToReaisInput(updated.subscriptionYearlyPriceCents));
       setSaved(true);
     } catch (err) {
       setError((err as Error).message);
@@ -75,6 +99,32 @@ export default function AdminAparenciaPage() {
           <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: preview.surface, border: `1px solid ${preview.line}`, display: 'inline-block' }} />
           <span style={{ fontSize: '0.78rem', color: preview.ink }}>Pré-visualização</span>
         </div>
+
+        <h3 style={{ fontSize: '0.92rem', margin: '0.4rem 0 0', borderTop: '1px solid var(--line)', paddingTop: '1rem' }}>
+          Preço da assinatura
+        </h3>
+        <p className="sub" style={{ margin: 0 }}>
+          Deixe em branco pra usar o valor normal. Útil pra promoção relâmpago (ex: assinar por R$ 1,00 num teste) —
+          é só apagar o valor depois pra voltar ao preço de sempre.
+        </p>
+        <label>
+          Preço mensal (R$) — normal: R$ 150,00
+          <input
+            value={monthlyPrice}
+            onChange={(e) => setMonthlyPrice(e.target.value)}
+            placeholder="150,00"
+            inputMode="decimal"
+          />
+        </label>
+        <label>
+          Preço anual (R$) — normal: R$ 1.500,00
+          <input
+            value={yearlyPrice}
+            onChange={(e) => setYearlyPrice(e.target.value)}
+            placeholder="1500,00"
+            inputMode="decimal"
+          />
+        </label>
 
         <button type="submit" disabled={saving} style={{ alignSelf: 'flex-start' }}>
           {saving ? 'Salvando…' : 'Salvar'}

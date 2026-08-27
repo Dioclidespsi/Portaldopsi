@@ -1,5 +1,3 @@
-import type { CourseView, QuizForStudent, CertificateRecord } from './api';
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 const PATIENT_TOKEN_KEY = 'portal-do-psi:patient-token';
 
@@ -38,12 +36,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
-export function patientLogin(data: { slug: string; email: string; password: string }) {
+/** Clínica/profissional dono de um item — a conta do paciente é global, cada item pode vir de um vínculo diferente. */
+export interface PatientTenant {
+  name: string;
+  slug: string;
+}
+
+/** Login global — sem slug, uma conta só serve pra qualquer clínica. */
+export function patientLogin(data: { email: string; password: string }) {
   return request<{ accessToken: string }>('/patient-portal/login', { method: 'POST', body: JSON.stringify(data) });
 }
 
 /** Autoatendimento via link gerado pela equipe (ver generatePatientActivationLink em lib/api.ts). */
-export function activatePatientPortal(data: { slug: string; token: string; password: string }) {
+export function activatePatientPortal(data: { token: string; password: string; termsAccepted?: boolean }) {
   return request<{ accessToken: string }>('/patient-portal/activate', { method: 'POST', body: JSON.stringify(data) });
 }
 
@@ -58,6 +63,17 @@ export function fetchPatientMe() {
   return request<PatientMe>('/patient-portal/me');
 }
 
+export interface PatientClinic {
+  tenantId: string;
+  name: string;
+  slug: string;
+}
+
+/** Clínicas com quem a conta já tem vínculo — usado pra decidir o destino do botão "Marcar consulta". */
+export function listMyClinics() {
+  return request<PatientClinic[]>('/patient-portal/clinics');
+}
+
 export interface PatientAppointment {
   id: string;
   startsAt: string;
@@ -66,47 +82,42 @@ export interface PatientAppointment {
   videoRoomUrl: string | null;
   hasVideoRoom: boolean;
   consentAt: string | null;
+  tenant: PatientTenant;
 }
 
+/** Agrega os agendamentos de TODAS as clínicas vinculadas à conta — não é mais uma clínica só. */
 export function listOwnAppointments() {
   return request<PatientAppointment[]>('/patient-portal/appointments');
 }
 
-export function confirmOwnAppointment(id: string) {
-  return request<PatientAppointment>(`/patient-portal/appointments/${id}/confirm`, { method: 'POST' });
+export function confirmOwnAppointment(tenantId: string, id: string) {
+  return request<PatientAppointment>(`/patient-portal/tenants/${tenantId}/appointments/${id}/confirm`, { method: 'POST' });
 }
 
-export function consentToTeleconsulta(id: string) {
-  return request<PatientAppointment>(`/patient-portal/appointments/${id}/consent`, { method: 'POST' });
+export function consentToTeleconsulta(tenantId: string, id: string) {
+  return request<PatientAppointment>(`/patient-portal/tenants/${tenantId}/appointments/${id}/consent`, { method: 'POST' });
 }
 
-export function cancelOwnAppointment(id: string) {
-  return request<{ cancelled: boolean }>(`/patient-portal/appointments/${id}/cancel`, { method: 'POST' });
+/** Sala é privada — a URL crua não entra sozinha, precisa de um token de curta duração gerado na hora. */
+export function getTeleconsultaJoinLink(tenantId: string, id: string) {
+  return request<{ url: string }>(`/patient-portal/tenants/${tenantId}/appointments/${id}/teleconsulta-join-link`, { method: 'POST' });
 }
 
-export interface PatientSlot {
-  id: string;
-  startsAt: string;
-  endsAt: string;
+export function cancelOwnAppointment(tenantId: string, id: string) {
+  return request<{ cancelled: boolean }>(`/patient-portal/tenants/${tenantId}/appointments/${id}/cancel`, { method: 'POST' });
 }
 
-export function listOwnAvailability() {
-  return request<{ sessionPriceCents: number | null; slots: PatientSlot[] }>('/patient-portal/availability');
-}
-
-export function bookOwnAppointment(slotId: string) {
-  return request<{ appointmentId: string; holdExpiresAt: string; paymentLink: string }>('/patient-portal/bookings', {
-    method: 'POST',
-    body: JSON.stringify({ slotId }),
-  });
-}
+// listOwnAvailability/bookOwnAppointment removidos de propósito — não fazem
+// mais sentido sem uma clínica fixa. Pra agendar (de novo ou pela primeira
+// vez), o paciente vai até a página pública do profissional (/{slug}) —
+// ver BookingWidget, que já reconhece quando o paciente está logado.
 
 export function registerPushToken(fcmToken: string) {
-  return request<{ id: string }>('/patient-portal/push-subscriptions', { method: 'POST', body: JSON.stringify({ fcmToken }) });
+  return request<{ registered: number }>('/patient-portal/push-subscriptions', { method: 'POST', body: JSON.stringify({ fcmToken }) });
 }
 
 export function unregisterPushToken(fcmToken: string) {
-  return request<{ removed: boolean }>('/patient-portal/push-subscriptions/unsubscribe', { method: 'POST', body: JSON.stringify({ fcmToken }) });
+  return request<{ removed: number }>('/patient-portal/push-subscriptions/unsubscribe', { method: 'POST', body: JSON.stringify({ fcmToken }) });
 }
 
 export interface PatientHomework {
@@ -118,14 +129,15 @@ export interface PatientHomework {
   patientNote?: string | null;
   completedAt?: string | null;
   createdAt: string;
+  tenant: PatientTenant;
 }
 
 export function listOwnHomework() {
   return request<PatientHomework[]>('/patient-portal/homework');
 }
 
-export function completeOwnHomework(id: string, patientNote?: string) {
-  return request<PatientHomework>(`/patient-portal/homework/${id}/complete`, {
+export function completeOwnHomework(tenantId: string, id: string, patientNote?: string) {
+  return request<PatientHomework>(`/patient-portal/tenants/${tenantId}/homework/${id}/complete`, {
     method: 'POST',
     body: JSON.stringify({ patientNote }),
   });
@@ -149,51 +161,35 @@ export function meditationAudioUrl(id: string): string {
   return `${API_URL}/patient-portal/meditation-tracks/${id}/audio?token=${encodeURIComponent(token ?? '')}`;
 }
 
-/** Vitrine — sem progresso, mesmo catálogo de /loja. */
-export function listOwnCourseCatalog() {
-  return request<{ slug: string; title: string; description: string; priceCents: number | null; modules: { order: number; title: string; free: boolean; lessonCount: number }[] }[]>(
-    '/patient-portal/courses',
-  );
+// Cursos e certificados removidos de propósito do portal do paciente — ver
+// comentário em apps/api/src/patient-portal/patient-portal.controller.ts.
+
+export interface OwnPsychDocument {
+  id: string;
+  title: string;
+  templateSlug: string;
+  finalizedAt: string | null;
+  releasedToPatientAt: string | null;
+  requiresPatientAcceptance: boolean;
+  acceptedByPatientAt: string | null;
+  tenant: PatientTenant;
 }
 
-/** Com progresso/bloqueio, já considerando o que o paciente comprou. */
-export function listOwnCoursesWithProgress() {
-  return request<CourseView[]>('/patient-portal/courses/mine');
+/** Só documentos que o psicólogo já disponibilizou explicitamente aparecem aqui — de todas as clínicas vinculadas. */
+export function listOwnPsychDocuments() {
+  return request<OwnPsychDocument[]>('/patient-portal/psych-documents');
 }
 
-export function purchaseOwnCourse(slug: string, cpfCnpj: string) {
-  return request<{ paymentId: string; paymentLink: string }>(`/patient-portal/courses/${slug}/purchase`, {
-    method: 'POST',
-    body: JSON.stringify({ cpfCnpj }),
-  });
+export function acceptOwnPsychDocument(tenantId: string, id: string) {
+  return request(`/patient-portal/tenants/${tenantId}/psych-documents/${id}/accept`, { method: 'POST' });
 }
 
-export function markOwnLessonComplete(lessonId: string) {
-  return request<{ completed: boolean }>(`/patient-portal/courses/lessons/${lessonId}/complete`, { method: 'POST' });
-}
-
-export function getOwnLessonQuiz(lessonId: string) {
-  return request<QuizForStudent>(`/patient-portal/courses/lessons/${lessonId}/quiz`);
-}
-
-export function submitOwnQuizAttempt(lessonId: string, answers: Record<string, string>) {
-  return request<{ scorePercent: number; passed: boolean; correctCount: number; totalCount: number }>(
-    `/patient-portal/courses/lessons/${lessonId}/quiz`,
-    { method: 'POST', body: JSON.stringify({ answers }) },
-  );
-}
-
-export function listOwnCertificates() {
-  return request<CertificateRecord[]>('/patient-portal/certificates');
-}
-
-/** Download autenticado: precisa do header Authorization, então não dá pra usar um <a href> puro. */
-export async function downloadOwnCertificate(id: string, suggestedName: string) {
+export async function downloadOwnPsychDocument(tenantId: string, id: string, suggestedName: string) {
   const token = getPatientToken();
-  const res = await fetch(`${API_URL}/patient-portal/certificates/${id}/download`, {
+  const res = await fetch(`${API_URL}/patient-portal/tenants/${tenantId}/psych-documents/${id}/download`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) throw new Error(`Erro ${res.status} ao baixar certificado.`);
+  if (!res.ok) throw new Error(`Erro ${res.status} ao baixar documento.`);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -210,6 +206,7 @@ export interface PatientTestSummary {
   assignedAt: string;
   submittedAt: string | null;
   testTemplate: { title: string; category: string };
+  tenant: PatientTenant;
 }
 
 export function listOwnTests() {
@@ -237,12 +234,12 @@ export interface PatientTestToAnswer {
   };
 }
 
-export function getOwnTest(id: string) {
-  return request<PatientTestToAnswer>(`/patient-portal/tests/${id}`);
+export function getOwnTest(tenantId: string, id: string) {
+  return request<PatientTestToAnswer>(`/patient-portal/tenants/${tenantId}/tests/${id}`);
 }
 
-export function submitOwnTest(id: string, answers: Record<string, number | string>) {
-  return request<{ id: string; status: string; submittedAt: string }>(`/patient-portal/tests/${id}/submit`, {
+export function submitOwnTest(tenantId: string, id: string, answers: Record<string, number | string>) {
+  return request<{ id: string; status: string; submittedAt: string }>(`/patient-portal/tenants/${tenantId}/tests/${id}/submit`, {
     method: 'POST',
     body: JSON.stringify({ answers }),
   });

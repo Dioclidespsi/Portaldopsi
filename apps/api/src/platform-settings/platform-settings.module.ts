@@ -5,5 +5,6 @@ import { PlatformSettingsService } from './platform-settings.service';
 @Module({
   controllers: [PlatformSettingsController],
   providers: [PlatformSettingsService],
+  exports: [PlatformSettingsService],
 })
 export class PlatformSettingsModule {}

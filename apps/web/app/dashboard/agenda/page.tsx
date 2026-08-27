@@ -7,8 +7,9 @@ import AgendaCalendar from '../../../components/AgendaCalendar';
 import {
   Appointment,
   AvailabilitySlot,
+  CreateSlotBlockResult,
   createAppointment,
-  createAvailabilitySlot,
+  createAvailabilitySlotBlock,
   deleteAvailabilitySlot,
   fetchOwnProfile,
   listAppointments,
@@ -20,6 +21,16 @@ import {
   updateProfile,
 } from '../../../lib/api';
 
+const WEEKDAYS = [
+  { value: 1, label: 'Seg' },
+  { value: 2, label: 'Ter' },
+  { value: 3, label: 'Qua' },
+  { value: 4, label: 'Qui' },
+  { value: 5, label: 'Sex' },
+  { value: 6, label: 'Sáb' },
+  { value: 0, label: 'Dom' },
+];
+
 const STATUS_LABEL: Record<string, string> = {
   agendado: 'Agendado',
   aguardando_pagamento: 'Aguardando pagamento',
@@ -29,7 +40,7 @@ const STATUS_LABEL: Record<string, string> = {
   falta: 'Faltou',
 };
 
-const DURATIONS = [30, 45, 50, 60];
+const DURATIONS = [30, 40, 45, 50, 60];
 
 const PERIODS = {
   agendados: 'Agendados (próximos)',
@@ -55,6 +66,7 @@ export default function AgendaPage() {
   const [patientId, setPatientId] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [duration, setDuration] = useState(50);
+  const [durationIsCustom, setDurationIsCustom] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | keyof typeof STATUS_LABEL>('todos');
   const [period, setPeriod] = useState<Period>('agendados');
@@ -70,9 +82,16 @@ export default function AgendaPage() {
   const [bookingEnabled, setBookingEnabled] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
-  const [slotDate, setSlotDate] = useState('');
-  const [slotTime, setSlotTime] = useState('');
-  const [slotDuration, setSlotDuration] = useState(50);
+  const [blockFromDate, setBlockFromDate] = useState('');
+  const [blockToDate, setBlockToDate] = useState('');
+  const [blockDays, setBlockDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [blockStartTime, setBlockStartTime] = useState('08:00');
+  const [blockEndTime, setBlockEndTime] = useState('18:00');
+  const [blockDuration, setBlockDuration] = useState(50);
+  const [blockDurationIsCustom, setBlockDurationIsCustom] = useState(false);
+  const [blockInterval, setBlockInterval] = useState(0);
+  const [blockSubmitting, setBlockSubmitting] = useState(false);
+  const [blockResult, setBlockResult] = useState<CreateSlotBlockResult | null>(null);
 
   async function loadAppointments(p: Period) {
     const data = await listAppointments(periodRange(p));
@@ -136,17 +155,35 @@ export default function AgendaPage() {
     }
   }
 
-  async function onReleaseSlot(e: FormEvent) {
+  function toggleBlockDay(day: number) {
+    setBlockDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()));
+  }
+
+  async function onReleaseBlock(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setBlockResult(null);
+    if (blockDays.length === 0) {
+      setError('Selecione ao menos um dia da semana.');
+      return;
+    }
+    setBlockSubmitting(true);
     try {
-      const startsAtDate = new Date(`${slotDate}T${slotTime}`);
-      const endsAtDate = new Date(startsAtDate.getTime() + slotDuration * 60 * 1000);
-      const slot = await createAvailabilitySlot({ startsAt: startsAtDate.toISOString(), endsAt: endsAtDate.toISOString() });
-      setSlots((prev) => [...prev, slot].sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
-      setSlotTime('');
+      const result = await createAvailabilitySlotBlock({
+        fromDate: blockFromDate,
+        toDate: blockToDate,
+        daysOfWeek: blockDays,
+        startTime: blockStartTime,
+        endTime: blockEndTime,
+        durationMinutes: blockDuration,
+        intervalMinutes: blockInterval || undefined,
+      });
+      setBlockResult(result);
+      await loadAvailability();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBlockSubmitting(false);
     }
   }
 
@@ -324,10 +361,31 @@ export default function AgendaPage() {
           </label>
           <label>
             Duração
-            <select value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
+            <select
+              value={durationIsCustom ? 'custom' : duration}
+              onChange={(e) => {
+                if (e.target.value === 'custom') { setDurationIsCustom(true); return; }
+                setDurationIsCustom(false);
+                setDuration(Number(e.target.value));
+              }}
+            >
               {DURATIONS.map((d) => <option key={d} value={d}>{d} min</option>)}
+              <option value="custom">Personalizado…</option>
             </select>
           </label>
+          {durationIsCustom && (
+            <label>
+              Minutos
+              <input
+                type="number"
+                min={5}
+                step={5}
+                value={duration}
+                onChange={(e) => setDuration(Math.max(5, Number(e.target.value)))}
+                style={{ width: '90px' }}
+              />
+            </label>
+          )}
           <button type="submit">Agendar</button>
         </form>
       )}
@@ -369,22 +427,89 @@ export default function AgendaPage() {
         <button type="submit" disabled={savingSettings}>{savingSettings ? 'Salvando…' : 'Salvar'}</button>
       </form>
 
-      <form onSubmit={onReleaseSlot} style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-end', flexWrap: 'wrap', margin: '0.8rem 0' }}>
-        <label>
-          Data
-          <input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} required />
-        </label>
-        <label>
-          Horário
-          <input type="time" value={slotTime} onChange={(e) => setSlotTime(e.target.value)} required />
-        </label>
-        <label>
-          Duração
-          <select value={slotDuration} onChange={(e) => setSlotDuration(Number(e.target.value))}>
-            {DURATIONS.map((d) => <option key={d} value={d}>{d} min</option>)}
-          </select>
-        </label>
-        <button type="submit">Liberar horário</button>
+      <form onSubmit={onReleaseBlock} style={{ margin: '0.8rem 0' }}>
+        <p className="sub" style={{ margin: '0 0 0.5rem' }}>
+          Libere um bloco de horários de uma vez — escolha o período, os dias da semana e a faixa de hora.
+        </p>
+        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label>
+            De
+            <input type="date" value={blockFromDate} onChange={(e) => setBlockFromDate(e.target.value)} required />
+          </label>
+          <label>
+            Até
+            <input type="date" value={blockToDate} onChange={(e) => setBlockToDate(e.target.value)} required />
+          </label>
+          <label>
+            Hora inicial
+            <input type="time" value={blockStartTime} onChange={(e) => setBlockStartTime(e.target.value)} required />
+          </label>
+          <label>
+            Hora final
+            <input type="time" value={blockEndTime} onChange={(e) => setBlockEndTime(e.target.value)} required />
+          </label>
+          <label>
+            Duração da sessão
+            <select
+              value={blockDurationIsCustom ? 'custom' : blockDuration}
+              onChange={(e) => {
+                if (e.target.value === 'custom') { setBlockDurationIsCustom(true); return; }
+                setBlockDurationIsCustom(false);
+                setBlockDuration(Number(e.target.value));
+              }}
+            >
+              {DURATIONS.map((d) => <option key={d} value={d}>{d} min</option>)}
+              <option value="custom">Personalizado…</option>
+            </select>
+          </label>
+          {blockDurationIsCustom && (
+            <label>
+              Minutos
+              <input
+                type="number"
+                min={5}
+                step={5}
+                value={blockDuration}
+                onChange={(e) => setBlockDuration(Math.max(5, Number(e.target.value)))}
+                style={{ width: '90px' }}
+              />
+            </label>
+          )}
+          <label>
+            Intervalo entre sessões (min)
+            <input
+              type="number"
+              min={0}
+              value={blockInterval}
+              onChange={(e) => setBlockInterval(Math.max(0, Number(e.target.value)))}
+              style={{ width: '90px' }}
+            />
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap', margin: '0.7rem 0' }}>
+          {WEEKDAYS.map((d) => (
+            <label key={d.value} style={{ flexDirection: 'row', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }}>
+              <input
+                type="checkbox"
+                checked={blockDays.includes(d.value)}
+                onChange={() => toggleBlockDay(d.value)}
+                style={{ width: 'auto' }}
+              />
+              {d.label}
+            </label>
+          ))}
+        </div>
+        <button type="submit" disabled={blockSubmitting}>{blockSubmitting ? 'Liberando…' : 'Liberar horários'}</button>
+        {blockResult && (
+          <p className="sub" style={{ marginTop: '0.6rem' }}>
+            {blockResult.created} horário{blockResult.created === 1 ? '' : 's'} liberado{blockResult.created === 1 ? '' : 's'}
+            {blockResult.skippedConflict > 0 &&
+              ` · ${blockResult.skippedConflict} pulado${blockResult.skippedConflict === 1 ? '' : 's'} por já haver horário/agendamento no intervalo`}
+            {blockResult.skippedPast > 0 &&
+              ` · ${blockResult.skippedPast} pulado${blockResult.skippedPast === 1 ? '' : 's'} por já estar no passado`}
+            .
+          </p>
+        )}
       </form>
 
       <table>

@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class EnrollDto {
   @IsString()
@@ -6,6 +6,11 @@ export class EnrollDto {
 
   @IsIn(['STRIPE', 'ASAAS'])
   provider: 'STRIPE' | 'ASAAS';
+
+  /** Só exigido (e checado) quando o tenant é ESTUDANTE — ver MarketplaceService.enroll. CLINICA já tem seu próprio gate de termos (AccessGateService). */
+  @IsOptional()
+  @IsBoolean()
+  termsAccepted?: boolean;
 
   /** Só usado (e exigido) quando provider=ASAAS. */
   @IsOptional()

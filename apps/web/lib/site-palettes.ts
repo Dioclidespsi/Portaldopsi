@@ -1,5 +1,5 @@
 /**
- * Paletas fixas pro Site Profissional (/p/{slug}) — só se aplicam na página
+ * Paletas fixas pro Site Profissional (/{slug}) — só se aplicam na página
  * pública, nunca no dashboard interno (que sempre usa as variáveis de
  * globals.css). Escolhidas pra "conversar" com o contexto de uma clínica de
  * psicologia: tons terrosos/acalmados, nunca saturados/frios/corporativos.

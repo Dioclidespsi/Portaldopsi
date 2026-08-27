@@ -1,12 +1,14 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getOwnTest, PatientTestToAnswer, submitOwnTest } from '../../../../lib/patient-api';
 
-export default function AnswerTestPage() {
+function AnswerTestForm() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const tenantId = searchParams.get('tenant') ?? '';
   const [test, setTest] = useState<PatientTestToAnswer | null>(null);
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [done, setDone] = useState(false);
@@ -14,17 +16,22 @@ export default function AnswerTestPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getOwnTest(params.id)
+    if (!tenantId) {
+      setError('Link incompleto — volte pra lista de testes e tente de novo.');
+      setLoading(false);
+      return;
+    }
+    getOwnTest(tenantId, params.id)
       .then(setTest)
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [tenantId, params.id]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await submitOwnTest(params.id, answers);
+      await submitOwnTest(tenantId, params.id, answers);
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -99,5 +106,13 @@ export default function AnswerTestPage() {
       </form>
       {error && <span className="error">{error}</span>}
     </div>
+  );
+}
+
+export default function AnswerTestPage() {
+  return (
+    <Suspense fallback={<div className="shell">Carregando…</div>}>
+      <AnswerTestForm />
+    </Suspense>
   );
 }

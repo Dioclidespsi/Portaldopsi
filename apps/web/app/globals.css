@@ -8,6 +8,11 @@
   --crit: #ac3b3b;
   --warn: #a9762a;
   --warn-soft: #f6ecd9;
+  /* Tons derivados do accent (independem de qual paleta o admin escolheu em
+     /admin/aparencia) — usados só na home pública redesenhada. */
+  --accent-deep: color-mix(in srgb, var(--accent) 78%, black);
+  --accent-tint: color-mix(in srgb, var(--accent) 12%, white);
+  --accent-tint-line: color-mix(in srgb, var(--accent) 26%, white);
 }
 
 * { box-sizing: border-box; }
@@ -146,15 +151,6 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
   flex-wrap: wrap;
 }
 
-.home-construction-banner {
-  background: var(--warn-soft);
-  color: var(--ink-soft);
-  text-align: center;
-  font-size: 0.82rem;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--line);
-}
-
 .home-hero {
   display: flex;
   align-items: center;
@@ -217,6 +213,84 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
   padding: 1.5rem;
 }
 
+/* ---- Portal do paciente: tela inicial acolhedora (não usa .callout-box de
+   propósito — aquele estilo é pra avisos/alertas, com fundo amarelo de
+   atenção; aqui é tudo neutro/positivo, precisa de outro tom visual). ---- */
+.patient-hero {
+  background: linear-gradient(135deg, var(--accent) 0%, #163a34 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 1.8rem 1.6rem;
+  margin-bottom: 1.4rem;
+}
+.patient-hero h1 { color: #fff; margin: 0 0 0.3rem; font-size: 1.6rem; }
+.patient-hero p { color: rgba(255, 255, 255, 0.85); margin: 0; font-size: 0.92rem; }
+
+.patient-quicklinks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.4rem;
+}
+.patient-quicklink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+.patient-quicklink:hover { border-color: var(--accent); transform: translateY(-2px); }
+.patient-quicklink .patient-quicklink-icon { font-size: 1.6rem; }
+
+.patient-next-session {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 1.4rem;
+}
+
+.patient-section-title {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin: 0 0 0.7rem;
+}
+
+.patient-session-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.7rem;
+}
+
+.patient-info-card {
+  background: #eef5f2;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.patient-empty-state {
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 1.6rem;
+  text-align: center;
+}
+
 .home-card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
 .home-card p { color: var(--ink-soft); font-size: 0.9rem; line-height: 1.55; margin: 0 0 1rem; }
 
@@ -240,6 +314,228 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
   justify-content: center;
   flex-wrap: wrap;
   margin-bottom: 0.8rem;
+}
+
+/* ---- Home pública: redesign editorial (hero rico, prova social por
+   fotos, seção de valores) — escopado só a app/page.tsx via a classe
+   .home-redesign, que também carrega as fontes Newsreader/Work Sans
+   (ver next/font em page.tsx). Nenhuma dessas classes é usada fora da
+   home, então não afeta dashboard/admin/login. ---- */
+.home-redesign { font-family: var(--font-worksans), 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+.home-serif { font-family: var(--font-newsreader), Georgia, serif; }
+
+/* ---- Site Profissional (app/[slug]/) — mesmo par tipográfico da home
+   redesenhada acima (Newsreader/Work Sans via next/font), aplicado só
+   dentro de /{slug} pra dar identidade própria em vez da pilha de fonte
+   genérica do sistema. Não afeta dashboard/admin/login. ---- */
+.site-profissional { font-family: var(--font-worksans), 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+.site-display { font-family: var(--font-newsreader), Georgia, serif; }
+/* Compensa o header sticky (~60px) ao pular direto pra uma seção via âncora (menu lateral, CTA do hero). */
+.site-profissional section[id] { scroll-margin-top: 70px; }
+
+/* Índice de seções (SideNav.tsx) — só em telas largas, pra quem acessa de
+   computador ver tudo de uma vez e pular direto pra qualquer seção. Some
+   por padrão (mobile mantém a rolagem linear normal). */
+.site-sidenav {
+  display: none;
+  position: fixed;
+  top: 50%;
+  right: 1.5rem;
+  transform: translateY(-50%);
+  z-index: 20;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-radius: 14px;
+  padding: 0.9rem 0.6rem;
+}
+.site-sidenav a {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.4rem 0.7rem;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.site-sidenav a:hover { background: rgba(0, 0, 0, 0.05); }
+.site-sidenav a span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+@media (min-width: 1120px) {
+  .site-sidenav { display: flex; }
+}
+
+.home-header {
+  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+}
+.home-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--ink);
+}
+.home-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(155deg, var(--accent) 0%, var(--accent-deep) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-tint-line);
+  padding: 0.35rem 0.75rem;
+  border-radius: 100px;
+  margin-bottom: 1.3rem;
+}
+
+.home-hero {
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 3.2rem;
+  align-items: center;
+}
+.home-hero h1 { font-size: clamp(2.1rem, 4vw, 3rem); line-height: 1.14; letter-spacing: -0.015em; text-wrap: balance; }
+.home-hero h1 em { font-style: italic; font-weight: 500; color: var(--accent-deep); }
+.home-hero-sub { font-size: 1.05rem; line-height: 1.65; color: var(--ink-soft); max-width: 46ch; margin: 0 0 1.8rem; }
+
+.home-hero-microcopy { font-size: 0.82rem; color: var(--ink-soft); display: flex; align-items: center; gap: 0.5rem; margin-top: 1.4rem; }
+.home-hero-microcopy svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+
+.home-hero-visual { position: relative; display: flex; align-items: center; justify-content: center; min-height: 400px; }
+.home-blob {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+  background: linear-gradient(160deg, var(--accent-tint) 0%, var(--ground) 100%);
+  z-index: 0;
+}
+.home-session-card {
+  position: relative;
+  z-index: 2;
+  width: 280px;
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px -18px rgba(18, 56, 50, 0.32), 0 2px 8px rgba(18, 56, 50, 0.08);
+  padding: 1.3rem 1.3rem 1.5rem;
+  transform: rotate(-3.5deg);
+}
+.home-session-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.home-session-card-head .day { font-size: 1.5rem; font-weight: 600; line-height: 1; }
+.home-session-card-head .month { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+.home-live-pill { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--accent-tint); color: var(--accent-deep); font-size: 0.66rem; font-weight: 700; padding: 0.26rem 0.55rem; border-radius: 100px; }
+.home-live-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.home-appt { display: flex; gap: 0.7rem; padding: 0.65rem 0; border-top: 1px solid var(--line); }
+.home-appt:first-of-type { border-top: none; }
+.home-appt .time { font-size: 0.7rem; color: var(--ink-soft); width: 40px; flex-shrink: 0; padding-top: 0.15rem; font-variant-numeric: tabular-nums; }
+.home-appt .avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(150deg, var(--accent) 0%, var(--accent-deep) 100%); }
+.home-appt .name { font-size: 0.82rem; font-weight: 600; margin: 0 0 0.1rem; }
+.home-appt .type { font-size: 0.72rem; color: var(--ink-soft); margin: 0; }
+.home-card-float {
+  position: absolute; z-index: 3; background: var(--surface); border-radius: 12px;
+  box-shadow: 0 14px 30px -10px rgba(18, 56, 50, 0.26); padding: 0.6rem 0.85rem;
+  display: flex; align-items: center; gap: 0.5rem; font-size: 0.76rem; font-weight: 600;
+}
+.home-card-float.float-1 { top: 6%; right: 0; transform: rotate(4deg); color: var(--accent-deep); }
+.home-card-float.float-1 svg { width: 15px; height: 15px; color: var(--accent); }
+.home-card-float.float-2 { bottom: 8%; left: -4%; transform: rotate(-2deg); }
+.home-card-float.float-2 .amt { color: var(--accent-deep); font-weight: 700; }
+
+.home-trust {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.home-trust-inner { max-width: 1180px; margin: 0 auto; padding: 1.2rem 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; }
+.home-trust-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; color: var(--ink-soft); font-weight: 500; }
+.home-trust-item svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+
+.home-section-eyebrow { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-deep); margin: 0 0 0.6rem; }
+
+.home-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.home-card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -22px rgba(18, 56, 50, 0.25); border-color: var(--accent-tint-line); }
+.home-card-icon { width: 42px; height: 42px; border-radius: 11px; background: var(--accent-tint); display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+.home-card-icon svg { width: 21px; height: 21px; color: var(--accent-deep); }
+
+.home-glimpse { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.home-glimpse-inner { max-width: 1180px; margin: 0 auto; padding: 4.5rem 1.5rem; display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 3rem; align-items: center; }
+.home-glimpse-copy h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin: 0 0 1rem; text-wrap: balance; }
+.home-glimpse-copy > p { color: var(--ink-soft); font-size: 1rem; line-height: 1.6; margin: 0 0 1.5rem; }
+.home-glimpse-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.8rem; }
+.home-glimpse-list li { display: flex; gap: 0.6rem; font-size: 0.9rem; color: var(--ink); align-items: flex-start; }
+.home-glimpse-list svg { width: 17px; height: 17px; color: var(--accent); flex-shrink: 0; margin-top: 0.1rem; }
+
+.home-mockup { background: color-mix(in srgb, var(--surface) 92%, var(--ground)); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 28px 65px -30px rgba(18, 56, 50, 0.26); overflow: hidden; }
+.home-mockup-bar { display: flex; align-items: center; gap: 0.4rem; padding: 0.7rem 0.95rem; border-bottom: 1px solid var(--line); background: var(--surface); }
+.home-mockup-bar span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.home-mockup-bar .title { margin-left: 0.55rem; font-size: 0.7rem; color: var(--ink-soft); font-weight: 500; }
+.home-mockup-body { padding: 1.3rem; }
+.home-mockup-toprow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.home-mockup-toprow h4 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+.home-mockup-toprow .chip { font-size: 0.66rem; font-weight: 700; background: var(--accent-tint); color: var(--accent-deep); padding: 0.24rem 0.5rem; border-radius: 100px; }
+.home-mockup-grid { display: grid; grid-template-columns: 52px 1fr; gap: 0.55rem 0.85rem; }
+.home-mockup-hour { font-size: 0.7rem; color: var(--ink-soft); padding-top: 0.55rem; font-variant-numeric: tabular-nums; }
+.home-mockup-slot { border-radius: 10px; padding: 0.65rem 0.85rem; border: 1px solid var(--accent-tint-line); background: var(--accent-tint); display: flex; justify-content: space-between; align-items: center; }
+.home-mockup-slot.is-quiet { background: var(--surface); border-color: var(--line); }
+.home-mockup-slot .who { font-size: 0.82rem; font-weight: 600; margin: 0 0 0.1rem; }
+.home-mockup-slot .what { font-size: 0.72rem; color: var(--ink-soft); margin: 0; }
+.home-mockup-slot .tag { font-size: 0.64rem; font-weight: 700; background: var(--surface); border: 1px solid var(--accent-tint-line); color: var(--accent-deep); padding: 0.2rem 0.5rem; border-radius: 100px; white-space: nowrap; }
+.home-mockup-empty-hour { padding-top: 0.55rem; }
+
+.home-team { max-width: 1180px; margin: 0 auto; padding: 4.5rem 1.5rem 5rem; }
+.home-team-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6rem; }
+.home-team-card { position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 3 / 4; box-shadow: 0 22px 48px -26px rgba(18, 56, 50, 0.4); margin: 0; }
+.home-team-card:nth-child(2n) { margin-top: 2.2rem; }
+.home-team-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.home-team-card:hover img { transform: scale(1.045); }
+.home-team-caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 2.1rem 1.1rem 1rem; background: linear-gradient(to top, rgba(15, 36, 32, 0.86) 0%, rgba(15, 36, 32, 0.28) 62%, transparent 100%); color: #fff; }
+.home-team-caption .name { font-weight: 600; font-size: 1.02rem; margin: 0 0 0.15rem; letter-spacing: -0.005em; }
+.home-team-caption .role { font-size: 0.74rem; letter-spacing: 0.02em; opacity: 0.88; margin: 0; }
+
+.home-mission { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.home-mission-inner { max-width: 1180px; margin: 0 auto; padding: 4.5rem 1.5rem; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 3rem; align-items: center; }
+.home-mission-photo { border-radius: 20px; overflow: hidden; box-shadow: 0 28px 65px -30px rgba(18, 56, 50, 0.28); }
+.home-mission-photo img { width: 100%; display: block; }
+.home-mission-copy h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin: 0 0 1rem; text-wrap: balance; }
+.home-mission-copy > p { color: var(--ink-soft); font-size: 1rem; line-height: 1.6; margin: 0 0 1.7rem; }
+.home-mission-values { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1.2rem; }
+.home-mission-values li { border-top: 1px solid var(--line); padding-top: 1rem; }
+.home-mission-values li:first-child { border-top: none; padding-top: 0; }
+.home-mission-values .value-title { font-weight: 600; font-size: 1.02rem; color: var(--accent-deep); margin: 0 0 0.25rem; }
+.home-mission-values p { color: var(--ink-soft); font-size: 0.9rem; line-height: 1.55; margin: 0; }
+
+@media (max-width: 860px) {
+  .home-hero { grid-template-columns: 1fr; }
+  .home-hero-visual { min-height: 300px; margin-top: 1rem; }
+  .home-glimpse-inner { grid-template-columns: 1fr; }
+  .home-team-grid { grid-template-columns: repeat(2, 1fr); }
+  .home-team-card:nth-child(2n) { margin-top: 0; }
+  .home-team-card:nth-child(1), .home-team-card:nth-child(4) { margin-top: 1.5rem; }
+  .home-mission-inner { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {

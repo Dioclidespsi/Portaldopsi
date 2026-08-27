@@ -14,4 +14,15 @@ export class TeleconsultaController {
   createRoom(@Param('id') id: string) {
     return this.teleconsulta.createRoom(id);
   }
+
+  @Post('join-link')
+  getJoinLink(@Param('id') id: string) {
+    return this.teleconsulta.getStaffJoinLink(id);
+  }
+
+  /** Link com papel de paciente (não moderador) — pra equipe enviar manualmente como alternativa. */
+  @Post('patient-join-link')
+  getPatientJoinLink(@Param('id') id: string) {
+    return this.teleconsulta.getPatientJoinLink(id);
+  }
 }

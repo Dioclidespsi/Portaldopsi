@@ -11,6 +11,8 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { ProfileModule } from './profile/profile.module';
 import { PsychTestsModule } from './psych-tests/psych-tests.module';
+import { PsychDocumentsModule } from './psych-documents/psych-documents.module';
+import { AnamneseModule } from './anamnese/anamnese.module';
 import { CoursesModule } from './courses/courses.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { LibraryModule } from './library/library.module';
@@ -24,6 +26,8 @@ import { PatientPortalModule } from './patient-portal/patient-portal.module';
 import { AsaasModule } from './asaas/asaas.module';
 import { AdminModule } from './admin/admin.module';
 import { DocumentTemplatesModule } from './document-templates/document-templates.module';
+import { CampaignLeadsModule } from './campaign-leads/campaign-leads.module';
+import { AccountModule } from './account/account.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { BookingModule } from './booking/booking.module';
 import { BannersModule } from './banners/banners.module';
@@ -31,7 +35,10 @@ import { DirectoryModule } from './directory/directory.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { HomeworkModule } from './homework/homework.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SiteCommentsModule } from './site-comments/site-comments.module';
 import { EstudanteAccessGuard } from './common/estudante-access.guard';
+import { ClinicalAccessGuard } from './common/clinical-access.guard';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -46,6 +53,8 @@ import { EstudanteAccessGuard } from './common/estudante-access.guard';
     InvoicesModule,
     ProfileModule,
     PsychTestsModule,
+    PsychDocumentsModule,
+    AnamneseModule,
     CoursesModule,
     CertificatesModule,
     LibraryModule,
@@ -59,6 +68,8 @@ import { EstudanteAccessGuard } from './common/estudante-access.guard';
     AsaasModule,
     AdminModule,
     DocumentTemplatesModule,
+    CampaignLeadsModule,
+    AccountModule,
     AvailabilityModule,
     BookingModule,
     BannersModule,
@@ -66,7 +77,12 @@ import { EstudanteAccessGuard } from './common/estudante-access.guard';
     PlatformSettingsModule,
     HomeworkModule,
     NotificationsModule,
+    SiteCommentsModule,
+    CommonModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: EstudanteAccessGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: EstudanteAccessGuard },
+    { provide: APP_GUARD, useClass: ClinicalAccessGuard },
+  ],
 })
 export class AppModule {}

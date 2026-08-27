@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +21,7 @@ export default function SignupPage() {
     setError(null);
     setLoading(true);
     try {
-      const { accessToken } = await signup({ clinicName, slug, name, email, password });
+      const { accessToken } = await signup({ clinicName, slug, name, email, phone: phone.replace(/\D/g, ''), password });
       saveToken(accessToken);
       router.push('/dashboard');
     } catch (err) {
@@ -57,6 +58,19 @@ export default function SignupPage() {
         <label>
           E-mail
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label>
+          WhatsApp (DDD + número)
+          <input
+            type="tel"
+            inputMode="numeric"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="11987654321"
+            pattern="\d{10,11}"
+            title="DDD + número, só dígitos (ex: 11987654321)"
+            required
+          />
         </label>
         <label>
           Senha

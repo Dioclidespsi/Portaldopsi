@@ -25,9 +25,9 @@ export const viewport: Viewport = {
 /**
  * Paleta da PLATAFORMA em si (escolhida pelo admin em /admin/aparencia),
  * aplicada sobrescrevendo as variáveis padrão de globals.css — afeta home,
- * logins, loja, dashboard, admin. Não afeta /p/{slug} (página do psicólogo),
+ * logins, loja, dashboard, admin. Não afeta /{slug} (página do psicólogo),
  * que usa seu próprio namespace de variáveis (--site-*, ver site-palettes.ts
- * usado direto em p/[slug]/page.tsx), completamente independente desta.
+ * usado direto em app/[slug]/page.tsx), completamente independente desta.
  */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await fetchPlatformSettings();

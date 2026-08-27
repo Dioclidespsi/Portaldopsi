@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CertificatesService } from '../certificates/certificates.service';
+import { AccessGateService } from '../common/access-gate.service';
 import { COURSE_MATERIAL_UPLOAD_DIR } from './course-material-upload.config';
 import { SubmitQuizAttemptDto } from './dto/submit-quiz-attempt.dto';
 
@@ -16,19 +17,53 @@ export class CoursesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly certificates: CertificatesService,
+    private readonly accessGate: AccessGateService,
   ) {}
 
   /**
    * Módulo gratuito libera pra qualquer autenticado (isca/lead-magnet). Fora
-   * isso, CLINICA (assinante da plataforma) tem acesso incluso; ESTUDANTE só
-   * acessa com CourseEnrollment — matrícula paga via Marketplace.
+   * isso, quem acessa depende de `Course.audience` (ver enum CourseAudience):
+   * ESTUDANTES é o modo clássico (matrícula paga via Marketplace/Loja, nunca
+   * CLINICA); PROFISSIONAIS_GRATIS/PROFISSIONAIS_PAGO são exclusivos de
+   * CLINICA e exigem o mesmo gate de AccessGateService usado no núcleo
+   * clínico (CRP+assinatura+termos) — "grátis" aqui é "incluso na
+   * assinatura", nunca "livre pra qualquer um"; PAGO exige o gate MAIS uma
+   * CourseEnrollment (mesma compra que ESTUDANTE usa, ver MarketplaceService).
    */
   private async hasModuleAccess(courseSlug: string, moduleFree: boolean): Promise<boolean> {
     if (moduleFree) return true;
     const { tenantId } = getRequestContext();
-    const tenant = await this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
-    if (tenant.kind === 'CLINICA') return true;
-    const enrollment = await this.prisma.courseEnrollment.findFirst({
+    const tenantPrisma = this.prisma.forCurrentTenant();
+    const [tenant, course] = await Promise.all([
+      this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } }),
+      this.prisma.course.findUniqueOrThrow({ where: { slug: courseSlug }, select: { audience: true } }),
+    ]);
+
+    if (tenant.kind === 'ESTUDANTE') {
+      if (course.audience !== 'ESTUDANTES') return false;
+      // course_enrollments/users têm RLS forçado — precisa de forCurrentTenant(), o client
+      // cru sempre volta zero linhas aqui (mesmo bug já visto em outras tabelas do projeto).
+      const enrollment = await tenantPrisma.courseEnrollment.findFirst({
+        where: { tenantId, courseSlug, patientId: null },
+      });
+      if (!enrollment) return false;
+      // Item 4: mesmo com matrícula paga, estudante de psicologia só acessa o
+      // conteúdo depois que studentVerificationStatus vira VERIFICADO (IA ou
+      // aprovação manual do ADM) — ver MarketplaceService.purchase().
+      const student = await tenantPrisma.user.findFirst({
+        where: { tenantId },
+        select: { studentVerificationStatus: true },
+      });
+      return student?.studentVerificationStatus === 'VERIFICADO';
+    }
+
+    // tenant.kind === 'CLINICA'
+    if (course.audience === 'ESTUDANTES') return false;
+    const { ok } = await this.accessGate.checkFullAccess();
+    if (!ok) return false;
+    if (course.audience === 'PROFISSIONAIS_GRATIS') return true;
+    // PROFISSIONAIS_PAGO
+    const enrollment = await tenantPrisma.courseEnrollment.findFirst({
       where: { tenantId, courseSlug, patientId: null },
     });
     return Boolean(enrollment);
@@ -89,6 +124,12 @@ export class CoursesService {
       },
     });
 
+    const enrollments = await tenantPrisma.courseEnrollment.findMany({
+      where: { tenantId, courseSlug: { in: courses.map((c) => c.slug) }, patientId: null },
+      select: { courseSlug: true },
+    });
+    const enrolledSlugs = new Set(enrollments.map((e) => e.courseSlug));
+
     const lessonIds = courses.flatMap((c) => c.modules.flatMap((m) => m.lessons.map((l) => l.id)));
     const progress = await tenantPrisma.moduleProgress.findMany({ where: { userId, lessonId: { in: lessonIds } } });
     const completedLessonIds = new Set(progress.map((p) => p.lessonId));
@@ -141,7 +182,16 @@ export class CoursesService {
         }
         modules.push({ id: module.id, order: module.order, title: module.title, free: module.free, locked: !moduleUnlocked, lessons });
       }
-      result.push({ id: course.id, slug: course.slug, title: course.title, description: course.description, priceCents: course.priceCents, modules });
+      result.push({
+        id: course.id,
+        slug: course.slug,
+        title: course.title,
+        description: course.description,
+        priceCents: course.priceCents,
+        audience: course.audience,
+        enrolled: enrolledSlugs.has(course.slug),
+        modules,
+      });
     }
     return result;
   }

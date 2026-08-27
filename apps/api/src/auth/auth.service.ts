@@ -1,19 +1,35 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { Role, TenantKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 
 const SALT_ROUNDS = 12;
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * O Site Profissional vive em /{slug} (raiz do domínio, sem prefixo) — um
+ * tenant com um desses nomes tornaria a própria página dele inalcançável pra
+ * sempre (a rota estática do Next.js sempre ganha da dinâmica [slug]). Ver
+ * apps/web/app/[slug]/page.tsx.
+ */
+const RESERVED_SLUGS = new Set([
+  'admin', 'dashboard', 'login', 'loja', 'paciente', 'privacidade',
+  'profissionais', 'signup', 'verificar', 'verificar-email', 'api', '_next', 'favicon.ico',
+]);
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly email: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -23,8 +39,50 @@ export class AuthService {
    * antes do insert do usuário.
    */
   async signup(dto: SignupDto) {
-    const { tenant, user } = await this.createTenantWithUser(TenantKind.CLINICA, dto.clinicName, dto.slug, dto.name, dto.email, dto.password);
+    const { tenant, user } = await this.createTenantWithUser(
+      TenantKind.CLINICA,
+      dto.clinicName,
+      dto.slug,
+      dto.name,
+      dto.email,
+      dto.password,
+      dto.phone,
+    );
+
+    // Não bloqueia o cadastro nem impede o login — só fica pendente até o
+    // psicólogo clicar no link (mesmo padrão não-bloqueante do CRP).
+    const verificationToken = randomUUID();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+      },
+    });
+    const webUrl = this.config.get<string>('PUBLIC_WEB_URL', 'https://portaldopsi.com.br');
+    await this.email.sendEmailVerification({
+      email: user.email,
+      name: user.name,
+      verifyUrl: `${webUrl}/verificar-email?token=${verificationToken}`,
+    });
+
     return this.issueToken({ sub: user.id, tenantId: tenant.id, role: user.role, tenantKind: tenant.kind });
+  }
+
+  /** Token de uso único — some depois de confirmado, não pode ser reaproveitado. */
+  async verifyEmail(token: string) {
+    const system = this.prisma.forSystem();
+    const user = await system.user.findUnique({ where: { emailVerificationToken: token } });
+    if (!user || !user.emailVerificationExpiresAt || user.emailVerificationExpiresAt < new Date()) {
+      throw new UnauthorizedException('Link de verificação inválido ou expirado.');
+    }
+
+    await system.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date(), emailVerificationToken: null, emailVerificationExpiresAt: null },
+    });
+
+    return { verified: true };
   }
 
   /**
@@ -32,8 +90,22 @@ export class AuthService {
    * um curso avulso sem já ter conta — mesma transação atômica do signup de
    * clínica, só muda `kind`. Não emite token: o Marketplace decide quando
    * (só depois de iniciar a cobrança).
+   *
+   * `phone` é opcional aqui de propósito — só o signup de clínica (plano
+   * free) exige WhatsApp na aquisição; o Marketplace não passa esse campo.
    */
-  async createTenantWithUser(kind: TenantKind, tenantName: string, slug: string, userName: string, email: string, password: string) {
+  async createTenantWithUser(
+    kind: TenantKind,
+    tenantName: string,
+    slug: string,
+    userName: string,
+    email: string,
+    password: string,
+    phone?: string,
+  ) {
+    if (RESERVED_SLUGS.has(slug)) {
+      throw new ConflictException('Esse identificador (slug) é reservado — escolha outro.');
+    }
     const existing = await this.prisma.tenant.findUnique({ where: { slug } });
     if (existing) {
       throw new ConflictException('Esse identificador (slug) já está em uso.');
@@ -45,7 +117,7 @@ export class AuthService {
 
     const [, tenant, user] = await this.prisma.$transaction([
       this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, TRUE)`,
-      this.prisma.tenant.create({ data: { id: tenantId, name: tenantName, slug, kind } }),
+      this.prisma.tenant.create({ data: { id: tenantId, name: tenantName, slug, kind, publicPhone: phone ?? null } }),
       this.prisma.user.create({
         data: {
           id: userId,

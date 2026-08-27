@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
 const TOKEN_KEY = 'portal-do-psi:token';
+const VISITOR_TOKEN_KEY = 'portal-do-psi:visitor';
+
+/** Identificador anônimo do visitante (sem conta/login) — só pra evitar curtida duplicada do mesmo navegador, ver SiteLike. */
+export function getVisitorToken(): string {
+  if (typeof window === 'undefined') return '';
+  let token = localStorage.getItem(VISITOR_TOKEN_KEY);
+  if (!token) {
+    token = crypto.randomUUID();
+    localStorage.setItem(VISITOR_TOKEN_KEY, token);
+  }
+  return token;
+}
 
 export function saveToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token);
@@ -26,6 +38,18 @@ export function getTenantKind(): 'CLINICA' | 'ESTUDANTE' | null {
   }
 }
 
+/** Mesma ideia de getTenantKind — usado pra só mostrar "Nome da clínica" em /dashboard/conta pro titular. */
+export function getRole(): 'PSICOLOGO_TITULAR' | 'SECRETARIA' | 'SUPERVISOR' | 'PACIENTE' | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_URL}${path}`, {
@@ -43,8 +67,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
-export function signup(data: { clinicName: string; slug: string; name: string; email: string; password: string }) {
+export function signup(data: { clinicName: string; slug: string; name: string; email: string; phone: string; password: string }) {
   return request<{ accessToken: string }>('/auth/signup', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function verifyEmailToken(token: string): Promise<boolean> {
+  const res = await fetch(`${API_URL}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+    cache: 'no-store',
+  });
+  return res.ok;
 }
 
 export function login(data: { slug: string; email: string; password: string }) {
@@ -75,6 +109,8 @@ export interface Patient {
   phone?: string;
   cpfCnpj?: string;
   active: boolean;
+  /** Rascunho privado do psicólogo — nunca visível ao paciente. */
+  privateNote?: string | null;
 }
 
 export function listPatients(active?: boolean) {
@@ -88,6 +124,10 @@ export function createPatient(data: { name: string; socialName?: string; email?:
 
 export function setPatientActive(id: string, active: boolean) {
   return request<Patient>(`/patients/${id}/active`, { method: 'PATCH', body: JSON.stringify({ active }) });
+}
+
+export function setPatientPrivateNote(id: string, privateNote: string) {
+  return request<Patient>(`/patients/${id}/private-note`, { method: 'PATCH', body: JSON.stringify({ privateNote }) });
 }
 
 export interface Appointment {
@@ -133,8 +173,24 @@ export function listAvailability() {
   return request<AvailabilitySlot[]>('/availability');
 }
 
-export function createAvailabilitySlot(data: { startsAt: string; endsAt: string }) {
-  return request<AvailabilitySlot>('/availability', { method: 'POST', body: JSON.stringify(data) });
+export interface CreateSlotBlockResult {
+  created: number;
+  skippedConflict: number;
+  skippedPast: number;
+  slots: AvailabilitySlot[];
+}
+
+/** Substitui a antiga liberação horário-a-horário — ver AvailabilityService.createSlotBlock. */
+export function createAvailabilitySlotBlock(data: {
+  fromDate: string;
+  toDate: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  intervalMinutes?: number;
+}) {
+  return request<CreateSlotBlockResult>('/availability/block', { method: 'POST', body: JSON.stringify(data) });
 }
 
 export function deleteAvailabilitySlot(id: string) {
@@ -186,10 +242,30 @@ export function chargeInvoiceViaAsaas(id: string) {
   return request<Invoice>(`/invoices/${id}/charge`, { method: 'POST' });
 }
 
-export function createPayoutAccount(data: { name: string; email: string; cpfCnpj: string; mobilePhone: string }) {
+export function createPayoutAccount(data: {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  mobilePhone: string;
+  birthDate: string;
+  incomeValueCents: number;
+  address: string;
+  addressNumber: string;
+  complement?: string;
+  province: string;
+  postalCode: string;
+}) {
   return request<{ payoutProvider: string; payoutAccountId: string }>('/asaas/payout-account', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+/** Pra quem já tem conta Asaas própria — evita o erro de CPF/e-mail já em uso ao tentar criar sub-conta nova. */
+export function linkExistingPayoutAccount(walletId: string) {
+  return request<{ payoutProvider: string; payoutAccountId: string }>('/asaas/payout-account/link', {
+    method: 'POST',
+    body: JSON.stringify({ walletId }),
   });
 }
 
@@ -202,6 +278,14 @@ export interface Profile {
   specialties?: string | null;
   publicEmail?: string | null;
   publicPhone?: string | null;
+  publicAddress?: string | null;
+  publicCity?: string | null;
+  publicState?: string | null;
+  socialInstagram?: string | null;
+  socialYoutube?: string | null;
+  socialFacebook?: string | null;
+  socialLinkedin?: string | null;
+  socialTiktok?: string | null;
   colorPalette: string;
   published: boolean;
   payoutProvider?: string | null;
@@ -209,6 +293,10 @@ export interface Profile {
   sessionPriceCents?: number | null;
   bookingEnabled: boolean;
   listedInDirectory: boolean;
+  /** Fica em EM_ANALISE até o admin da plataforma publicar — nunca o próprio profissional. */
+  presentationVideoStatus: 'NAO_ENVIADO' | 'EM_ANALISE' | 'PUBLICADO' | 'REJEITADO';
+  presentationVideoRejectionReason?: string | null;
+  presentationVideoUrl?: string | null;
 }
 
 export function fetchOwnProfile() {
@@ -225,6 +313,14 @@ export function updateProfile(
       | 'specialties'
       | 'publicEmail'
       | 'publicPhone'
+      | 'publicAddress'
+      | 'publicCity'
+      | 'publicState'
+      | 'socialInstagram'
+      | 'socialYoutube'
+      | 'socialFacebook'
+      | 'socialLinkedin'
+      | 'socialTiktok'
       | 'published'
       | 'colorPalette'
       | 'sessionPriceCents'
@@ -234,6 +330,48 @@ export function updateProfile(
   >,
 ) {
   return request<Profile>('/profile', { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export interface AccountInfo {
+  name: string;
+  email: string;
+  tenantName: string;
+}
+
+export function fetchAccount() {
+  return request<AccountInfo>('/account');
+}
+
+export function changeAccountEmail(newEmail: string, currentPassword: string) {
+  return request<{ id: string; email: string }>('/account/email', {
+    method: 'PATCH',
+    body: JSON.stringify({ newEmail, currentPassword }),
+  });
+}
+
+export function changeAccountPassword(currentPassword: string, newPassword: string) {
+  return request<{ ok: true }>('/account/password', {
+    method: 'PATCH',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+/** Só o titular pode chamar — ver AccountController.updateTenantName. */
+export function updateTenantName(name: string) {
+  return request<{ id: string; name: string }>('/account/tenant-name', { method: 'PATCH', body: JSON.stringify({ name }) });
+}
+
+/** `templates` vem `null` até o titular configurar em /dashboard/conta — o frontend cai nos padrões embutidos nesse caso (ver lib/whatsapp.ts). */
+export function fetchWhatsAppTemplates() {
+  return request<{ templates: { label: string; text: string }[] | null }>('/account/whatsapp-templates');
+}
+
+/** Só o titular pode chamar — ver AccountController.updateWhatsAppTemplates. Sempre exatamente 5 modelos. */
+export function updateWhatsAppTemplates(templates: { label: string; text: string }[]) {
+  return request<{ templates: { label: string; text: string }[] | null }>('/account/whatsapp-templates', {
+    method: 'PATCH',
+    body: JSON.stringify({ templates }),
+  });
 }
 
 export async function uploadProfilePhoto(file: File) {
@@ -252,7 +390,74 @@ export async function uploadProfilePhoto(file: File) {
   return res.json() as Promise<Profile>;
 }
 
-export type PublicProfile = Omit<Profile, 'published'> & { crpVerified: boolean };
+/** Fica em EM_ANALISE até o admin da plataforma revisar — cadastrar outro link sobrescreve o anterior. */
+export function setPresentationVideoUrl(url: string) {
+  return request<{ id: string; presentationVideoStatus: Profile['presentationVideoStatus'] }>('/profile/video', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  });
+}
+
+/** Some da página pública mesmo se já estava publicado — pode cadastrar outro link depois. */
+export function removePresentationVideo() {
+  return request<{ id: string; presentationVideoStatus: Profile['presentationVideoStatus'] }>('/profile/video', {
+    method: 'DELETE',
+  });
+}
+
+/** Conteúdo repetível do Site Profissional (formação, experiência, credenciais, FAQ) — ver SiteProfileBlock. */
+export interface SiteProfileBlockField {
+  key: string;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+export interface SiteProfileBlockType {
+  type: string;
+  label: string;
+  fields: SiteProfileBlockField[];
+}
+
+export interface SiteProfileBlock {
+  id: string;
+  type: string;
+  fields: Record<string, string>;
+  position: number;
+}
+
+export function getSiteProfileBlockCatalog() {
+  return request<SiteProfileBlockType[]>('/profile/blocks/catalog');
+}
+
+export function listOwnSiteProfileBlocks() {
+  return request<SiteProfileBlock[]>('/profile/blocks');
+}
+
+export function createSiteProfileBlock(data: { type: string; fields: Record<string, string> }) {
+  return request<SiteProfileBlock>('/profile/blocks', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function updateSiteProfileBlock(id: string, data: { fields?: Record<string, string>; position?: number }) {
+  return request<SiteProfileBlock>(`/profile/blocks/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function deleteSiteProfileBlock(id: string) {
+  return request(`/profile/blocks/${id}`, { method: 'DELETE' });
+}
+
+export type PublicProfile = Omit<
+  Profile,
+  'published' | 'presentationVideoStatus' | 'presentationVideoRejectionReason' | 'presentationVideoUrl'
+> & {
+  crpVerified: boolean;
+  /** Só vem preenchido quando o CRP do titular está VERIFICADO — nunca um valor não conferido. */
+  crpNumber: string | null;
+  /** Só vem preenchido quando presentationVideoStatus=PUBLICADO — link do YouTube, pronto pra embed. */
+  presentationVideoUrl: string | null;
+  /** Vazio quando o psicólogo não preencheu nenhum bloco — nunca vem com conteúdo fabricado. */
+  blocks: SiteProfileBlock[];
+};
 
 /** Chamada de Server Component (sem token, sem localStorage) — não passa por request(). */
 export async function fetchPublicProfile(slug: string): Promise<PublicProfile | null> {
@@ -309,6 +514,111 @@ export async function submitPublicLead(slug: string, data: { name: string; conta
   return res.json();
 }
 
+/** Formulário público da página /programa-piloto — capta interesse no Programa Piloto (100 vagas, 3 meses grátis). */
+export async function submitCampaignLead(data: { name: string; email: string; phone: string; consent: boolean }) {
+  const res = await fetch(`${API_URL}/public/campaign-leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Contador real de vagas do Programa Piloto (só conta quem já virou tenant ativo — nunca escassez artificial). */
+export async function getPilotProgress(): Promise<{ converted: number; remaining: number }> {
+  const res = await fetch(`${API_URL}/public/campaign-leads/count`);
+  if (!res.ok) throw new Error(`Erro ${res.status}`);
+  return res.json();
+}
+
+export interface PublicSiteComment {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+  rating: number | null;
+  importedFrom: string | null;
+}
+
+export async function fetchPublicComments(slug: string): Promise<PublicSiteComment[]> {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/comments`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function submitPublicComment(
+  slug: string,
+  data: { authorName: string; content: string; consentToPublish: boolean },
+) {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface SiteLikesInfo {
+  count: number;
+  likedByVisitor: boolean;
+}
+
+export async function fetchSiteLikes(slug: string, visitorToken: string): Promise<SiteLikesInfo> {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/likes?visitorToken=${encodeURIComponent(visitorToken)}`, { cache: 'no-store' });
+  if (!res.ok) return { count: 0, likedByVisitor: false };
+  return res.json();
+}
+
+export async function likeSite(slug: string, visitorToken: string): Promise<SiteLikesInfo> {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/likes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visitorToken }),
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status}`);
+  return res.json();
+}
+
+export async function unlikeSite(slug: string, visitorToken: string): Promise<SiteLikesInfo> {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/likes`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visitorToken }),
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status}`);
+  return res.json();
+}
+
+/** Lado do profissional — vê todos os próprios comentários, publicados ou não. */
+export interface OwnSiteComment {
+  id: string;
+  authorName: string;
+  content: string;
+  consentToPublish: boolean;
+  publishedByProfessional: boolean;
+  blockedByAdmin: boolean;
+  blockedReason: string | null;
+  createdAt: string;
+  rating: number | null;
+  importedFrom: string | null;
+}
+
+export function listOwnSiteComments() {
+  return request<OwnSiteComment[]>('/site-comments');
+}
+
+export function setSiteCommentPublished(id: string, publish: boolean) {
+  return request<OwnSiteComment>(`/site-comments/${id}/publish`, { method: 'PATCH', body: JSON.stringify({ publish }) });
+}
+
 export interface PublicSlot {
   id: string;
   startsAt: string;
@@ -326,17 +636,37 @@ export interface PublicBookingResult {
   appointmentId: string;
   holdExpiresAt: string;
   paymentLink: string;
+  /** Só vem preenchido no fluxo anônimo — cria a PatientAccount (login automático) na hora do primeiro agendamento. */
+  accessToken?: string;
 }
 
-/** Reserva o horário por 15min e gera o link de pagamento via Asaas (split pro profissional). */
+/**
+ * Reserva o horário por 15min e gera o link de pagamento via Asaas (split
+ * pro profissional). Fluxo anônimo — visitante sem conta ainda, cria a
+ * PatientAccount (login único, cross-clínica) junto com o agendamento.
+ */
 export async function submitPublicBooking(
   slug: string,
-  data: { slotId: string; name: string; email: string; phone: string; cpfCnpj: string },
+  data: { slotId: string; name: string; email: string; phone: string; cpfCnpj: string; password: string; termsAccepted: boolean },
 ) {
   const res = await fetch(`${API_URL}/public/tenants/${slug}/bookings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<PublicBookingResult>;
+}
+
+/** Paciente já logado (qualquer clínica) — só o horário importa, o resto já vem da conta. */
+export async function submitAuthenticatedBooking(slug: string, slotId: string, patientToken: string) {
+  const res = await fetch(`${API_URL}/public/tenants/${slug}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${patientToken}` },
+    body: JSON.stringify({ slotId }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}) as { message?: string });
@@ -404,6 +734,8 @@ export interface TestAssignment {
   status: 'pendente' | 'respondido' | 'corrigido';
   answers?: Record<string, number | string> | null;
   submittedAt?: string | null;
+  /** true quando o próprio profissional digitou as respostas numa aplicação ao vivo, em vez do paciente responder sozinho. */
+  appliedLiveByStaff: boolean;
   suggestedScore?: number | null;
   suggestedResultLabel?: string | null;
   suggestedSubscaleScores?: NamedScoreResult[] | null;
@@ -436,6 +768,13 @@ export function getTestAssignment(id: string) {
   return request<TestAssignment>(`/psych-tests/assignments/${id}`);
 }
 
+export function applyTestLive(id: string, answers: Record<string, number | string>) {
+  return request<TestAssignment>(`/psych-tests/assignments/${id}/apply-live`, {
+    method: 'POST',
+    body: JSON.stringify({ answers }),
+  });
+}
+
 export function correctTestAssignment(id: string, data: { finalScore?: number; finalResultLabel?: string; communicationNote?: string }) {
   return request<TestAssignment>(`/psych-tests/assignments/${id}/correct`, {
     method: 'PATCH',
@@ -445,6 +784,11 @@ export function correctTestAssignment(id: string, data: { finalScore?: number; f
 
 export function attachTestToProntuario(id: string) {
   return request<TestAssignment>(`/psych-tests/assignments/${id}/attach-prontuario`, { method: 'POST' });
+}
+
+/** Só funciona enquanto a aplicação ainda está "pendente" — o backend recusa depois de respondida. */
+export function deleteTestAssignment(id: string) {
+  return request<{ ok: true }>(`/psych-tests/assignments/${id}`, { method: 'DELETE' });
 }
 
 export interface TeamMember {
@@ -503,6 +847,8 @@ export interface CourseView {
   title: string;
   description: string;
   priceCents: number | null;
+  audience: 'ESTUDANTES' | 'PROFISSIONAIS_GRATIS' | 'PROFISSIONAIS_PAGO';
+  enrolled: boolean;
   modules: CourseModuleView[];
 }
 
@@ -866,12 +1212,22 @@ export function markAllCommunityNotificationsRead() {
 }
 
 export interface PatientDetail extends Patient {
-  portalEnabled: boolean;
+  /** Vínculo com a conta global do Aplicativo do Paciente — null enquanto não convidado pro portal. */
+  patientAccountId: string | null;
   birthDate?: string | null;
 }
 
 export function getPatient(id: string) {
   return request<PatientDetail>(`/patients/${id}`);
+}
+
+export interface EnablePortalResult {
+  id: string;
+  name: string;
+  email: string | null;
+  patientAccountId: string;
+  /** true quando o e-mail já tinha conta em outra clínica — a senha enviada foi ignorada, só linkamos. */
+  linkedExistingAccount: boolean;
 }
 
 export interface ProntuarioEntry {
@@ -890,7 +1246,7 @@ export function addProntuarioEntry(patientId: string, content: string) {
 }
 
 export function enablePatientPortal(patientId: string, password: string) {
-  return request<PatientDetail>(`/patients/${patientId}/portal`, { method: 'PATCH', body: JSON.stringify({ password }) });
+  return request<EnablePortalResult>(`/patients/${patientId}/portal`, { method: 'PATCH', body: JSON.stringify({ password }) });
 }
 
 /** Alternativa a enablePatientPortal: gera um token pro próprio paciente definir a senha (ver /paciente/ativar). */
@@ -900,6 +1256,46 @@ export function generatePatientActivationLink(patientId: string) {
 
 export function summarizeProntuarioWithAi(patientId: string) {
   return request<{ summary: string }>(`/ai/prontuario/${patientId}/summarize`, { method: 'POST' });
+}
+
+export interface AnamneseSection {
+  key: string;
+  label: string;
+  placeholder: string;
+}
+
+export interface AnamneseTemplate {
+  slug: string;
+  title: string;
+  suggestedAgeRange: { min: number; max: number | null };
+  sections: AnamneseSection[];
+}
+
+export interface AnamneseEntry {
+  id: string;
+  patientId: string;
+  templateSlug: string;
+  fields: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function getAnamneseCatalog() {
+  return request<AnamneseTemplate[]>('/anamnese/catalog');
+}
+
+/** Sempre editável — não existe "rascunho"/"finalizado" aqui, ver AnamneseService. */
+export function getAnamnese(patientId: string) {
+  return request<{ entry: AnamneseEntry | null; suggestedTemplateSlug: string | null }>(
+    `/anamnese?patientId=${patientId}`,
+  );
+}
+
+export function upsertAnamnese(patientId: string, templateSlug: string, fields: Record<string, string>) {
+  return request<AnamneseEntry>('/anamnese', {
+    method: 'PUT',
+    body: JSON.stringify({ patientId, templateSlug, fields }),
+  });
 }
 
 export interface AiChatTurn {
@@ -926,6 +1322,16 @@ export function listPatientAppointments(patientId: string) {
 
 export function createTeleconsultaRoom(appointmentId: string) {
   return request<Appointment & { videoRoomUrl: string }>(`/appointments/${appointmentId}/teleconsulta/room`, { method: 'POST' });
+}
+
+/** Sala é privada — a URL crua não entra sozinha, precisa de um token de curta duração gerado na hora. */
+export function getTeleconsultaJoinLink(appointmentId: string) {
+  return request<{ url: string }>(`/appointments/${appointmentId}/teleconsulta/join-link`, { method: 'POST' });
+}
+
+/** Link com papel de paciente (não moderador) — pra copiar e mandar manualmente (WhatsApp etc.) quando o fluxo automático dentro do app do paciente falhar. */
+export function getTeleconsultaPatientJoinLink(appointmentId: string) {
+  return request<{ url: string }>(`/appointments/${appointmentId}/teleconsulta/patient-join-link`, { method: 'POST' });
 }
 
 export interface Homework {
@@ -963,15 +1369,12 @@ export interface Plan {
   label: string;
 }
 
+/**
+ * Autenticado de propósito — os valores da assinatura só devem aparecer pro
+ * profissional já logado, na tela Assinatura, nunca na home pública.
+ */
 export function listPlans() {
   return request<Record<PlanKey, Plan>>('/billing/plans');
-}
-
-/** Mesma rota de listPlans(), mas via fetch puro (sem localStorage) — segura pra chamar de Server Component, igual fetchPublicBanners/fetchPublicProfile. */
-export async function fetchPublicPlans(): Promise<Record<PlanKey, Plan> | null> {
-  const res = await fetch(`${API_URL}/billing/plans`, { cache: 'no-store' });
-  if (!res.ok) return null;
-  return res.json();
 }
 
 export interface PlatformSettings {
@@ -1004,7 +1407,14 @@ export function createStripeCheckout(plan: PlanKey, successUrl: string, cancelUr
 }
 
 export function createAsaasCheckout(data: { name: string; cpfCnpj: string; email: string; plan: PlanKey }) {
-  return request<{ asaasSubscriptionId: string }>('/billing/checkout-asaas', { method: 'POST', body: JSON.stringify(data) });
+  return request<{ asaasSubscriptionId: string; paymentLink: string | null }>('/billing/checkout-asaas', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function fetchAsaasPaymentLink() {
+  return request<{ paymentLink: string | null }>('/billing/asaas-payment-link');
 }
 
 export async function submitCrp(crpNumber: string, document: File) {
@@ -1028,11 +1438,33 @@ export interface DocumentTemplate {
   id: string;
   title: string;
   description: string;
+  requiresAcceptance: boolean;
   createdAt: string;
 }
 
 export function listDocumentTemplates() {
   return request<DocumentTemplate[]>('/document-templates');
+}
+
+/** Contratos/termos com requiresAcceptance=true que o usuário logado ainda não aceitou. */
+export function listPendingAcceptance() {
+  return request<DocumentTemplate[]>('/document-templates/pending-acceptance');
+}
+
+export function acceptDocumentTemplate(id: string) {
+  return request(`/document-templates/${id}/accept`, { method: 'POST' });
+}
+
+export interface AccessStatus {
+  ok: boolean;
+  missingCrp: boolean;
+  missingSubscription: boolean;
+  missingTerms: boolean;
+}
+
+/** As 3 condições pra liberar o uso real das ferramentas clínicas — ver ClinicalAccessGuard. */
+export function getAccessStatus() {
+  return request<AccessStatus>('/me/access-status');
 }
 
 export async function downloadDocumentTemplate(id: string, suggestedName: string) {
@@ -1050,26 +1482,148 @@ export async function downloadDocumentTemplate(id: string, suggestedName: string
   URL.revokeObjectURL(url);
 }
 
-export function purchaseCourse(data: {
+/**
+ * Item 4 — multipart por causa da declaração de matrícula (arquivo). Não dá
+ * pra usar o helper `request()` genérico aqui porque ele sempre manda
+ * Content-Type: application/json.
+ */
+export async function purchaseCourse(data: {
   name: string;
   slug: string;
   email: string;
   password: string;
   courseSlug: string;
   provider: 'STRIPE' | 'ASAAS';
+  institution: string;
+  enrollmentNumber: string;
+  document: File;
+  termsAccepted: boolean;
   cpfCnpj?: string;
   successUrl?: string;
   cancelUrl?: string;
 }) {
-  return request<{ accessToken: string; checkoutUrl?: string; paymentLink?: string }>('/marketplace/purchase', {
-    method: 'POST',
-    body: JSON.stringify(data),
+  const form = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (key === 'document') form.append('document', value as File);
+    else if (value !== undefined) form.append(key, String(value));
   });
+  const res = await fetch(`${API_URL}/marketplace/purchase`, { method: 'POST', body: form });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<{ accessToken: string; enrollmentStatus: string; checkoutUrl?: string; paymentLink?: string }>;
+}
+
+export async function uploadSignature(file: File) {
+  const token = getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/users/me/signature`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<{ id: string; signatureImagePath: string }>;
+}
+
+export async function getOwnSignatureUrl(): Promise<string | null> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/users/me/signature`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+export interface PsychDocumentSection {
+  key: string;
+  label: string;
+  placeholder?: string;
+  defaultValue?: string;
+}
+
+export interface PsychDocumentTemplate {
+  slug: string;
+  title: string;
+  includesCid?: boolean;
+  includesReceiptProtocol?: boolean;
+  requiresPatientAcceptance?: boolean;
+  sections: PsychDocumentSection[];
+}
+
+export function listPsychDocumentCatalog() {
+  return request<PsychDocumentTemplate[]>('/psych-documents/catalog');
+}
+
+export interface PsychDocumentSummary {
+  id: string;
+  templateSlug: string;
+  title: string;
+  status: string;
+  createdAt: string;
+  finalizedAt?: string | null;
+  releasedToPatientAt?: string | null;
+  requiresPatientAcceptance?: boolean;
+  acceptedByPatientAt?: string | null;
+}
+
+export function listPsychDocumentsForPatient(patientId: string) {
+  return request<PsychDocumentSummary[]>(`/psych-documents?patientId=${encodeURIComponent(patientId)}`);
+}
+
+export interface PsychDocumentDetail extends PsychDocumentSummary {
+  fields: Record<string, string>;
+}
+
+export function getPsychDocument(id: string) {
+  return request<PsychDocumentDetail>(`/psych-documents/${id}`);
+}
+
+export function createPsychDocumentDraft(data: { patientId: string; templateSlug: string; fields: Record<string, string>; cid?: string }) {
+  return request<PsychDocumentDetail>('/psych-documents', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function updatePsychDocumentDraft(id: string, data: { fields: Record<string, string>; cid?: string }) {
+  return request<PsychDocumentDetail>(`/psych-documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function deletePsychDocumentDraft(id: string) {
+  return request(`/psych-documents/${id}`, { method: 'DELETE' });
+}
+
+export function finalizePsychDocument(id: string) {
+  return request<PsychDocumentDetail>(`/psych-documents/${id}/finalize`, { method: 'POST' });
+}
+
+export function releasePsychDocument(id: string) {
+  return request<PsychDocumentDetail>(`/psych-documents/${id}/release`, { method: 'POST' });
+}
+
+export async function downloadPsychDocument(id: string, suggestedName: string) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/psych-documents/${id}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = suggestedName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export function enrollInCourse(data: {
   courseSlug: string;
   provider: 'STRIPE' | 'ASAAS';
+  termsAccepted?: boolean;
   cpfCnpj?: string;
   successUrl?: string;
   cancelUrl?: string;

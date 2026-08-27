@@ -1,0 +1,205 @@
+/**
+ * Catálogo curado de CID-10 para a busca do campo "CID de referência" —
+ * escopo decidido com o usuário: só capítulo F (Transtornos mentais e
+ * comportamentais, F00-F99) mais um recorte de códigos Z de uso comum em
+ * psicologia (ex: Z50.4 psicoterapia). Não é a tabela oficial completa da
+ * OMS/DATASUS (milhares de subcódigos) — cobre as categorias e subdivisões
+ * clinicamente relevantes pra prática de um psicólogo.
+ */
+export interface Cid10Entry {
+  code: string;
+  label: string;
+}
+
+const SUBSTANCE_BLOCKS: { prefix: string; substance: string }[] = [
+  { prefix: 'F10', substance: 'álcool' },
+  { prefix: 'F11', substance: 'opioides' },
+  { prefix: 'F12', substance: 'canabinoides' },
+  { prefix: 'F13', substance: 'sedativos ou hipnóticos' },
+  { prefix: 'F14', substance: 'cocaína' },
+  { prefix: 'F15', substance: 'outros estimulantes (inclui cafeína)' },
+  { prefix: 'F16', substance: 'alucinógenos' },
+  { prefix: 'F17', substance: 'tabaco' },
+  { prefix: 'F18', substance: 'solventes voláteis' },
+  { prefix: 'F19', substance: 'múltiplas substâncias psicoativas' },
+];
+
+const SUBSTANCE_SUFFIXES: { suffix: string; label: string }[] = [
+  { suffix: '.0', label: 'intoxicação aguda' },
+  { suffix: '.1', label: 'uso nocivo/prejudicial' },
+  { suffix: '.2', label: 'síndrome de dependência' },
+  { suffix: '.3', label: 'síndrome de abstinência' },
+  { suffix: '.4', label: 'síndrome de abstinência com delirium' },
+  { suffix: '.5', label: 'transtorno psicótico' },
+  { suffix: '.6', label: 'síndrome amnésica' },
+  { suffix: '.7', label: 'transtorno psicótico residual ou de início tardio' },
+];
+
+const substanceEntries: Cid10Entry[] = SUBSTANCE_BLOCKS.flatMap(({ prefix, substance }) =>
+  SUBSTANCE_SUFFIXES.map(({ suffix, label }) => ({
+    code: `${prefix}${suffix}`,
+    label: `Transtornos mentais e comportamentais devido ao uso de ${substance} — ${label}`,
+  })),
+);
+
+const CID10_F: Cid10Entry[] = [
+  { code: 'F00', label: 'Demência na doença de Alzheimer' },
+  { code: 'F01', label: 'Demência vascular' },
+  { code: 'F02', label: 'Demência em outras doenças classificadas em outra parte' },
+  { code: 'F03', label: 'Demência não especificada' },
+  { code: 'F04', label: 'Síndrome amnésica orgânica não induzida por álcool ou outras substâncias' },
+  { code: 'F05', label: 'Delirium não induzido por álcool ou outras substâncias psicoativas' },
+  { code: 'F06', label: 'Outros transtornos mentais devidos a lesão ou disfunção cerebral' },
+  { code: 'F07', label: 'Transtornos de personalidade e de comportamento devidos a doença/lesão cerebral' },
+  { code: 'F09', label: 'Transtorno mental orgânico ou sintomático não especificado' },
+
+  ...substanceEntries,
+
+  { code: 'F20', label: 'Esquizofrenia' },
+  { code: 'F20.0', label: 'Esquizofrenia paranoide' },
+  { code: 'F20.1', label: 'Esquizofrenia hebefrênica' },
+  { code: 'F20.2', label: 'Esquizofrenia catatônica' },
+  { code: 'F20.5', label: 'Esquizofrenia residual' },
+  { code: 'F21', label: 'Transtorno esquizotípico' },
+  { code: 'F22', label: 'Transtornos delirantes persistentes' },
+  { code: 'F23', label: 'Transtornos psicóticos agudos e transitórios' },
+  { code: 'F25', label: 'Transtornos esquizoafetivos' },
+  { code: 'F29', label: 'Psicose não orgânica não especificada' },
+
+  { code: 'F30', label: 'Episódio maníaco' },
+  { code: 'F31', label: 'Transtorno afetivo bipolar' },
+  { code: 'F31.0', label: 'Transtorno afetivo bipolar, episódio atual hipomaníaco' },
+  { code: 'F31.1', label: 'Transtorno afetivo bipolar, episódio atual maníaco sem sintomas psicóticos' },
+  { code: 'F31.3', label: 'Transtorno afetivo bipolar, episódio atual depressão leve ou moderada' },
+  { code: 'F31.4', label: 'Transtorno afetivo bipolar, episódio atual depressão grave sem sintomas psicóticos' },
+  { code: 'F32', label: 'Episódio depressivo' },
+  { code: 'F32.0', label: 'Episódio depressivo leve' },
+  { code: 'F32.1', label: 'Episódio depressivo moderado' },
+  { code: 'F32.2', label: 'Episódio depressivo grave sem sintomas psicóticos' },
+  { code: 'F32.3', label: 'Episódio depressivo grave com sintomas psicóticos' },
+  { code: 'F33', label: 'Transtorno depressivo recorrente' },
+  { code: 'F33.0', label: 'Transtorno depressivo recorrente, episódio atual leve' },
+  { code: 'F33.1', label: 'Transtorno depressivo recorrente, episódio atual moderado' },
+  { code: 'F33.2', label: 'Transtorno depressivo recorrente, episódio atual grave sem sintomas psicóticos' },
+  { code: 'F34', label: 'Transtornos de humor persistentes' },
+  { code: 'F34.0', label: 'Ciclotimia' },
+  { code: 'F34.1', label: 'Distimia' },
+  { code: 'F39', label: 'Transtorno do humor não especificado' },
+
+  { code: 'F40', label: 'Transtornos fóbico-ansiosos' },
+  { code: 'F40.0', label: 'Agorafobia' },
+  { code: 'F40.1', label: 'Fobias sociais' },
+  { code: 'F40.2', label: 'Fobias específicas (isoladas)' },
+  { code: 'F41', label: 'Outros transtornos ansiosos' },
+  { code: 'F41.0', label: 'Transtorno de pânico (ansiedade paroxística episódica)' },
+  { code: 'F41.1', label: 'Transtorno de ansiedade generalizada' },
+  { code: 'F41.2', label: 'Transtorno misto ansioso e depressivo' },
+  { code: 'F41.3', label: 'Outros transtornos ansiosos mistos' },
+  { code: 'F42', label: 'Transtorno obsessivo-compulsivo' },
+  { code: 'F42.0', label: 'Predominância de ideias ou ruminações obsessivas' },
+  { code: 'F42.1', label: 'Predominância de comportamentos compulsivos (rituais)' },
+  { code: 'F43', label: 'Reações ao estresse grave e transtornos de adaptação' },
+  { code: 'F43.0', label: 'Reação aguda ao estresse' },
+  { code: 'F43.1', label: 'Transtorno de estresse pós-traumático (TEPT)' },
+  { code: 'F43.2', label: 'Transtornos de adaptação' },
+  { code: 'F44', label: 'Transtornos dissociativos (de conversão)' },
+  { code: 'F45', label: 'Transtornos somatoformes' },
+  { code: 'F45.0', label: 'Transtorno de somatização' },
+  { code: 'F45.2', label: 'Transtorno hipocondríaco' },
+  { code: 'F48', label: 'Outros transtornos neuróticos' },
+  { code: 'F48.0', label: 'Neurastenia' },
+
+  { code: 'F50', label: 'Transtornos da alimentação' },
+  { code: 'F50.0', label: 'Anorexia nervosa' },
+  { code: 'F50.2', label: 'Bulimia nervosa' },
+  { code: 'F51', label: 'Transtornos não orgânicos do sono devidos a fatores emocionais' },
+  { code: 'F51.0', label: 'Insônia não orgânica' },
+  { code: 'F52', label: 'Disfunção sexual não causada por transtorno ou doença orgânica' },
+  { code: 'F53', label: 'Transtornos mentais e comportamentais associados ao puerpério' },
+  { code: 'F54', label: 'Fatores psicológicos ou comportamentais associados a transtornos ou doenças classificados em outra parte' },
+  { code: 'F55', label: 'Abuso de substâncias que não produzem dependência' },
+
+  { code: 'F60', label: 'Transtornos específicos da personalidade' },
+  { code: 'F60.0', label: 'Personalidade paranoide' },
+  { code: 'F60.1', label: 'Personalidade esquizoide' },
+  { code: 'F60.2', label: 'Personalidade dissocial' },
+  { code: 'F60.3', label: 'Transtorno de personalidade emocionalmente instável (borderline)' },
+  { code: 'F60.4', label: 'Personalidade histriônica' },
+  { code: 'F60.5', label: 'Personalidade anancástica (obsessivo-compulsiva)' },
+  { code: 'F60.6', label: 'Personalidade ansiosa (esquiva)' },
+  { code: 'F60.7', label: 'Personalidade dependente' },
+  { code: 'F61', label: 'Transtornos mistos da personalidade' },
+  { code: 'F63', label: 'Transtornos dos hábitos e impulsos' },
+  { code: 'F63.0', label: 'Jogo patológico' },
+  { code: 'F64', label: 'Transtornos de identidade de gênero' },
+  { code: 'F65', label: 'Transtornos da preferência sexual' },
+  { code: 'F68', label: 'Outros transtornos da personalidade e do comportamento do adulto' },
+
+  { code: 'F70', label: 'Retardo mental leve' },
+  { code: 'F71', label: 'Retardo mental moderado' },
+  { code: 'F72', label: 'Retardo mental grave' },
+  { code: 'F73', label: 'Retardo mental profundo' },
+  { code: 'F79', label: 'Retardo mental não especificado' },
+
+  { code: 'F80', label: 'Transtornos específicos do desenvolvimento da linguagem e da fala' },
+  { code: 'F81', label: 'Transtornos específicos do desenvolvimento das habilidades escolares' },
+  { code: 'F81.0', label: 'Transtorno específico de leitura (dislexia)' },
+  { code: 'F81.2', label: 'Transtorno específico da habilidade em aritmética (discalculia)' },
+  { code: 'F84', label: 'Transtornos globais do desenvolvimento' },
+  { code: 'F84.0', label: 'Autismo infantil' },
+  { code: 'F84.5', label: 'Síndrome de Asperger' },
+  { code: 'F88', label: 'Outros transtornos do desenvolvimento psicológico' },
+  { code: 'F89', label: 'Transtorno do desenvolvimento psicológico não especificado' },
+
+  { code: 'F90', label: 'Transtornos hipercinéticos (TDAH)' },
+  { code: 'F90.0', label: 'Distúrbio da atividade e da atenção (TDAH)' },
+  { code: 'F91', label: 'Distúrbios de conduta' },
+  { code: 'F92', label: 'Transtornos mistos de conduta e emoções' },
+  { code: 'F93', label: 'Transtornos emocionais com início específico na infância' },
+  { code: 'F93.0', label: 'Transtorno de ansiedade de separação na infância' },
+  { code: 'F93.1', label: 'Transtorno fóbico ansioso da infância' },
+  { code: 'F93.2', label: 'Transtorno de ansiedade social da infância' },
+  { code: 'F94', label: 'Transtornos do funcionamento social com início na infância/adolescência' },
+  { code: 'F94.0', label: 'Mutismo eletivo' },
+  { code: 'F95', label: 'Transtornos de tique' },
+  { code: 'F98', label: 'Outros transtornos comportamentais e emocionais com início habitual na infância/adolescência' },
+  { code: 'F98.0', label: 'Enurese não orgânica' },
+  { code: 'F99', label: 'Transtorno mental não especificado' },
+];
+
+/** Códigos Z de uso comum em psicoterapia/documentos clínicos — não é o capítulo XXI completo da CID-10. */
+const CID10_Z: Cid10Entry[] = [
+  { code: 'Z00.4', label: 'Exame psiquiátrico geral, não classificado em outra parte' },
+  { code: 'Z03.2', label: 'Observação por suspeita de transtorno mental e comportamental' },
+  { code: 'Z04.6', label: 'Exame psiquiátrico geral, solicitado pela autoridade' },
+  { code: 'Z13.3', label: 'Exame especial de investigação para transtornos mentais e comportamentais' },
+  { code: 'Z50.4', label: 'Psicoterapia' },
+  { code: 'Z54.3', label: 'Convalescença após tratamento psiquiátrico' },
+  { code: 'Z55', label: 'Problemas relacionados com a educação e com a alfabetização' },
+  { code: 'Z56', label: 'Problemas relacionados com o emprego e com o desemprego' },
+  { code: 'Z56.3', label: 'Ritmo de trabalho penoso' },
+  { code: 'Z56.6', label: 'Outras dificuldades físicas e mentais relacionadas com o trabalho' },
+  { code: 'Z60.0', label: 'Problemas de ajustamento a transições no ciclo de vida' },
+  { code: 'Z60.2', label: 'Problemas relacionados com viver só' },
+  { code: 'Z61', label: 'Problemas relacionados com eventos negativos na infância' },
+  { code: 'Z62', label: 'Outros problemas relacionados com a educação da criança' },
+  { code: 'Z63', label: 'Outros problemas relacionados com o grupo primário de apoio, inclusive circunstância familiar' },
+  { code: 'Z63.0', label: 'Problemas no relacionamento com o cônjuge ou parceiro' },
+  { code: 'Z63.4', label: 'Desaparecimento ou morte de membro da família' },
+  { code: 'Z63.5', label: 'Ruptura da família por separação ou divórcio' },
+  { code: 'Z63.8', label: 'Outros problemas especificados relacionados com o grupo primário de apoio' },
+  { code: 'Z64', label: 'Problemas relacionados com certas circunstâncias psicossociais' },
+  { code: 'Z65', label: 'Problemas relacionados com outras circunstâncias psicossociais' },
+  { code: 'Z71.1', label: 'Pessoa com temores de queixas quando nenhum diagnóstico é feito (aconselhamento)' },
+  { code: 'Z71.4', label: 'Aconselhamento para o alcoolismo' },
+  { code: 'Z71.5', label: 'Aconselhamento sobre abuso de drogas' },
+  { code: 'Z71.8', label: 'Outras consultas especificadas para aconselhamento' },
+  { code: 'Z73.0', label: 'Esgotamento (síndrome de burnout)' },
+  { code: 'Z73.1', label: 'Acentuação de traços de personalidade' },
+  { code: 'Z73.3', label: 'Estresse não classificado em outra parte' },
+  { code: 'Z73.6', label: 'Limitação de atividades devida à incapacidade' },
+  { code: 'Z81.8', label: 'História familiar de outros transtornos mentais e comportamentais' },
+  { code: 'Z91.5', label: 'História pessoal de lesão autoprovocada' },
+];
+
+export const CID10_CATALOG: Cid10Entry[] = [...CID10_F, ...CID10_Z];

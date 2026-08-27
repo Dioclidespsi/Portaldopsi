@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res } from '@nestjs/common';
+import { Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import * as path from 'path';
 import { DocumentTemplatesService } from './document-templates.service';
@@ -10,6 +10,16 @@ export class DocumentTemplatesController {
   @Get()
   list() {
     return this.templates.list();
+  }
+
+  @Get('pending-acceptance')
+  listPendingAcceptance() {
+    return this.templates.listPendingAcceptance();
+  }
+
+  @Post(':id/accept')
+  accept(@Param('id') id: string) {
+    return this.templates.accept(id);
   }
 
   @Get(':id/download')

@@ -49,15 +49,18 @@ export default function ProfissionaisPage() {
         </Link>
       </header>
 
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
-        <h1 style={{ fontSize: '1.6rem', margin: '0 0 0.5rem', color: 'var(--ink)' }}>Encontre um profissional</h1>
-        <p style={{ color: 'var(--ink-soft)', fontSize: '0.98rem', margin: '0 0 1.8rem' }}>
-          Psicólogos e psicólogas que escolheram aparecer nesta busca pública.
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '1.8rem 1.5rem' }}>
+        <h1 style={{ fontSize: '1.6rem', margin: '0 0 0.4rem', color: 'var(--ink)' }}>Encontre um profissional</h1>
+        <p style={{ color: 'var(--ink-soft)', fontSize: '0.98rem', margin: '0 0 1.3rem' }}>
+          Profissionais especialistas, com CRP verificado pelo Portal do Psi.
         </p>
 
         <form
           onSubmit={onSubmit}
-          style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '2rem' }}
+          style={{
+            display: 'flex', flexDirection: 'row', gap: '0.7rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.8rem',
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px', padding: '1rem 1.1rem',
+          }}
         >
           <label style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--ink-soft)' }}>
             Nome
@@ -88,43 +91,59 @@ export default function ProfissionaisPage() {
             {searched ? 'Nenhum profissional encontrado com esses filtros.' : ''}
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.2rem', alignItems: 'start' }}>
             {results.map((p) => {
               const specialtyList = p.specialties ? p.specialties.split(',').map((s) => s.trim()).filter(Boolean) : [];
               return (
                 <Link
                   key={p.slug}
-                  href={`/p/${p.slug}`}
+                  href={`/${p.slug}`}
                   style={{
-                    display: 'block', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px',
+                    display: 'flex', flexDirection: 'column', height: '224px', overflow: 'hidden',
+                    background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px',
                     padding: '1.1rem', textDecoration: 'none', color: 'var(--ink)',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginBottom: '0.7rem' }}>
+                  <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginBottom: '0.7rem', flexShrink: 0 }}>
                     {p.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.photoUrl} alt={p.name} style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover' }} />
+                      <img src={p.photoUrl} alt={p.name} style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                     ) : (
-                      <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--ground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--ink-soft)' }}>
+                      <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--ground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--ink-soft)', flexShrink: 0 }}>
                         {p.name.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <strong style={{ fontSize: '0.98rem' }}>{p.name}</strong>
+                    <strong
+                      style={{
+                        fontSize: '0.98rem', lineHeight: 1.3, display: '-webkit-box',
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}
+                    >
+                      {p.name}
+                    </strong>
                   </div>
-                  {specialtyList.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.6rem' }}>
-                      {specialtyList.slice(0, 3).map((s) => (
-                        <span key={s} style={{ fontSize: '0.72rem', fontWeight: 600, background: 'var(--warn-soft)', color: 'var(--ink-soft)', padding: '0.25rem 0.6rem', borderRadius: '100px' }}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {p.bio && (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', margin: 0, lineHeight: 1.5 }}>
-                      {p.bio.length > 120 ? `${p.bio.slice(0, 120)}…` : p.bio}
-                    </p>
-                  )}
+                  <div style={{ height: '26px', overflow: 'hidden', marginBottom: '0.6rem', flexShrink: 0 }}>
+                    {specialtyList.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '0.35rem', overflow: 'hidden' }}>
+                        {specialtyList.slice(0, 3).map((s) => (
+                          <span key={s} style={{ fontSize: '0.72rem', fontWeight: 600, background: 'var(--warn-soft)', color: 'var(--ink-soft)', padding: '0.25rem 0.6rem', borderRadius: '100px', whiteSpace: 'nowrap' }}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p
+                    style={{
+                      fontSize: '0.85rem', color: 'var(--ink-soft)', margin: 0, lineHeight: 1.5, flex: 1,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}
+                  >
+                    {p.bio || 'Atende via Portal do Psi.'}
+                  </p>
+                  <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent)', margin: '0.8rem 0 0', flexShrink: 0 }}>
+                    Ver perfil →
+                  </p>
                 </Link>
               );
             })}

@@ -140,6 +140,88 @@ export class AiService {
     return text;
   }
 
+  /**
+   * Checagem de PLAUSIBILIDADE da declaração de matrícula de um estudante de
+   * psicologia (item 4) — NÃO é verificação oficial (não existe integração
+   * com nenhuma base de instituições de ensino real). A IA só julga se o
+   * documento enviado é consistente com os dados informados e não tem sinal
+   * óbvio de fraude/edição — qualquer dúvida cai para aprovação manual do
+   * ADM, nunca aprova sozinha no limite.
+   */
+  async verifyStudentEnrollment(input: {
+    name: string;
+    institution: string;
+    enrollmentNumber: string;
+    documentBase64: string;
+    documentMimeType: string;
+  }): Promise<{ approved: boolean; note: string }> {
+    // O SDK instalado (@anthropic-ai/sdk) não tipa bloco de conteúdo
+    // "document" nesta versão — em vez de forçar com "as any" (arriscando
+    // falhar em runtime sem eu saber), PDF cai direto pra revisão manual do
+    // ADM; só JPG/PNG passam pela checagem automática da IA.
+    if (input.documentMimeType === 'application/pdf') {
+      return {
+        approved: false,
+        note: 'Documento enviado em PDF — checagem automática só está disponível para imagem (JPG/PNG) nesta versão. Encaminhado para revisão manual.',
+      };
+    }
+
+    let response;
+    try {
+      // requireClient() dentro do try de propósito: sem ANTHROPIC_API_KEY
+      // configurada, cai no mesmo catch abaixo e vira "encaminhar pro ADM"
+      // em vez de estourar 503 e travar a compra do curso inteira.
+      const client = this.requireClient();
+      response = await client.messages.create({
+        model: this.model,
+        max_tokens: 300,
+        system:
+          'Você faz uma checagem de PLAUSIBILIDADE (não uma verificação oficial — você não tem acesso a ' +
+          'nenhuma base de dados de instituições de ensino reais) de uma declaração de matrícula enviada por ' +
+          'um estudante de psicologia para liberar acesso a um curso pago. Responda APENAS com uma destas ' +
+          'duas primeiras linhas, seguida de uma justificativa curta (1-2 frases) em português:\n' +
+          'APROVADO\n(se o nome, instituição e número de matrícula informados são consistentes com o que ' +
+          'aparece no documento, e o documento parece um documento institucional genuíno)\n\n' +
+          'ENCAMINHAR\n(se houver qualquer inconsistência entre os dados informados e o documento, campo ' +
+          'faltando, documento ilegível, ou qualquer sinal de edição/montagem/fraude — encaminha pra revisão ' +
+          'manual, não é uma acusação definitiva)',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text:
+                  `Nome informado no cadastro: ${input.name}\n` +
+                  `Instituição informada: ${input.institution}\n` +
+                  `Número de matrícula informado: ${input.enrollmentNumber}\n\n` +
+                  'Documento enviado como declaração de matrícula (imagem em anexo):',
+              },
+              {
+                type: 'image' as const,
+                source: {
+                  type: 'base64' as const,
+                  media_type: input.documentMimeType as 'image/jpeg' | 'image/png',
+                  data: input.documentBase64,
+                },
+              },
+            ],
+          },
+        ],
+      });
+    } catch (err) {
+      this.logger.error(`Falha na verificação de matrícula via Anthropic: ${(err as Error).message}`);
+      // Não foi possível confirmar -> encaminha pro ADM, nunca aprova no escuro.
+      return { approved: false, note: 'Não foi possível concluir a checagem automática — encaminhado para revisão manual.' };
+    }
+
+    const block = response.content.find((c) => c.type === 'text');
+    const text = block?.type === 'text' ? block.text.trim() : '';
+    const approved = text.toUpperCase().startsWith('APROVADO');
+    const note = text.replace(/^(APROVADO|ENCAMINHAR)\s*/i, '').trim() || 'Sem justificativa retornada pela IA.';
+    return { approved, note };
+  }
+
   /** Rascunho de mensagem de retomada de contato pro CRM — o psicólogo revisa e envia manualmente, nunca é disparado sozinho. */
   async suggestLeadFollowUp(lead: { name: string; stage: string; source?: string | null; notes?: string | null }): Promise<string> {
     await this.checkUsageLimit();

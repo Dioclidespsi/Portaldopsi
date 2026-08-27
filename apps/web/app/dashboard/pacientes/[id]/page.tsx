@@ -3,15 +3,20 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardNav from '../../../../components/DashboardNav';
+import WhatsAppButton from '../../../../components/WhatsAppButton';
 import {
   addProntuarioEntry,
+  AnamneseTemplate,
   Appointment,
   createHomework,
   createTeleconsultaRoom,
+  getTeleconsultaJoinLink,
+  getTeleconsultaPatientJoinLink,
   deleteHomework,
   enablePatientPortal,
-  fetchOwnProfile,
   generatePatientActivationLink,
+  getAnamnese,
+  getAnamneseCatalog,
   getPatient,
   Homework,
   listHomeworkForPatient,
@@ -19,7 +24,9 @@ import {
   listProntuario,
   PatientDetail,
   ProntuarioEntry,
+  setPatientPrivateNote,
   summarizeProntuarioWithAi,
+  upsertAnamnese,
 } from '../../../../lib/api';
 
 /**
@@ -48,15 +55,26 @@ export default function PatientDetailPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [newEntry, setNewEntry] = useState('');
   const [portalPassword, setPortalPassword] = useState('');
-  const [tenantSlug, setTenantSlug] = useState('');
+  const [portalMessage, setPortalMessage] = useState<string | null>(null);
   const [activationLink, setActivationLink] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [patientJoinLinks, setPatientJoinLinks] = useState<Record<string, string>>({});
+  const [generatingPatientLinkFor, setGeneratingPatientLinkFor] = useState<string | null>(null);
+  const [copiedLinkFor, setCopiedLinkFor] = useState<string | null>(null);
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [homeworkTitle, setHomeworkTitle] = useState('');
   const [homeworkInstructions, setHomeworkInstructions] = useState('');
   const [homeworkDueDate, setHomeworkDueDate] = useState('');
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [privateNote, setPrivateNoteValue] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteSavedAt, setNoteSavedAt] = useState<Date | null>(null);
+  const [anamneseCatalog, setAnamneseCatalog] = useState<AnamneseTemplate[]>([]);
+  const [anamneseSlug, setAnamneseSlug] = useState<string | null>(null);
+  const [anamneseFields, setAnamneseFields] = useState<Record<string, string>>({});
+  const [savingAnamnese, setSavingAnamnese] = useState(false);
+  const [anamneseSavedAt, setAnamneseSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dictating, setDictating] = useState(false);
@@ -68,15 +86,23 @@ export default function PatientDetailPage() {
       getPatient(params.id),
       listProntuario(params.id),
       listPatientAppointments(params.id),
-      fetchOwnProfile(),
       listHomeworkForPatient(params.id),
+      getAnamneseCatalog(),
+      getAnamnese(params.id),
     ])
-      .then(([p, e, a, profile, hw]) => {
+      .then(([p, e, a, hw, catalog, anamnese]) => {
         setPatient(p);
         setEntries(e);
         setAppointments(a);
-        setTenantSlug(profile.slug);
         setHomeworks(hw);
+        setPrivateNoteValue(p.privateNote ?? '');
+        setAnamneseCatalog(catalog);
+        if (anamnese.entry) {
+          setAnamneseSlug(anamnese.entry.templateSlug);
+          setAnamneseFields(anamnese.entry.fields);
+        } else {
+          setAnamneseSlug(anamnese.suggestedTemplateSlug ?? catalog[0]?.slug ?? null);
+        }
       })
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
@@ -128,6 +154,42 @@ export default function PatientDetailPage() {
     }
   }
 
+  async function onSavePrivateNote() {
+    setError(null);
+    setSavingNote(true);
+    try {
+      await setPatientPrivateNote(params.id, privateNote);
+      setNoteSavedAt(new Date());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
+  function onChangeAnamneseTemplate(slug: string) {
+    setAnamneseSlug(slug);
+    setAnamneseFields({});
+  }
+
+  function onChangeAnamneseField(key: string, value: string) {
+    setAnamneseFields((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function onSaveAnamnese() {
+    if (!anamneseSlug) return;
+    setError(null);
+    setSavingAnamnese(true);
+    try {
+      await upsertAnamnese(params.id, anamneseSlug, anamneseFields);
+      setAnamneseSavedAt(new Date());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingAnamnese(false);
+    }
+  }
+
   async function onSummarize() {
     setError(null);
     setSummarizing(true);
@@ -146,8 +208,13 @@ export default function PatientDetailPage() {
     setError(null);
     try {
       const updated = await enablePatientPortal(params.id, portalPassword);
-      setPatient((prev) => (prev ? { ...prev, portalEnabled: updated.portalEnabled } : prev));
+      setPatient((prev) => (prev ? { ...prev, patientAccountId: updated.patientAccountId } : prev));
       setPortalPassword('');
+      setPortalMessage(
+        updated.linkedExistingAccount
+          ? 'Este e-mail já tinha conta em outra clínica — só vinculamos aqui. O paciente continua usando a senha que já tinha.'
+          : 'Portal ativado com a nova senha.',
+      );
     } catch (err) {
       setError((err as Error).message);
     }
@@ -158,7 +225,7 @@ export default function PatientDetailPage() {
     setGeneratingLink(true);
     try {
       const { activationToken } = await generatePatientActivationLink(params.id);
-      const url = `${window.location.origin}/paciente/ativar?slug=${encodeURIComponent(tenantSlug)}&token=${activationToken}`;
+      const url = `${window.location.origin}/paciente/ativar?token=${activationToken}`;
       setActivationLink(url);
     } catch (err) {
       setError((err as Error).message);
@@ -206,15 +273,83 @@ export default function PatientDetailPage() {
     }
   }
 
+  async function onJoinRoom(appointmentId: string) {
+    setError(null);
+    // Abre a aba já no clique (gesto do usuário) e só troca a URL depois —
+    // esperar o fetch antes de window.open() arrisca cair no bloqueador de pop-up.
+    const newTab = window.open('about:blank', '_blank');
+    try {
+      const { url } = await getTeleconsultaJoinLink(appointmentId);
+      if (newTab) newTab.location.href = url;
+    } catch (err) {
+      newTab?.close();
+      setError((err as Error).message);
+    }
+  }
+
+  /**
+   * Link com papel de paciente pronto pra copiar e mandar por WhatsApp/e-mail — alternativa manual
+   * pro caso do fluxo automático dentro do app do paciente falhar (rede, navegador do próprio
+   * paciente, etc). Nunca usar o link de "Entrar na sala" (esse é o do profissional, com papel de
+   * moderador) pra isso.
+   */
+  async function onGeneratePatientLink(appointmentId: string) {
+    setError(null);
+    setGeneratingPatientLinkFor(appointmentId);
+    try {
+      const { url } = await getTeleconsultaPatientJoinLink(appointmentId);
+      setPatientJoinLinks((prev) => ({ ...prev, [appointmentId]: url }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGeneratingPatientLinkFor(null);
+    }
+  }
+
+  async function onCopyPatientLink(appointmentId: string) {
+    const url = patientJoinLinks[appointmentId];
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopiedLinkFor(appointmentId);
+    setTimeout(() => setCopiedLinkFor((prev) => (prev === appointmentId ? null : prev)), 1600);
+  }
+
   if (loading) return <div className="shell">Carregando…</div>;
   if (!patient) return null;
 
   return (
     <div className="shell shell-wide">
       <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>{patient.name}{patient.socialName && ` (${patient.socialName})`}</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: '1.05rem', margin: 0 }}>{patient.name}{patient.socialName && ` (${patient.socialName})`}</h2>
+        {patient.phone && <WhatsAppButton name={patient.socialName || patient.name} phone={patient.phone} />}
+      </div>
       <p className="sub">{patient.email ?? '—'} · {patient.phone ?? '—'}</p>
       {error && <span className="error">{error}</span>}
+
+      <h3 style={{ fontSize: '0.92rem', marginTop: '1.2rem' }}>🔒 Anotações privadas (só você vê)</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Rascunho pessoal seu — nunca aparece pro paciente, em nenhum PDF ou tela. Use pra se guiar entre sessões.
+        Diferente do prontuário abaixo, este campo pode ser editado e sobrescrito quando quiser.
+      </p>
+      <textarea
+        value={privateNote}
+        onChange={(e) => setPrivateNoteValue(e.target.value)}
+        rows={4}
+        placeholder="Ex: retomar o tema do conflito com o irmão na próxima sessão…"
+        style={{
+          width: '100%', padding: '0.55rem 0.7rem', border: '1px dashed var(--line)', borderRadius: '6px',
+          fontFamily: 'inherit', fontSize: '0.9rem', background: 'var(--surface)',
+        }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.4rem', marginBottom: '1.4rem' }}>
+        <button type="button" onClick={onSavePrivateNote} disabled={savingNote}>
+          {savingNote ? 'Salvando…' : 'Salvar anotação privada'}
+        </button>
+        {noteSavedAt && (
+          <span className="sub" style={{ margin: 0 }}>Salvo às {noteSavedAt.toLocaleTimeString('pt-BR')}</span>
+        )}
+      </div>
 
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.2rem' }}>Prontuário</h3>
       <button onClick={onSummarize} disabled={summarizing} style={{ marginBottom: '0.6rem' }}>
@@ -270,7 +405,53 @@ export default function PatientDetailPage() {
         )}
       </form>
 
+      <h3 style={{ fontSize: '0.92rem', marginTop: '1.5rem' }}>Anamnese</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Escolha o modelo pela faixa etária do paciente (já vem sugerido pela idade cadastrada) e preencha com suas
+        palavras — as perguntas em cada campo são só um guia. Diferente do prontuário, aqui você pode voltar e editar
+        quando quiser.
+      </p>
+      <label style={{ maxWidth: '320px', marginBottom: '0.8rem' }}>
+        Modelo
+        <select value={anamneseSlug ?? ''} onChange={(e) => onChangeAnamneseTemplate(e.target.value)}>
+          {anamneseCatalog.map((t) => (
+            <option key={t.slug} value={t.slug}>{t.title}</option>
+          ))}
+        </select>
+      </label>
+      {anamneseCatalog
+        .filter((t) => t.slug === anamneseSlug)
+        .map((template) => (
+          <div key={template.slug} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            {template.sections.map((section) => (
+              <label key={section.key}>
+                {section.label}
+                <textarea
+                  value={anamneseFields[section.key] ?? ''}
+                  onChange={(e) => onChangeAnamneseField(section.key, e.target.value)}
+                  placeholder={section.placeholder}
+                  rows={3}
+                  style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', fontSize: '0.9rem' }}
+                />
+              </label>
+            ))}
+          </div>
+        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.6rem', marginBottom: '1.4rem' }}>
+        <button type="button" onClick={onSaveAnamnese} disabled={savingAnamnese || !anamneseSlug}>
+          {savingAnamnese ? 'Salvando…' : 'Salvar anamnese'}
+        </button>
+        {anamneseSavedAt && (
+          <span className="sub" style={{ margin: 0 }}>Salvo às {anamneseSavedAt.toLocaleTimeString('pt-BR')}</span>
+        )}
+      </div>
+
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.5rem' }}>Agenda</h3>
+      <p className="sub">
+        "Gerar link p/ enviar" cria um link de entrada para o paciente (não use o link de "Entrar na sala", que é
+        seu e dá controle de moderador) — útil como alternativa por WhatsApp se o paciente tiver dificuldade pelo
+        app.
+      </p>
       <table>
         <thead><tr><th>Início</th><th>Status</th><th>Teleconsulta</th></tr></thead>
         <tbody>
@@ -279,13 +460,48 @@ export default function PatientDetailPage() {
               <td>{new Date(a.startsAt).toLocaleString('pt-BR')}</td>
               <td>{a.status}</td>
               <td>
-                {a.videoRoomUrl ? (
-                  <a href={a.videoRoomUrl} target="_blank">Sala criada</a>
-                ) : (
-                  <button onClick={() => onCreateRoom(a.id)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
-                    Criar sala
-                  </button>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {a.videoRoomUrl ? (
+                      <button onClick={() => onJoinRoom(a.id)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
+                        Entrar na sala
+                      </button>
+                    ) : (
+                      <button onClick={() => onCreateRoom(a.id)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
+                        Criar sala
+                      </button>
+                    )}
+                    {a.videoRoomUrl && (
+                      <button
+                        onClick={() => onGeneratePatientLink(a.id)}
+                        disabled={generatingPatientLinkFor === a.id}
+                        style={{
+                          fontSize: '0.78rem', padding: '0.3rem 0.6rem',
+                          background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)',
+                        }}
+                      >
+                        {generatingPatientLinkFor === a.id ? 'Gerando…' : 'Gerar link p/ enviar'}
+                      </button>
+                    )}
+                  </div>
+                  {patientJoinLinks[a.id] && (
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <input
+                        readOnly
+                        value={patientJoinLinks[a.id]}
+                        onFocus={(e) => e.target.select()}
+                        style={{ fontSize: '0.75rem', width: '220px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onCopyPatientLink(a.id)}
+                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.5rem' }}
+                      >
+                        {copiedLinkFor === a.id ? 'Copiado ✓' : 'Copiar'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -337,7 +553,8 @@ export default function PatientDetailPage() {
       </form>
 
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.5rem' }}>Aplicativo do paciente</h3>
-      {patient.portalEnabled ? (
+      {portalMessage && <div className="callout-box" style={{ marginBottom: '1rem' }}>{portalMessage}</div>}
+      {patient.patientAccountId ? (
         <p className="sub">Portal ativado — o paciente já pode entrar com o e-mail cadastrado.</p>
       ) : (
         <>
@@ -347,6 +564,10 @@ export default function PatientDetailPage() {
             </button>
             {!patient.email && <span className="sub" style={{ margin: 0 }}>Cadastre um e-mail primeiro.</span>}
           </div>
+          <p className="sub" style={{ margin: '0 0 0.8rem' }}>
+            Se o paciente já usa o portal em outra clínica, qualquer um dos dois caminhos abaixo só confirma o vínculo — a senha
+            que ele já tem continua valendo.
+          </p>
           {activationLink && (
             <div className="callout-box" style={{ marginBottom: '1rem' }}>
               <p style={{ margin: '0 0 0.4rem' }}>

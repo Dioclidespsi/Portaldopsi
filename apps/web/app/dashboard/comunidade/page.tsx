@@ -166,6 +166,34 @@ export default function ComunidadePage() {
         </div>
       </div>
 
+      {/* Fixo no topo (espaço antes vazio) — item 9: publicar não deve exigir rolar até o fim da lista de posts. */}
+      <div className="callout-box" style={{ margin: '1rem 0' }}>
+        <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.6rem' }}>Novo post</h3>
+        <form onSubmit={onCreate}>
+          <label>
+            Categoria
+            <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as CommunityCategory)}>
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
+            </select>
+          </label>
+          <label>
+            Título
+            <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+          </label>
+          <label>
+            Conteúdo
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={3}
+              style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', background: 'var(--ground)' }}
+              required
+            />
+          </label>
+          <button type="submit">Publicar</button>
+        </form>
+      </div>
+
       <form onSubmit={onFilter} style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end', margin: '1rem 0' }}>
         <label style={{ flex: 1, minWidth: '200px' }}>
           Buscar
@@ -243,31 +271,6 @@ export default function ComunidadePage() {
           ))}
         </div>
       )}
-
-      <h3 style={{ fontSize: '0.95rem', marginTop: '1.6rem' }}>Novo post</h3>
-      <form onSubmit={onCreate}>
-        <label>
-          Categoria
-          <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as CommunityCategory)}>
-            {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
-          </select>
-        </label>
-        <label>
-          Título
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required />
-        </label>
-        <label>
-          Conteúdo
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={4}
-            style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', background: 'var(--ground)' }}
-            required
-          />
-        </label>
-        <button type="submit">Publicar</button>
-      </form>
       {error && <span className="error">{error}</span>}
     </div>
   );

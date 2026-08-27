@@ -2,23 +2,16 @@ import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import * as path from 'path';
 import { PatientPortalService } from './patient-portal.service';
-import { PatientCoursesService } from './patient-courses.service';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
-import { BookAppointmentDto } from './dto/book-appointment.dto';
 import { CompleteHomeworkDto } from './dto/complete-homework.dto';
 import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 import { MEDITATION_UPLOAD_DIR } from '../meditation/meditation-upload.config';
-import { PurchaseCourseDto } from './dto/purchase-course.dto';
-import { SubmitQuizAttemptDto } from '../courses/dto/submit-quiz-attempt.dto';
 
 @Controller('patient-portal')
 export class PatientPortalController {
-  constructor(
-    private readonly portal: PatientPortalService,
-    private readonly patientCourses: PatientCoursesService,
-  ) {}
+  constructor(private readonly portal: PatientPortalService) {}
 
   /** Pública — excluída do PatientAuthMiddleware em patient-portal.module.ts. */
   @Post('login')
@@ -37,35 +30,63 @@ export class PatientPortalController {
     return this.portal.me();
   }
 
+  @Get('clinics')
+  listMyClinics() {
+    return this.portal.listMyClinics();
+  }
+
+  // Listagens abaixo agregam TODAS as clínicas vinculadas à conta — sem
+  // :tenantId, ver PatientPortalService.myPatientRows(). Ações sobre um
+  // recurso específico (confirmar, cancelar, baixar, etc.) exigem
+  // :tenantId no caminho, porque appointments/psych_documents/homeworks/
+  // test_assignments não aceitam o sentinela '__system__' na RLS de
+  // propósito (dado sensível) — o frontend já recebe o tenant de cada item
+  // na listagem, então devolve explícito em vez do backend ter que adivinhar.
+
+  @Get('psych-documents')
+  listPsychDocuments() {
+    return this.portal.listPsychDocuments();
+  }
+
+  @Get('tenants/:tenantId/psych-documents/:id/download')
+  async downloadPsychDocument(@Param('tenantId') tenantId: string, @Param('id') id: string, @Res() res: Response) {
+    const filePath = await this.portal.getPsychDocumentFilePath(tenantId, id);
+    res.sendFile(filePath);
+  }
+
+  @Post('tenants/:tenantId/psych-documents/:id/accept')
+  acceptPsychDocument(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.portal.acceptPsychDocument(tenantId, id);
+  }
+
   @Get('appointments')
   listAppointments() {
     return this.portal.listAppointments();
   }
 
-  @Post('appointments/:id/confirm')
-  confirm(@Param('id') id: string) {
-    return this.portal.confirmAppointment(id);
+  @Post('tenants/:tenantId/appointments/:id/confirm')
+  confirm(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.portal.confirmAppointment(tenantId, id);
   }
 
-  @Post('appointments/:id/consent')
-  consent(@Param('id') id: string) {
-    return this.portal.consentToTeleconsulta(id);
+  @Post('tenants/:tenantId/appointments/:id/consent')
+  consent(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.portal.consentToTeleconsulta(tenantId, id);
   }
 
-  @Post('appointments/:id/cancel')
-  cancel(@Param('id') id: string) {
-    return this.portal.cancelAppointment(id);
+  @Post('tenants/:tenantId/appointments/:id/teleconsulta-join-link')
+  getTeleconsultaJoinLink(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.portal.getTeleconsultaJoinLink(tenantId, id);
   }
 
-  @Get('availability')
-  listAvailability() {
-    return this.portal.listAvailability();
+  @Post('tenants/:tenantId/appointments/:id/cancel')
+  cancel(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.portal.cancelAppointment(tenantId, id);
   }
 
-  @Post('bookings')
-  book(@Body() dto: BookAppointmentDto) {
-    return this.portal.bookAppointment(dto.slotId);
-  }
+  // GET availability / POST bookings removidos de propósito: não fazem
+  // sentido sem um tenant fixo (ver BookingController — agendamento agora
+  // sempre passa por /public/tenants/:slug/bookings, autenticado ou não).
 
   @Post('push-subscriptions')
   subscribeToPush(@Body() dto: RegisterPushTokenDto) {
@@ -82,51 +103,16 @@ export class PatientPortalController {
     return this.portal.listHomework();
   }
 
-  @Post('homework/:id/complete')
-  completeHomework(@Param('id') id: string, @Body() dto: CompleteHomeworkDto) {
-    return this.portal.completeHomework(id, dto.patientNote);
+  @Post('tenants/:tenantId/homework/:id/complete')
+  completeHomework(@Param('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: CompleteHomeworkDto) {
+    return this.portal.completeHomework(tenantId, id, dto.patientNote);
   }
 
-  @Get('courses')
-  listCourses() {
-    return this.patientCourses.listCatalog();
-  }
-
-  @Get('courses/mine')
-  listCoursesWithProgress() {
-    return this.patientCourses.listCatalogWithProgress();
-  }
-
-  @Post('courses/:slug/purchase')
-  purchaseCourse(@Param('slug') slug: string, @Body() dto: PurchaseCourseDto) {
-    return this.patientCourses.purchaseCourse(slug, dto.cpfCnpj);
-  }
-
-  @Post('courses/lessons/:id/complete')
-  completeLesson(@Param('id') id: string) {
-    return this.patientCourses.completeLesson(id);
-  }
-
-  @Get('courses/lessons/:id/quiz')
-  getQuiz(@Param('id') id: string) {
-    return this.patientCourses.getQuiz(id);
-  }
-
-  @Post('courses/lessons/:id/quiz')
-  submitQuiz(@Param('id') id: string, @Body() dto: SubmitQuizAttemptDto) {
-    return this.patientCourses.submitQuizAttempt(id, dto);
-  }
-
-  @Get('certificates')
-  listCertificates() {
-    return this.patientCourses.listCertificates();
-  }
-
-  @Get('certificates/:id/download')
-  async downloadCertificate(@Param('id') id: string, @Res() res: Response) {
-    const filePath = await this.patientCourses.getCertificateFilePath(id);
-    res.sendFile(filePath);
-  }
+  // Cursos e certificados removidos de propósito do portal do paciente: o
+  // paciente não deve ter NENHUM acesso a curso (nem catálogo, nem aula, nem
+  // certificado) — só o que é da clínica (agenda, prontuário do próprio
+  // atendimento, documentos, testes, dever de casa, meditação). Ver
+  // PatientCoursesService, que foi removido junto.
 
   @Get('meditation-tracks')
   listMeditationTracks() {
@@ -144,13 +130,13 @@ export class PatientPortalController {
     return this.portal.listTests();
   }
 
-  @Get('tests/:id')
-  getTest(@Param('id') id: string) {
-    return this.portal.getTestToAnswer(id);
+  @Get('tenants/:tenantId/tests/:id')
+  getTest(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.portal.getTestToAnswer(tenantId, id);
   }
 
-  @Post('tests/:id/submit')
-  submitTest(@Param('id') id: string, @Body() dto: SubmitTestDto) {
-    return this.portal.submitTest(id, dto);
+  @Post('tenants/:tenantId/tests/:id/submit')
+  submitTest(@Param('tenantId') tenantId: string, @Param('id') id: string, @Body() dto: SubmitTestDto) {
+    return this.portal.submitTest(tenantId, id, dto);
   }
 }

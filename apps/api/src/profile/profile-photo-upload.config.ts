@@ -7,7 +7,7 @@ import * as path from 'path';
 /**
  * Diferente dos outros uploads deste projeto (CRP, materiais, certificados),
  * a foto de perfil precisa ser servida SEM autenticação — ela aparece na
- * página pública (/p/{slug}) pra qualquer visitante. Por isso tem uma rota
+ * página pública (/{slug}) pra qualquer visitante. Por isso tem uma rota
  * pública dedicada (GET /public/photos/:filename, ver profile.controller.ts),
  * não o padrão de download autenticado usado no resto do projeto.
  */

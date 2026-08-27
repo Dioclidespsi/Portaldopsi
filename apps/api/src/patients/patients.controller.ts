@@ -4,6 +4,7 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { CreateProntuarioEntryDto } from './dto/create-prontuario-entry.dto';
 import { EnablePortalDto } from './dto/enable-portal.dto';
 import { UpdatePatientActiveDto } from './dto/update-patient-active.dto';
+import { UpdatePrivateNoteDto } from './dto/update-private-note.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -52,5 +53,10 @@ export class PatientsController {
   @Patch(':id/active')
   setActive(@Param('id') id: string, @Body() dto: UpdatePatientActiveDto) {
     return this.patients.setActive(id, dto);
+  }
+
+  @Patch(':id/private-note')
+  setPrivateNote(@Param('id') id: string, @Body() dto: UpdatePrivateNoteDto) {
+    return this.patients.setPrivateNote(id, dto);
   }
 }

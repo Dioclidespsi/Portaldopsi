@@ -9,6 +9,7 @@ import {
   AdminCourseModule,
   AdminQuizOption,
   addCourseMaterial,
+  CourseAudience,
   createCourse,
   createCourseLesson,
   createCourseModule,
@@ -24,6 +25,12 @@ import {
 function centsToReais(cents: number) {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+const AUDIENCE_LABELS: Record<CourseAudience, string> = {
+  ESTUDANTES: 'Só estudante pagante',
+  PROFISSIONAIS_GRATIS: 'Grátis pra profissional',
+  PROFISSIONAIS_PAGO: 'Pago pra profissional',
+};
 
 interface QuizQuestionDraft {
   prompt: string;
@@ -338,6 +345,7 @@ export default function AdminCursosPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priceReais, setPriceReais] = useState('');
+  const [audience, setAudience] = useState<CourseAudience>('ESTUDANTES');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -357,12 +365,13 @@ export default function AdminCursosPage() {
     setError(null);
     try {
       const priceCents = priceReais ? Math.round(parseFloat(priceReais.replace(',', '.')) * 100) : undefined;
-      const course = await createCourse({ slug, title, description, priceCents });
+      const course = await createCourse({ slug, title, description, priceCents, audience });
       setCourses((prev) => [...prev, { ...course, modules: [] }]);
       setSlug('');
       setTitle('');
       setDescription('');
       setPriceReais('');
+      setAudience('ESTUDANTES');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -373,6 +382,16 @@ export default function AdminCursosPage() {
     try {
       const updated = await updateCourse(course.id, { active: !course.active });
       setCourses((prev) => prev.map((c) => (c.id === course.id ? { ...c, active: updated.active } : c)));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function onChangeAudience(course: AdminCourse, next: CourseAudience) {
+    setError(null);
+    try {
+      const updated = await updateCourse(course.id, { audience: next });
+      setCourses((prev) => prev.map((c) => (c.id === course.id ? { ...c, audience: updated.audience } : c)));
     } catch (err) {
       setError((err as Error).message);
     }
@@ -400,7 +419,7 @@ export default function AdminCursosPage() {
       </p>
 
       <table style={{ marginTop: '1rem' }}>
-        <thead><tr><th>Título</th><th>Preço</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Título</th><th>Público</th><th>Preço</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>
           {courses.map((c) => (
             <tr key={c.id}>
@@ -413,7 +432,14 @@ export default function AdminCursosPage() {
                   {c.title}
                 </button>
               </td>
-              <td>{c.priceCents !== null ? centsToReais(c.priceCents) : 'A definir'}</td>
+              <td>
+                <select value={c.audience} onChange={(e) => onChangeAudience(c, e.target.value as CourseAudience)} style={{ fontSize: '0.82rem' }}>
+                  {Object.entries(AUDIENCE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </td>
+              <td>{c.audience !== 'PROFISSIONAIS_GRATIS' && c.priceCents !== null ? centsToReais(c.priceCents) : c.audience === 'PROFISSIONAIS_GRATIS' ? '—' : 'A definir'}</td>
               <td>{c.active ? 'Ativo' : 'Inativo'}</td>
               <td style={{ display: 'flex', gap: '0.4rem' }}>
                 <button onClick={() => onToggleActive(c)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
@@ -429,7 +455,7 @@ export default function AdminCursosPage() {
             </tr>
           ))}
           {courses.length === 0 && (
-            <tr><td colSpan={4} style={{ color: 'var(--ink-soft)' }}>Nenhum curso cadastrado ainda.</td></tr>
+            <tr><td colSpan={5} style={{ color: 'var(--ink-soft)' }}>Nenhum curso cadastrado ainda.</td></tr>
           )}
         </tbody>
       </table>
@@ -460,9 +486,19 @@ export default function AdminCursosPage() {
           <input value={description} onChange={(e) => setDescription(e.target.value)} required />
         </label>
         <label>
-          Preço (R$, opcional)
-          <input value={priceReais} onChange={(e) => setPriceReais(e.target.value)} placeholder="497,00" />
+          Público
+          <select value={audience} onChange={(e) => setAudience(e.target.value as CourseAudience)}>
+            {Object.entries(AUDIENCE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
         </label>
+        {audience !== 'PROFISSIONAIS_GRATIS' && (
+          <label>
+            Preço (R$, opcional)
+            <input value={priceReais} onChange={(e) => setPriceReais(e.target.value)} placeholder="497,00" />
+          </label>
+        )}
         <button type="submit">Cadastrar curso</button>
       </form>
       {error && <span className="error">{error}</span>}

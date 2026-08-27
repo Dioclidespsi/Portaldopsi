@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import PatientTopbar from '../../../components/PatientTopbar';
 import { completeOwnHomework, listOwnHomework, PatientHomework } from '../../../lib/patient-api';
 
 export default function PatientHomeworkPage() {
@@ -25,12 +25,12 @@ export default function PatientHomeworkPage() {
     setNote('');
   }
 
-  async function onComplete(e: FormEvent) {
+  async function onComplete(e: FormEvent, tenantId: string) {
     e.preventDefault();
     if (!answeringId) return;
     setError(null);
     try {
-      const updated = await completeOwnHomework(answeringId, note || undefined);
+      const updated = await completeOwnHomework(tenantId, answeringId, note || undefined);
       setHomeworks((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
       setAnsweringId(null);
     } catch (err) {
@@ -42,20 +42,13 @@ export default function PatientHomeworkPage() {
 
   return (
     <div className="shell shell-wide">
-      <div className="topbar">
-        <div>
-          <h1>Dever de casa</h1>
-          <p className="sub">Tarefas que seu psicólogo(a) atribuiu entre as sessões.</p>
-        </div>
-        <Link href="/paciente">
-          <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Voltar</button>
-        </Link>
-      </div>
+      <PatientTopbar title="Dever de casa" subtitle="Tarefas que seu psicólogo(a) atribuiu entre as sessões." />
 
       {error && <span className="error">{error}</span>}
 
       {homeworks.map((h) => (
         <div key={h.id} style={{ padding: '0.9rem 0', borderBottom: '1px solid var(--line)' }}>
+          <p className="sub" style={{ margin: '0 0 0.2rem' }}>{h.tenant.name}</p>
           <p style={{ fontSize: '0.98rem', fontWeight: 600, margin: '0 0 0.3rem' }}>{h.title}</p>
           <p style={{ fontSize: '0.9rem', color: 'var(--ink-soft)', margin: '0 0 0.4rem' }}>{h.instructions}</p>
           {h.dueDate && (
@@ -67,7 +60,7 @@ export default function PatientHomeworkPage() {
               {h.patientNote && ` — "${h.patientNote}"`}
             </p>
           ) : answeringId === h.id ? (
-            <form onSubmit={onComplete} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '420px' }}>
+            <form onSubmit={(e) => onComplete(e, h.tenant.slug)} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '420px' }}>
               <label>
                 Quer deixar algum comentário? (opcional)
                 <input value={note} onChange={(e) => setNote(e.target.value)} />

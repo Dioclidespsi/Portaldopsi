@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PsychTestsService } from './psych-tests.service';
 import { AssignTestDto } from './dto/assign-test.dto';
 import { CorrectTestDto } from './dto/correct-test.dto';
+import { ApplyTestLiveDto } from './dto/apply-test-live.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -32,6 +33,11 @@ export class PsychTestsController {
     return this.psychTests.findOne(id);
   }
 
+  @Post('assignments/:id/apply-live')
+  applyLive(@Param('id') id: string, @Body() dto: ApplyTestLiveDto) {
+    return this.psychTests.applyLive(id, dto);
+  }
+
   @Patch('assignments/:id/correct')
   correct(@Param('id') id: string, @Body() dto: CorrectTestDto) {
     return this.psychTests.correct(id, dto);
@@ -40,5 +46,10 @@ export class PsychTestsController {
   @Post('assignments/:id/attach-prontuario')
   attachToProntuario(@Param('id') id: string) {
     return this.psychTests.attachToProntuario(id);
+  }
+
+  @Delete('assignments/:id')
+  remove(@Param('id') id: string) {
+    return this.psychTests.remove(id);
   }
 }

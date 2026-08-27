@@ -1,12 +1,13 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnrollmentSource, SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreatePayoutAccountDto } from './dto/create-payout-account.dto';
 import { CreatePlatformSubscriptionDto } from './dto/create-platform-subscription.dto';
-import { PLANS } from '../billing/plans';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { EmailService } from '../email/email.service';
 
 /**
  * Integração com o Asaas (gateway nacional escolhido no §03 do doc de
@@ -37,6 +38,8 @@ export class AsaasService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly platformSettings: PlatformSettingsService,
+    private readonly email: EmailService,
   ) {
     this.apiKey = this.config.get<string>('ASAAS_API_KEY') || undefined;
     this.baseUrl = this.config.get<string>('ASAAS_BASE_URL') || 'https://api-sandbox.asaas.com/v3';
@@ -88,6 +91,13 @@ export class AsaasService {
         email: dto.email,
         cpfCnpj: dto.cpfCnpj.replace(/\D/g, ''),
         mobilePhone: dto.mobilePhone.replace(/\D/g, ''),
+        birthDate: dto.birthDate,
+        incomeValue: dto.incomeValueCents / 100,
+        address: dto.address,
+        addressNumber: dto.addressNumber,
+        complement: dto.complement,
+        province: dto.province,
+        postalCode: dto.postalCode.replace(/\D/g, ''),
         companyType: dto.companyType,
       }),
     });
@@ -98,6 +108,32 @@ export class AsaasService {
     });
 
     return { payoutProvider: 'asaas', payoutAccountId: account.walletId };
+  }
+
+  /**
+   * Alternativa a createPayoutAccount pra quem já tem conta Asaas própria (de
+   * antes, sem relação com a plataforma) — o Asaas recusa criar uma sub-conta
+   * nova pro mesmo CPF/e-mail já cadastrado (mesma família de erro do
+   * findOrCreateCustomer). Split de pagamento funciona com o Wallet ID de
+   * QUALQUER conta Asaas existente, então basta vincular o número direto —
+   * sem chamar a API do Asaas pra isso (não temos endpoint de validação de
+   * Wallet ID alheio sem gerar uma cobrança de teste).
+   */
+  async linkExistingPayoutAccount(walletId: string) {
+    const { tenantId } = getRequestContext();
+    const tenantPrisma = this.prisma.forCurrentTenant();
+    const tenant = await tenantPrisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+
+    if (tenant.payoutAccountId) {
+      throw new BadRequestException('Este tenant já tem uma sub-conta de recebimento vinculada.');
+    }
+
+    await tenantPrisma.tenant.update({
+      where: { id: tenantId },
+      data: { payoutProvider: 'asaas', payoutAccountId: walletId.trim() },
+    });
+
+    return { payoutProvider: 'asaas', payoutAccountId: walletId.trim() };
   }
 
   /** Cliente Asaas do tenant como PAGADOR da assinatura da plataforma — não confundir com a sub-conta acima, onde o tenant é o RECEBEDOR. */
@@ -119,11 +155,39 @@ export class AsaasService {
     return customer.id;
   }
 
-  /** Assinatura recorrente do tenant na própria plataforma. Status real chega depois via webhook, não aqui. */
+  /**
+   * Assinatura recorrente do tenant na própria plataforma. Status real chega
+   * depois via webhook, não aqui.
+   *
+   * Idempotente por tenant: se já existe `asaasSubscriptionId` gravado,
+   * reaproveita em vez de criar outra assinatura no Asaas — criar duas pra
+   * o mesmo tenant deixa a primeira (possivelmente já paga) órfã, porque
+   * `asaasSubscriptionId` é um campo único e a segunda chamada sobrescreve
+   * a primeira; o webhook da assinatura paga então não bate mais com nada
+   * no banco. Foi exatamente esse bug que causou uma assinatura paga via
+   * Pix nunca ativar (2026-07-29) — corrigido aqui na origem.
+   *
+   * Também recusa criar uma assinatura nova se o tenant já está com
+   * `status: ACTIVE` (inclusive cortesia do Programa Piloto, que não grava
+   * `asaasSubscriptionId` e por isso não caía na checagem de idempotência
+   * acima) — sem essa trava, um tenant já com acesso liberado que preenche
+   * o formulário de "Assinar" (ex: por engano, achando que precisa) cria uma
+   * assinatura recorrente real no Asaas do zero, gerando cobranças de
+   * verdade sem necessidade (caso real: Pamela Forziati, 2026-08-03).
+   */
   async createPlatformSubscription(dto: CreatePlatformSubscriptionDto) {
     const { tenantId } = getRequestContext();
+    const existing = await this.prisma.forCurrentTenant().subscription.findUnique({ where: { tenantId } });
+    if (existing?.status === SubscriptionStatus.ACTIVE && !existing.asaasSubscriptionId) {
+      throw new ConflictException('Sua assinatura já está ativa — não é necessário assinar novamente.');
+    }
+    if (existing?.asaasSubscriptionId) {
+      const paymentLink = await this.fetchPendingPaymentLink(existing.asaasSubscriptionId);
+      return { asaasSubscriptionId: existing.asaasSubscriptionId, paymentLink };
+    }
+
     const customerId = await this.ensurePlatformCustomer(tenantId, dto);
-    const plan = PLANS[dto.plan];
+    const plan = (await this.platformSettings.getEffectivePlans())[dto.plan];
 
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 1);
@@ -145,7 +209,78 @@ export class AsaasService {
       data: { asaasSubscriptionId: sub.id },
     });
 
-    return { asaasSubscriptionId: sub.id };
+    const paymentLink = await this.fetchPendingPaymentLink(sub.id);
+    return { asaasSubscriptionId: sub.id, paymentLink };
+  }
+
+  /**
+   * Link de pagamento (invoiceUrl) da cobrança em aberto mais próxima do
+   * vencimento — a assinatura no Asaas é criada com `billingType: 'UNDEFINED'`,
+   * então o link hospedado por eles é onde o pagador escolhe Pix/boleto/cartão.
+   * Usado tanto logo após criar a assinatura quanto depois, pra renovação.
+   */
+  private async fetchPendingPaymentLink(asaasSubscriptionId: string): Promise<string | null> {
+    const { data } = await this.request<{ data: { status: string; invoiceUrl: string; dueDate: string }[] }>(
+      `/subscriptions/${asaasSubscriptionId}/payments`,
+      { method: 'GET' },
+    );
+    const pending = data
+      .filter((p) => p.status === 'PENDING' || p.status === 'OVERDUE')
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    return pending[0]?.invoiceUrl ?? null;
+  }
+
+  /** Link de pagamento da assinatura do tenant atual — usado pra reexibir o "pagar agora" sem recriar a assinatura. */
+  async getSubscriptionPaymentLink() {
+    const { tenantId } = getRequestContext();
+    const subscription = await this.prisma.forCurrentTenant().subscription.findUnique({ where: { tenantId } });
+    if (!subscription?.asaasSubscriptionId) {
+      throw new NotFoundException('Nenhuma assinatura Asaas encontrada para este tenant.');
+    }
+    const paymentLink = await this.fetchPendingPaymentLink(subscription.asaasSubscriptionId);
+    return { paymentLink };
+  }
+
+  /**
+   * Valor/ciclo reais da assinatura direto do Asaas — não persistimos o plano
+   * escolhido no momento da criação (só o asaasSubscriptionId), então o resumo
+   * de receita do admin (AdminService.getRevenueSummary) busca ao vivo. Só é
+   * chamado para as poucas assinaturas ACTIVE de cada vez, nunca em rota
+   * quente — `null` em qualquer falha pra não derrubar o resumo inteiro por
+   * causa de uma assinatura isolada com problema.
+   */
+  async getSubscriptionValueAndCycle(asaasSubscriptionId: string): Promise<{ valueCents: number; cycle: string } | null> {
+    try {
+      const sub = await this.request<{ value: number; cycle: string }>(`/subscriptions/${asaasSubscriptionId}`, { method: 'GET' });
+      return { valueCents: Math.round(sub.value * 100), cycle: sub.cycle };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Clientes Asaas são criados sob a MESMA conta-mestre da plataforma,
+   * compartilhada entre todos os tenants — então o mesmo CPF já usado em
+   * QUALQUER cobrança anterior (de qualquer clínica, inclusive um teste que
+   * falhou depois e foi desfeito só no nosso banco) faz o Asaas recusar uma
+   * nova criação como duplicada. Em vez de travar, busca o cliente já
+   * existente pelo CPF/CNPJ e reaproveita — mesmo padrão de idempotência que
+   * ensurePlatformCustomer já usa pra assinatura do tenant.
+   */
+  private async findOrCreateCustomer(name: string, email: string | null, cpfCnpj: string): Promise<string> {
+    try {
+      const customer = await this.request<{ id: string }>('/customers', {
+        method: 'POST',
+        body: JSON.stringify({ name, email: email ?? undefined, cpfCnpj }),
+      });
+      return customer.id;
+    } catch (err) {
+      const existing = await this.request<{ data: { id: string }[] }>(`/customers?cpfCnpj=${encodeURIComponent(cpfCnpj)}`, {
+        method: 'GET',
+      });
+      if (existing.data?.[0]) return existing.data[0].id;
+      throw err;
+    }
   }
 
   /**
@@ -175,20 +310,20 @@ export class AsaasService {
       throw new BadRequestException('Esta cobrança já tem um pagamento Asaas gerado.');
     }
 
-    const customer = await this.request<{ id: string }>('/customers', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: invoice.patient.name,
-        email: invoice.patient.email ?? undefined,
-        cpfCnpj: invoice.patient.cpfCnpj,
-      }),
-    });
+    // Reaproveita o cliente Asaas já criado antes (mesmo padrão de
+    // ensurePlatformCustomer) — criar um novo a cada cobrança faz o Asaas
+    // rejeitar a 2ª tentativa com o mesmo e-mail/CPF como "já em uso".
+    let customerId = invoice.patient.asaasCustomerId;
+    if (!customerId) {
+      customerId = await this.findOrCreateCustomer(invoice.patient.name, invoice.patient.email, invoice.patient.cpfCnpj);
+      await tenantPrisma.patient.update({ where: { id: invoice.patient.id }, data: { asaasCustomerId: customerId } });
+    }
 
     const percentualValue = 100 - this.platformFeePercent;
     const payment = await this.request<{ id: string; invoiceUrl: string }>('/payments', {
       method: 'POST',
       body: JSON.stringify({
-        customer: customer.id,
+        customer: customerId,
         billingType: 'UNDEFINED',
         value: invoice.amountCents / 100,
         dueDate: invoice.dueDate.toISOString().slice(0, 10),
@@ -269,13 +404,7 @@ export class AsaasService {
           .invoice.findMany({ where: { asaasPaymentId: payment.id, appointmentId: { not: null } }, select: { tenantId: true, appointmentId: true } });
         for (const inv of paidInvoices) {
           if (!inv.appointmentId) continue;
-          const tenantPrisma = this.prisma.forTenant(inv.tenantId);
-          const appointment = await tenantPrisma.appointment.update({ where: { id: inv.appointmentId }, data: { status: 'confirmado' } });
-          await tenantPrisma.availabilitySlot.updateMany({ where: { appointmentId: inv.appointmentId }, data: { status: 'confirmado', heldUntil: null } });
-          await this.notifications.notifyPatient(inv.tenantId, appointment.patientId, {
-            title: 'Consulta confirmada',
-            body: `Sua sessão de ${appointment.startsAt.toLocaleString('pt-BR')} foi confirmada.`,
-          });
+          await this.confirmBookingForPaidInvoice(inv.tenantId, inv.appointmentId);
         }
       }
     }
@@ -309,6 +438,39 @@ export class AsaasService {
     }
 
     return { received: true };
+  }
+
+  /**
+   * Confirma o Appointment/AvailabilitySlot de um agendamento público assim
+   * que a cobrança vinculada vira "pago" — chamado tanto pelo webhook do
+   * Asaas (acima) quanto por InvoicesService.updateStatus, quando alguém
+   * marca a cobrança como paga manualmente na tela Financeiro.
+   *
+   * Sem isso, marcar "Pago" manualmente numa cobrança de agendamento não
+   * confirmava o Appointment nem desarmava o hold de 15min do horário —
+   * bug real que cancelou uma sessão já paga porque
+   * AvailabilityService.expireStaleHolds só olha o relógio do hold, nunca o
+   * status da cobrança (caso real: Lorena Barreto, 2026-08-03).
+   */
+  async confirmBookingForPaidInvoice(tenantId: string, appointmentId: string) {
+    const tenantPrisma = this.prisma.forTenant(tenantId);
+    const appointment = await tenantPrisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: 'confirmado', cancelReason: null },
+    });
+    await tenantPrisma.availabilitySlot.updateMany({ where: { appointmentId }, data: { status: 'confirmado', heldUntil: null } });
+    await this.notifications.notifyPatient(tenantId, appointment.patientId, {
+      title: 'Consulta confirmada',
+      body: `Sua sessão de ${appointment.startsAt.toLocaleString('pt-BR')} foi confirmada.`,
+    });
+
+    const [patient, professional] = await Promise.all([
+      tenantPrisma.patient.findUnique({ where: { id: appointment.patientId }, select: { name: true, email: true } }),
+      tenantPrisma.user.findFirst({ where: { role: 'PSICOLOGO_TITULAR' }, select: { name: true, email: true } }),
+    ]);
+    if (patient && professional) {
+      await this.email.sendBookingConfirmation({ patient, professional, startsAt: appointment.startsAt });
+    }
   }
 }
 

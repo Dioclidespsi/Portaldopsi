@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createPatient, fetchMe, getTenantKind, listPatients, Me, Patient, setPatientActive, submitCrp } from '../../lib/api';
 import { isValidEmail, maskCpfCnpj, maskPhone } from '../../lib/masks';
 import DashboardNav from '../../components/DashboardNav';
+import WhatsAppButton from '../../components/WhatsAppButton';
 
 const CRP_STATUS_LABEL: Record<string, string> = {
   NAO_ENVIADO: 'Você ainda não enviou seu CRP para verificação.',
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const [crpNumber, setCrpNumber] = useState('');
   const [crpFile, setCrpFile] = useState<File | null>(null);
   const [crpInfo, setCrpInfo] = useState<string | null>(null);
+  const [editingCrp, setEditingCrp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -106,6 +108,7 @@ export default function DashboardPage() {
       setCrpInfo('Documento enviado — aguarde a análise da nossa equipe.');
       setCrpNumber('');
       setCrpFile(null);
+      setEditingCrp(false);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -145,6 +148,61 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {me.role === 'PSICOLOGO_TITULAR' && me.crpStatus === 'VERIFICADO' && (
+        <div className="callout-box" style={{ marginBottom: '1.2rem' }}>
+          {!editingCrp ? (
+            <p style={{ margin: 0, display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span>
+                CRP verificado: <strong>{me.crpNumber}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCrpNumber(me.crpNumber ?? '');
+                  setCrpFile(null);
+                  setCrpInfo(null);
+                  setEditingCrp(true);
+                }}
+                style={{ fontSize: '0.82rem', padding: '0.35rem 0.8rem', background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}
+              >
+                Editar CRP
+              </button>
+            </p>
+          ) : (
+            <>
+              <p style={{ margin: '0 0 0.5rem' }}>
+                Corrigindo o número do CRP — é preciso reenviar o documento, e ele volta pra análise da nossa
+                equipe antes de aparecer de novo como verificado.
+              </p>
+              <form onSubmit={onSubmitCrp} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <label>
+                  Número do CRP
+                  <input value={crpNumber} onChange={(e) => setCrpNumber(e.target.value)} required />
+                </label>
+                <label>
+                  Documento (PDF/JPG/PNG)
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                    onChange={(e) => setCrpFile(e.target.files?.[0] ?? null)}
+                    required
+                  />
+                </label>
+                <button type="submit">Enviar para análise</button>
+                <button
+                  type="button"
+                  onClick={() => setEditingCrp(false)}
+                  style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                >
+                  Cancelar
+                </button>
+              </form>
+              {crpInfo && <p className="sub" style={{ marginTop: '0.5rem' }}>{crpInfo}</p>}
+            </>
+          )}
+        </div>
+      )}
+
       <h2 style={{ fontSize: '1.05rem' }}>Pacientes</h2>
       <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
         <label style={{ flex: 1, minWidth: '200px' }}>
@@ -175,13 +233,16 @@ export default function DashboardPage() {
               <td>{p.email ?? '—'}</td>
               <td>{p.active ? 'Ativo' : 'Inativo'}</td>
               <td>
-                <button
-                  type="button"
-                  onClick={() => onToggleActive(p)}
-                  style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}
-                >
-                  {p.active ? 'Desativar' : 'Ativar'}
-                </button>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {p.phone && <WhatsAppButton name={p.socialName || p.name} phone={p.phone} />}
+                  <button
+                    type="button"
+                    onClick={() => onToggleActive(p)}
+                    style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}
+                  >
+                    {p.active ? 'Desativar' : 'Ativar'}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

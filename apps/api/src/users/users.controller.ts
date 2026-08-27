@@ -5,18 +5,29 @@ import { UsersService } from './users.service';
 import { CreateTeamMemberDto } from './dto/create-team-member.dto';
 import { SubmitCrpDto } from './dto/submit-crp.dto';
 import { crpUploadOptions } from './crp-upload.config';
+import { signatureUploadOptions } from './signature-upload.config';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
+import { AccessGateService } from '../common/access-gate.service';
 
 @Controller()
 @UseGuards(RolesGuard)
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly accessGate: AccessGateService,
+  ) {}
 
   @Get('me')
   me() {
     return this.users.me();
+  }
+
+  /** Consumido pelo DashboardNav pra mostrar o banner de pendências (CRP/assinatura/termos) — ver ClinicalAccessGuard. */
+  @Get('me/access-status')
+  accessStatus() {
+    return this.accessGate.checkFullAccess();
   }
 
   @Get('users')
@@ -43,5 +54,19 @@ export class UsersController {
   async downloadOwnCrpDocument(@Res() res: Response) {
     const filePath = await this.users.getOwnCrpDocumentPath();
     res.download(filePath);
+  }
+
+  @Post('users/me/signature')
+  @Roles(Role.PSICOLOGO_TITULAR)
+  @UseInterceptors(FileInterceptor('file', signatureUploadOptions))
+  uploadSignature(@UploadedFile() file?: Express.Multer.File) {
+    return this.users.uploadSignature(file);
+  }
+
+  @Get('users/me/signature')
+  @Roles(Role.PSICOLOGO_TITULAR)
+  async downloadOwnSignature(@Res() res: Response) {
+    const filePath = await this.users.getOwnSignaturePath();
+    res.sendFile(filePath);
   }
 }

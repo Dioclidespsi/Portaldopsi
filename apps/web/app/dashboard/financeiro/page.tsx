@@ -13,6 +13,7 @@ import {
   fetchOwnProfile,
   Invoice,
   InvoiceSummary,
+  linkExistingPayoutAccount,
   listAppointments,
   listInvoices,
   listPatients,
@@ -21,7 +22,7 @@ import {
   Profile,
   updateInvoiceStatus,
 } from '../../../lib/api';
-import { currencyToCents, maskCpfCnpj, maskCurrency, maskPhone } from '../../../lib/masks';
+import { currencyToCents, maskCep, maskCpfCnpj, maskCurrency, maskPhone } from '../../../lib/masks';
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: 'Pendente',
@@ -73,6 +74,16 @@ export default function FinanceiroPage() {
   const [payoutEmail, setPayoutEmail] = useState('');
   const [payoutCpfCnpj, setPayoutCpfCnpj] = useState('');
   const [payoutPhone, setPayoutPhone] = useState('');
+  const [payoutBirthDate, setPayoutBirthDate] = useState('');
+  const [payoutIncomeValue, setPayoutIncomeValue] = useState('');
+  const [payoutAddress, setPayoutAddress] = useState('');
+  const [payoutAddressNumber, setPayoutAddressNumber] = useState('');
+  const [payoutComplement, setPayoutComplement] = useState('');
+  const [payoutProvince, setPayoutProvince] = useState('');
+  const [payoutPostalCode, setPayoutPostalCode] = useState('');
+
+  const [payoutMode, setPayoutMode] = useState<'new' | 'existing'>('new');
+  const [existingWalletId, setExistingWalletId] = useState('');
 
   const [chargingId, setChargingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +168,26 @@ export default function FinanceiroPage() {
         email: payoutEmail,
         cpfCnpj: payoutCpfCnpj,
         mobilePhone: payoutPhone,
+        birthDate: payoutBirthDate,
+        incomeValueCents: currencyToCents(payoutIncomeValue),
+        address: payoutAddress,
+        addressNumber: payoutAddressNumber,
+        complement: payoutComplement || undefined,
+        province: payoutProvince,
+        postalCode: payoutPostalCode,
       });
+      setProfile((prev) => (prev ? { ...prev, ...result } : prev));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  /** Pra quem já tem conta Asaas própria — ver AsaasService.linkExistingPayoutAccount. */
+  async function onLinkExistingPayoutAccount(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      const result = await linkExistingPayoutAccount(existingWalletId.trim());
       setProfile((prev) => (prev ? { ...prev, ...result } : prev));
     } catch (err) {
       setError((err as Error).message);
@@ -220,25 +250,96 @@ export default function FinanceiroPage() {
       {profile?.payoutAccountId ? (
         <p className="sub">Sub-conta conectada ({profile.payoutProvider}) — cobranças ficam disponíveis para gerar Pix/boleto/cartão real.</p>
       ) : (
-        <form onSubmit={onCreatePayoutAccount} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <label>
-            Nome completo
-            <input value={payoutName} onChange={(e) => setPayoutName(e.target.value)} required />
-          </label>
-          <label>
-            E-mail
-            <input type="email" value={payoutEmail} onChange={(e) => setPayoutEmail(e.target.value)} required />
-          </label>
-          <label>
-            CPF/CNPJ
-            <input value={payoutCpfCnpj} onChange={(e) => setPayoutCpfCnpj(maskCpfCnpj(e.target.value))} inputMode="numeric" required />
-          </label>
-          <label>
-            Celular
-            <input value={payoutPhone} onChange={(e) => setPayoutPhone(maskPhone(e.target.value))} placeholder="(11) 91234-5678" inputMode="tel" required />
-          </label>
-          <button type="submit">Conectar sub-conta Asaas</button>
-        </form>
+        <>
+          <div style={{ display: 'flex', gap: '0.5rem', margin: '0.4rem 0 0.8rem' }}>
+            <button
+              type="button"
+              onClick={() => setPayoutMode('new')}
+              style={payoutMode === 'new' ? { fontWeight: 700, textDecoration: 'underline' } : undefined}
+            >
+              Criar conta nova
+            </button>
+            <button
+              type="button"
+              onClick={() => setPayoutMode('existing')}
+              style={payoutMode === 'existing' ? { fontWeight: 700, textDecoration: 'underline' } : undefined}
+            >
+              Já tenho conta Asaas
+            </button>
+          </div>
+
+          {payoutMode === 'existing' ? (
+            <form onSubmit={onLinkExistingPayoutAccount} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <label style={{ flex: 1, minWidth: '260px' }}>
+                Wallet ID da sua conta Asaas
+                <input
+                  value={existingWalletId}
+                  onChange={(e) => setExistingWalletId(e.target.value)}
+                  placeholder="Ex: 8a2f1e3b-..."
+                  required
+                />
+              </label>
+              <button type="submit">Vincular conta existente</button>
+              <p className="sub" style={{ width: '100%', margin: '0.3rem 0 0' }}>
+                Encontre seu Wallet ID no painel Asaas em Minha Conta → Integrações → Chave de API/Wallet ID.
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={onCreatePayoutAccount} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <label>
+                Nome completo
+                <input value={payoutName} onChange={(e) => setPayoutName(e.target.value)} required />
+              </label>
+              <label>
+                E-mail
+                <input type="email" value={payoutEmail} onChange={(e) => setPayoutEmail(e.target.value)} required />
+              </label>
+              <label>
+                CPF/CNPJ
+                <input value={payoutCpfCnpj} onChange={(e) => setPayoutCpfCnpj(maskCpfCnpj(e.target.value))} inputMode="numeric" required />
+              </label>
+              <label>
+                Celular
+                <input value={payoutPhone} onChange={(e) => setPayoutPhone(maskPhone(e.target.value))} placeholder="(11) 91234-5678" inputMode="tel" required />
+              </label>
+              <label>
+                Data de nascimento
+                <input type="date" value={payoutBirthDate} onChange={(e) => setPayoutBirthDate(e.target.value)} required />
+              </label>
+              <label>
+                Renda/faturamento mensal
+                <input
+                  value={payoutIncomeValue}
+                  onChange={(e) => setPayoutIncomeValue(maskCurrency(e.target.value))}
+                  inputMode="numeric"
+                  placeholder="0,00"
+                  required
+                />
+              </label>
+              <label>
+                CEP
+                <input value={payoutPostalCode} onChange={(e) => setPayoutPostalCode(maskCep(e.target.value))} inputMode="numeric" placeholder="00000-000" required />
+              </label>
+              <label>
+                Endereço
+                <input value={payoutAddress} onChange={(e) => setPayoutAddress(e.target.value)} required />
+              </label>
+              <label>
+                Número
+                <input value={payoutAddressNumber} onChange={(e) => setPayoutAddressNumber(e.target.value)} required />
+              </label>
+              <label>
+                Complemento
+                <input value={payoutComplement} onChange={(e) => setPayoutComplement(e.target.value)} placeholder="opcional" />
+              </label>
+              <label>
+                Bairro
+                <input value={payoutProvince} onChange={(e) => setPayoutProvince(e.target.value)} required />
+              </label>
+              <button type="submit">Conectar sub-conta Asaas</button>
+            </form>
+          )}
+        </>
       )}
 
       <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-end', flexWrap: 'wrap', margin: '1.2rem 0 0.6rem' }}>

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { AdminService } from './admin.service';
@@ -16,6 +16,8 @@ import { meditationUploadOptions } from '../meditation/meditation-upload.config'
 import { certificateTemplateUploadOptions } from '../certificates/certificate-template-upload.config';
 import { bannerUploadOptions } from '../banners/banner-upload.config';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
+import { UpdateCampaignLeadDto } from './dto/update-campaign-lead.dto';
+import { GrantComplimentaryTrialDto } from './dto/grant-complimentary-trial.dto';
 
 @Controller('admin')
 @UseGuards(AdminTokenGuard)
@@ -33,6 +35,46 @@ export class AdminController {
     return this.admin.listPendingCrp();
   }
 
+  @Get('users-overview')
+  getUsersOverview() {
+    return this.admin.getUsersOverview();
+  }
+
+  @Get('revenue-summary')
+  getRevenueSummary() {
+    return this.admin.getRevenueSummary();
+  }
+
+  @Get('campaign-leads')
+  listCampaignLeads() {
+    return this.admin.listCampaignLeads();
+  }
+
+  @Patch('campaign-leads/:id')
+  updateCampaignLead(@Param('id') id: string, @Body() dto: UpdateCampaignLeadDto) {
+    return this.admin.updateCampaignLead(id, dto);
+  }
+
+  @Post('campaign-leads/:id/grant-trial')
+  grantComplimentaryTrial(@Param('id') id: string, @Body() dto: GrantComplimentaryTrialDto) {
+    return this.admin.grantComplimentaryTrial(id, dto);
+  }
+
+  @Delete('campaign-leads/:id')
+  deleteCampaignLead(@Param('id') id: string) {
+    return this.admin.deleteCampaignLead(id);
+  }
+
+  @Get('campaign-leads/:id/activation')
+  getCampaignLeadActivation(@Param('id') id: string) {
+    return this.admin.getCampaignLeadActivation(id);
+  }
+
+  @Get('tenants/search')
+  searchTenants(@Query('q') q: string) {
+    return this.admin.searchTenants(q ?? '');
+  }
+
   @Get('crp/:userId/document')
   async downloadCrpDocument(@Param('userId') userId: string, @Res() res: Response) {
     const filePath = await this.admin.getCrpDocumentPath(userId);
@@ -47,6 +89,27 @@ export class AdminController {
   @Post('crp/:userId/reject')
   rejectCrp(@Param('userId') userId: string, @Body() dto: RejectCrpDto) {
     return this.admin.rejectCrp(userId, dto.reason);
+  }
+
+  @Get('student-verifications/pending')
+  listPendingStudentVerifications() {
+    return this.admin.listPendingStudentVerifications();
+  }
+
+  @Get('student-verifications/:userId/document')
+  async downloadStudentDocument(@Param('userId') userId: string, @Res() res: Response) {
+    const filePath = await this.admin.getStudentDocumentPath(userId);
+    res.download(filePath);
+  }
+
+  @Post('student-verifications/:userId/approve')
+  approveStudentVerification(@Param('userId') userId: string) {
+    return this.admin.approveStudentVerification(userId);
+  }
+
+  @Post('student-verifications/:userId/reject')
+  rejectStudentVerification(@Param('userId') userId: string, @Body() dto: RejectCrpDto) {
+    return this.admin.rejectStudentVerification(userId, dto.reason);
   }
 
   @Get('supervisors/pending')
@@ -84,6 +147,36 @@ export class AdminController {
     return this.admin.removeCommunityReply(id, dto.reason);
   }
 
+  @Get('site-comments')
+  listSiteComments() {
+    return this.admin.listSiteComments();
+  }
+
+  @Post('site-comments/:id/block')
+  blockSiteComment(@Param('id') id: string, @Body() dto: RejectCrpDto) {
+    return this.admin.blockSiteComment(id, dto.reason);
+  }
+
+  @Post('site-comments/:id/unblock')
+  unblockSiteComment(@Param('id') id: string) {
+    return this.admin.unblockSiteComment(id);
+  }
+
+  @Get('presentation-videos/pending')
+  listPendingPresentationVideos() {
+    return this.admin.listPendingPresentationVideos();
+  }
+
+  @Post('presentation-videos/:tenantId/approve')
+  approvePresentationVideo(@Param('tenantId') tenantId: string) {
+    return this.admin.approvePresentationVideo(tenantId);
+  }
+
+  @Post('presentation-videos/:tenantId/reject')
+  rejectPresentationVideo(@Param('tenantId') tenantId: string, @Body() dto: RejectCrpDto) {
+    return this.admin.rejectPresentationVideo(tenantId, dto.reason);
+  }
+
   @Get('document-templates')
   listDocumentTemplates() {
     return this.admin.listDocumentTemplates();
@@ -92,12 +185,17 @@ export class AdminController {
   @Post('document-templates')
   @UseInterceptors(FileInterceptor('file', documentTemplateUploadOptions))
   createDocumentTemplate(@Body() dto: CreateDocumentTemplateDto, @UploadedFile() file?: Express.Multer.File) {
-    return this.admin.createDocumentTemplate(dto.title, dto.description, file);
+    return this.admin.createDocumentTemplate(dto.title, dto.description, dto.requiresAcceptance, dto.audience, file);
   }
 
   @Delete('document-templates/:id')
   deleteDocumentTemplate(@Param('id') id: string) {
     return this.admin.deleteDocumentTemplate(id);
+  }
+
+  @Get('document-templates/:id/acceptances')
+  listDocumentAcceptances(@Param('id') id: string) {
+    return this.admin.listDocumentAcceptances(id);
   }
 
   @Get('library')
@@ -158,6 +256,17 @@ export class AdminController {
     const buffer = await this.admin.previewCertificateTemplate(dto);
     res.set('Content-Type', 'image/png');
     res.send(buffer);
+  }
+
+  @Get('certificates')
+  listIssuedCertificates() {
+    return this.admin.listIssuedCertificates();
+  }
+
+  @Get('certificates/:id/download')
+  async downloadIssuedCertificate(@Param('id') id: string, @Res() res: Response) {
+    const filePath = await this.admin.getIssuedCertificateFilePath(id);
+    res.sendFile(filePath);
   }
 
   @Get('banners')

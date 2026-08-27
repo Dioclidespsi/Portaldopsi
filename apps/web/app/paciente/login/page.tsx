@@ -7,7 +7,6 @@ import { patientLogin, savePatientToken } from '../../../lib/patient-api';
 
 export default function PatientLoginPage() {
   const router = useRouter();
-  const [slug, setSlug] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +17,7 @@ export default function PatientLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { accessToken } = await patientLogin({ slug, email, password });
+      const { accessToken } = await patientLogin({ email, password });
       savePatientToken(accessToken);
       router.push('/paciente');
     } catch (err) {
@@ -32,12 +31,10 @@ export default function PatientLoginPage() {
     <div className="shell">
       <Link href="/" className="back-home">← Portal do Psi</Link>
       <h1>Área do paciente</h1>
-      <p className="sub">Peça o identificador da clínica para o seu psicólogo, se não souber.</p>
+      <p className="sub">
+        Um login só, vale pra qualquer profissional que você atenda pelo Portal do Psi.
+      </p>
       <form onSubmit={onSubmit}>
-        <label>
-          Identificador (slug) da clínica
-          <input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} required />
-        </label>
         <label>
           E-mail
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

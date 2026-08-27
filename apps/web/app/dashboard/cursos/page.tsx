@@ -7,12 +7,62 @@ import {
   CourseLessonView,
   CourseView,
   downloadCourseMaterial,
+  enrollInCourse,
   getLessonQuiz,
   listCourseCatalog,
   markLessonComplete,
   QuizForStudent,
   submitQuizAttempt,
 } from '../../../lib/api';
+
+function centsToReais(cents: number) {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function BuyCoursePanel({ course }: { course: CourseView }) {
+  const [cpfCnpj, setCpfCnpj] = useState('');
+  const [buying, setBuying] = useState(false);
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onBuy() {
+    setError(null);
+    setBuying(true);
+    try {
+      const result = await enrollInCourse({ courseSlug: course.slug, provider: 'ASAAS', cpfCnpj });
+      if (result.paymentLink) setPaymentLink(result.paymentLink);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  if (paymentLink) {
+    return (
+      <div className="callout-box" style={{ marginBottom: '0.8rem' }}>
+        Cobrança gerada — finalize o pagamento pra liberar o curso:{' '}
+        <a href={paymentLink} target="_blank" rel="noreferrer">{paymentLink}</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="callout-box" style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.6rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '0.88rem' }}>
+        Este curso é pago{course.priceCents !== null ? ` — ${centsToReais(course.priceCents)}` : ''}.
+      </span>
+      <label style={{ minWidth: '160px' }}>
+        CPF/CNPJ
+        <input value={cpfCnpj} onChange={(e) => setCpfCnpj(e.target.value)} required />
+      </label>
+      <button type="button" onClick={onBuy} disabled={buying || !cpfCnpj} style={{ fontSize: '0.85rem' }}>
+        {buying ? 'Gerando cobrança…' : 'Comprar'}
+      </button>
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
+}
 
 /** Aceita youtube.com/watch?v=, youtu.be/ e já-embed — sempre devolve a forma /embed/. */
 function toYoutubeEmbedUrl(url: string): string | null {
@@ -237,6 +287,8 @@ export default function CursosPage() {
         <div key={course.id} style={{ marginBottom: '2rem' }}>
           <h3 style={{ fontSize: '0.98rem', marginBottom: '0.2rem' }}>{course.title}</h3>
           <p className="sub" style={{ marginBottom: '0.8rem' }}>{course.description}</p>
+
+          {course.audience === 'PROFISSIONAIS_PAGO' && !course.enrolled && <BuyCoursePanel course={course} />}
 
           {course.modules.map((mod) => (
             <div key={mod.id} style={{ marginBottom: '1rem' }}>

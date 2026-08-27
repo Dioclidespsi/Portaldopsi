@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNav from '../../../components/AdminNav';
+import AdminWhatsAppButton from '../../../components/AdminWhatsAppButton';
 import {
   approveSupervisor,
   getAdminToken,
@@ -10,6 +11,7 @@ import {
   PendingSupervisor,
   rejectSupervisor,
 } from '../../../lib/admin-api';
+import { ADMIN_VERIFICATION_TEMPLATES } from '../../../lib/whatsapp';
 
 export default function AdminSupervisorsPage() {
   const router = useRouter();
@@ -76,7 +78,7 @@ export default function AdminSupervisorsPage() {
               <td>{p.name}</td>
               <td>{p.email}</td>
               <td>{p.tenant.name}</td>
-              <td style={{ display: 'flex', gap: '0.4rem' }}>
+              <td style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <button onClick={() => onApprove(p.id)} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
                   Aprovar
                 </button>
@@ -86,6 +88,9 @@ export default function AdminSupervisorsPage() {
                 >
                   Rejeitar
                 </button>
+                {p.tenant.publicPhone && (
+                  <AdminWhatsAppButton name={p.name} phone={p.tenant.publicPhone} templates={ADMIN_VERIFICATION_TEMPLATES} />
+                )}
               </td>
             </tr>
           ))}

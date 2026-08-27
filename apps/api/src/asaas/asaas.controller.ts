@@ -1,6 +1,7 @@
 import { Body, Controller, Headers, Post, UseGuards } from '@nestjs/common';
 import { AsaasService } from './asaas.service';
 import { CreatePayoutAccountDto } from './dto/create-payout-account.dto';
+import { LinkExistingPayoutAccountDto } from './dto/link-existing-payout-account.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -14,6 +15,14 @@ export class AsaasController {
   @Roles(...STAFF_ROLES)
   createPayoutAccount(@Body() dto: CreatePayoutAccountDto) {
     return this.asaas.createPayoutAccount(dto);
+  }
+
+  /** Pra quem já tem conta Asaas própria — ver AsaasService.linkExistingPayoutAccount. */
+  @Post('payout-account/link')
+  @UseGuards(RolesGuard)
+  @Roles(...STAFF_ROLES)
+  linkExistingPayoutAccount(@Body() dto: LinkExistingPayoutAccountDto) {
+    return this.asaas.linkExistingPayoutAccount(dto.walletId);
   }
 
   /** Rota pública (excluída do AuthMiddleware em auth.module.ts) — autenticada pelo token do Asaas, não por JWT. */

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import PatientTopbar from '../../../components/PatientTopbar';
 import { listOwnMeditationTracks, meditationAudioUrl, PatientMeditationTrack } from '../../../lib/patient-api';
 
 export default function PatientMeditationPage() {
@@ -27,15 +27,7 @@ export default function PatientMeditationPage() {
 
   return (
     <div className="shell shell-wide">
-      <div className="topbar">
-        <div>
-          <h1>Trilhas de meditação</h1>
-          <p className="sub">Áudios guiados pra usar quando precisar.</p>
-        </div>
-        <Link href="/paciente">
-          <button style={{ background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}>Voltar</button>
-        </Link>
-      </div>
+      <PatientTopbar title="Trilhas de meditação" subtitle="Áudios guiados pra usar quando precisar." />
 
       {Object.entries(byCategory).map(([category, items]) => (
         <div key={category} style={{ marginBottom: '1.4rem' }}>

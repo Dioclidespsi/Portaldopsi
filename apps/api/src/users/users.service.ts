@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreateTeamMemberDto } from './dto/create-team-member.dto';
 import { CRP_UPLOAD_DIR } from './crp-upload.config';
+import { SIGNATURE_UPLOAD_DIR } from './signature-upload.config';
 import { CrpStatus, Role } from '@prisma/client';
 
 const SALT_ROUNDS = 12;
@@ -92,5 +93,33 @@ export class UsersService {
     });
     if (!user?.crpDocumentPath) throw new NotFoundException('Nenhum documento enviado ainda.');
     return path.join(CRP_UPLOAD_DIR, user.crpDocumentPath);
+  }
+
+  /** Substitui a assinatura anterior (se houver) — usada nos documentos gerados em psych-documents. */
+  async uploadSignature(file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Envie a imagem da assinatura (JPG, PNG ou WEBP).');
+    const { userId } = getRequestContext();
+    const tenantPrisma = this.prisma.forCurrentTenant();
+
+    const current = await tenantPrisma.user.findUnique({ where: { id: userId }, select: { signatureImagePath: true } });
+    if (current?.signatureImagePath) {
+      fs.unlink(path.join(SIGNATURE_UPLOAD_DIR, current.signatureImagePath), () => undefined);
+    }
+
+    return tenantPrisma.user.update({
+      where: { id: userId },
+      data: { signatureImagePath: file.filename },
+      select: { id: true, signatureImagePath: true },
+    });
+  }
+
+  async getOwnSignaturePath() {
+    const { userId } = getRequestContext();
+    const user = await this.prisma.forCurrentTenant().user.findUnique({
+      where: { id: userId },
+      select: { signatureImagePath: true },
+    });
+    if (!user?.signatureImagePath) throw new NotFoundException('Nenhuma assinatura enviada ainda.');
+    return path.join(SIGNATURE_UPLOAD_DIR, user.signatureImagePath);
   }
 }

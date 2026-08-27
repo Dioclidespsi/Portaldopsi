@@ -9,7 +9,11 @@ import { AsaasService } from '../asaas/asaas.service';
  * `create`/`updateStatus` continuam sendo o registro manual do F1 (sem
  * gateway ligado). `charge` é a cobrança real via Asaas — ver
  * AsaasService.createSplitCharge; depois de chamado, o status passa a ser
- * sincronizado pelo webhook do Asaas, não só pelo PATCH manual.
+ * sincronizado pelo webhook do Asaas, não só pelo PATCH manual. Quando
+ * `updateStatus` marca "pago" numa cobrança vinculada a um agendamento
+ * público, cascateia pra AsaasService.confirmBookingForPaidInvoice — mesma
+ * confirmação que o webhook faria, necessária pra quem confirma pagamento
+ * na mão antes do webhook chegar (ou quando ele nunca chega).
  */
 @Injectable()
 export class InvoicesService {
@@ -77,11 +81,17 @@ export class InvoicesService {
   }
 
   async updateStatus(id: string, status: InvoiceStatus) {
-    await this.findOne(id);
-    return this.prisma.forCurrentTenant().invoice.update({
+    const existing = await this.findOne(id);
+    const updated = await this.prisma.forCurrentTenant().invoice.update({
       where: { id },
       data: { status, paidAt: status === 'pago' ? new Date() : null },
+      include: { patient: { select: { name: true } }, appointment: { select: { startsAt: true } } },
     });
+    if (status === 'pago' && existing.appointmentId) {
+      const { tenantId } = getRequestContext();
+      await this.asaas.confirmBookingForPaidInvoice(tenantId, existing.appointmentId);
+    }
+    return updated;
   }
 
   charge(id: string) {

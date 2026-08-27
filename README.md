@@ -457,3 +457,61 @@ Com F0-F4 completos, todo o roadmap original de 5 fases do documento de arquitet
 implementado. Trabalho futuro daqui em diante é aprofundar o que já existe (mais casos de uso de
 IA, catálogo licenciado de testes, testar o Asaas/Stripe contra conta sandbox real, popular
 vídeo-aulas e modelos de documento de verdade) em vez de novas fases.
+
+## Sessão: assinatura sem preço público, prontuário via admin (CRP), anotações privadas, documentos preenchíveis
+
+Rodada autônoma respondendo a 4 pedidos do dono do projeto. Testado ao vivo contra o Postgres
+local (signup real → paciente → documento → admin → portal do paciente), não só build.
+
+1. **Valores da assinatura só depois do login**: removidos da home pública
+   (`apps/web/app/page.tsx`) e da rota `GET /billing/plans`, que agora exige JWT (tirada da
+   allowlist em `auth/auth.module.ts`). Preço só aparece em **Assinatura** no dashboard, que já era
+   a última tela antes do checkout.
+
+2. **Acesso do admin ao prontuário (exigência do CRP)**: novo `apps/api/src/admin/
+   admin-prontuario.{controller,service}.ts` + `prontuario-pdf-renderer.ts`, rota
+   `/admin/prontuario/tenants/:slug/patients` → `/admin/prontuario/patients/:id/pdf`, frontend em
+   `/admin/prontuarios`. Corrigido um gap real de RLS: `patients`/`prontuario_entries` não tinham a
+   exceção `__system__` que `users`/`invoices`/etc já tinham (mesmo bug já documentado antes neste
+   README para o console do admin) — sem isso, `PrismaService.forSystem()` sempre voltaria zero
+   linhas. PDF gerado com **pdfkit** (biblioteca nova no projeto, nenhuma antes) — nunca inclui
+   `Patient.privateNote` (select explícito, sem `include` cru).
+
+3. **Anotação privada do psicólogo**: `Patient.privateNote` (campo único, sempre sobrescrito —
+   mesmo padrão de `Lead.notes`), endpoint `PATCH /patients/:id/private-note`, editável na página do
+   paciente no dashboard. Confirmado ao vivo que não aparece em nenhuma rota de `patient-portal` nem
+   no PDF do prontuário do admin.
+
+4. **Documentos preenchíveis (laudo/relatório/atestado/declaração/encaminhamento/parecer)**: novo
+   módulo `apps/api/src/psych-documents/` — model `PsychDocument` (rascunho → finalizado, nunca
+   reeditado depois de finalizado, mesma disciplina append-only do `ProntuarioEntry`), catálogo em
+   código (`catalog/templates.ts`) com a estrutura de seções de cada modelo, renderer em pdfkit
+   embutindo a assinatura/carimbo do psicólogo (`User.signatureImagePath`, upload em
+   `POST /users/me/signature`). Entrega ao paciente é **sempre manual**: `finalize()` só gera o PDF,
+   `release()` é uma ação separada que o psicólogo aciona explicitamente — nada chega ao paciente
+   sozinho, mesmo padrão já usado em `TestAssignment.communicationNote`/`Homework`. Frontend:
+   `/dashboard/laudos` (preencher, finalizar, disponibilizar) e `/paciente/documentos` (baixar).
+
+   **Fonte dos modelos**: estrutura (rótulos de seção, cabeçalho com CRP, bloco de assinatura,
+   nota de confidencialidade) baseada nos modelos genéricos em
+   `C:\Users\PC LOVE\Downloads\Ferramentas PSI\Modelos de Docs Psicologicos...\modelo *2019.docx`
+   (atestado/declaração/laudo/parecer/prontuário/relatório) — nenhum texto clínico de paciente real
+   foi copiado, só o formato. **Não havia modelo de referência pra "encaminhamento"** — a estrutura
+   usada (destino/motivo/observações) é a mínima genérica que dá pra montar sem inventar conteúdo
+   clínico; vale o dono do projeto revisar se cobre o que ele realmente usa.
+
+   **Decisão que precisa de confirmação**: a anotação privada (`Patient.privateNote`) foi tratada
+   como **fora** do prontuário oficial (não entra no PDF do admin) — interpretação de que é um
+   rascunho pessoal, não parte do registro clínico exigido pela Resolução CFP 06/2019. Isso é uma
+   leitura razoável do pedido, mas não é uma opinião jurídica — confirmar com atenção antes de
+   depender disso numa fiscalização real.
+
+   **Bug real encontrado e corrigido só no teste ao vivo** (não aparecia no build): `import
+   PDFDocument from 'pdfkit'` compilava para `pdfkit_1.default`, que não existe em runtime — esse
+   tsconfig tem `allowSyntheticDefaultImports` (só afeta checagem de tipo) mas não
+   `esModuleInterop` (que mudaria o JS emitido). Corrigido nos dois renderers com
+   `import PDFDocument = require('pdfkit')`. Só apareceu ao chamar `POST /psych-documents/:id/
+   finalize` de verdade — `npm run build:api` não pega esse tipo de erro porque é só de runtime.
+
+Dados de teste (`clinica-teste-*`) ficaram no Postgres local dessa sessão de smoke test — inofensivo,
+mas pode ser limpo manualmente se incomodar.

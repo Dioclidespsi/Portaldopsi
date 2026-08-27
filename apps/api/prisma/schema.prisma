@@ -39,6 +39,16 @@ enum CrpStatus {
   REJEITADO
 }
 
+/// Verificação de matrícula de estudante de psicologia (item 4) — mesmos 4
+/// estados do CrpStatus, enum separado de propósito (semântica diferente,
+/// nunca deve ser confundido com verificação de CRP de psicólogo titular).
+enum StudentVerificationStatus {
+  NAO_ENVIADO
+  EM_ANALISE
+  VERIFICADO
+  REJEITADO
+}
+
 /// Gate independente do CrpStatus — CRP já é verificado no cadastro do
 /// assinante (CLINICA), então checar de novo seria redundante aqui. Isto
 /// aprova especificamente a ATUAÇÃO como supervisor na plataforma (decisão
@@ -48,6 +58,35 @@ enum SupervisorApprovalStatus {
   PENDENTE
   APROVADO
   REJEITADO
+}
+
+/// Mesmos 4 estados de CrpStatus/StudentVerificationStatus, enum separado de
+/// propósito — nunca deve ser confundido com verificação de CRP. Rege o
+/// vídeo de apresentação do Site Profissional (Tenant.presentationVideo*):
+/// só o admin da plataforma pode levar pra PUBLICADO, nunca o profissional
+/// diretamente — mitiga risco de conteúdo que viole o código de ética do CRP
+/// ir ao ar sem revisão.
+enum VideoApprovalStatus {
+  NAO_ENVIADO
+  EM_ANALISE
+  PUBLICADO
+  REJEITADO
+}
+
+/// Público-alvo do curso (Course.audience) — decide quem enxerga acesso via
+/// CoursesService.hasModuleAccess: ESTUDANTES é o modo clássico (só
+/// tenant.kind=ESTUDANTE, via compra na Loja/Marketplace, nunca CLINICA).
+/// PROFISSIONAIS_GRATIS/PROFISSIONAIS_PAGO são exclusivos de tenant.kind=
+/// CLINICA — GRATIS ainda exige o gate de AccessGateService (CRP+assinatura+
+/// termos), "grátis" aqui significa "incluso na assinatura", nunca "livre
+/// pra qualquer um"; PAGO exige o mesmo gate MAIS uma CourseEnrollment (ver
+/// MarketplaceService.enroll, que já funciona pra qualquer tenant.kind sem
+/// mudança). Default ESTUDANTES preserva o comportamento de cursos já
+/// cadastrados antes desta mudança.
+enum CourseAudience {
+  ESTUDANTES
+  PROFISSIONAIS_GRATIS
+  PROFISSIONAIS_PAGO
 }
 
 enum EnrollmentSource {
@@ -92,6 +131,24 @@ model Tenant {
   specialties  String?
   publicEmail  String?
   publicPhone  String?
+  /// Endereço físico da clínica — mostrado no Site Profissional e no
+  /// cabeçalho/rodapé (texto) dos documentos gerados, junto com telefone/
+  /// e-mail (ver psych-document-pdf-renderer.ts).
+  publicAddress String?
+  /// Cidade/UF separados do endereço — mostrados como selo ao lado do nome
+  /// no Site Profissional, mesmo sem endereço físico preenchido (útil pra
+  /// quem atende só online).
+  publicCity  String?
+  publicState String?
+
+  /// Redes sociais — cada uma é 100% opcional; só aparece no Site
+  /// Profissional quando preenchida (mesmo padrão de publicEmail/publicPhone,
+  /// sem flag de habilitar/desabilitar separada: o campo vazio já é "desligado").
+  socialInstagram String?
+  socialYoutube   String?
+  socialFacebook  String?
+  socialLinkedin  String?
+  socialTiktok    String?
   /// Chave de uma paleta fixa (ver apps/web/lib/site-palettes.ts) — escolhida
   /// pelo psicólogo, aplicada só na página pública (/p/{slug}), nunca no
   /// dashboard interno. Lista fechada de propósito, validada no DTO.
@@ -112,6 +169,27 @@ model Tenant {
   /// antes do psicólogo confirmar que quer aceitar reservas com cobrança.
   bookingEnabled    Boolean @default(false)
 
+  /// Vídeo de apresentação do Site Profissional — hospedado pelo próprio
+  /// profissional no YouTube como "não listado" (não indexado, só quem tem o
+  /// link acessa). O profissional só CADASTRA o link (fica em EM_ANALISE),
+  /// mas só o admin da plataforma PUBLICA (nunca o próprio profissional, nem
+  /// automaticamente) — ver AdminService e ProfileService.getPublic. Cadastrar
+  /// outro link sobrescreve o anterior e volta pra EM_ANALISE, limpando uma
+  /// rejeição anterior. Sem upload/armazenamento de arquivo no servidor —
+  /// nunca gerenciamos o vídeo em si, só o link e o status de aprovação.
+  presentationVideoUrl             String?
+  presentationVideoStatus          VideoApprovalStatus @default(NAO_ENVIADO)
+  presentationVideoRejectionReason String?
+
+  /// Configuração PRIVADA (nunca exposta no Site Profissional) — até 5 modelos
+  /// de mensagem de WhatsApp que o titular pré-programa em /dashboard/conta,
+  /// usados pelo botão de WhatsApp na listagem/detalhe de pacientes
+  /// (WhatsAppButton.tsx). Array de `{label, text}`, `text` pode conter o
+  /// placeholder literal "{nome}", substituído pelo nome do paciente na hora
+  /// de exibir (ver lib/whatsapp.ts). Null enquanto o titular não configurar
+  /// — o frontend cai nos 5 modelos padrão embutidos no código nesse caso.
+  whatsappTemplates Json?
+
   createdAt DateTime @default(now())
 
   users              User[]
@@ -124,6 +202,8 @@ model Tenant {
   subscription       Subscription?
   enrollments        CourseEnrollment[]
   testAssignments    TestAssignment[]
+  psychDocuments     PsychDocument[]
+  anamneseEntries    AnamneseEntry[]
   moduleProgress     ModuleProgress[]
   certificates       Certificate[]
   courseQuizAttempts CourseQuizAttempt[]
@@ -135,6 +215,9 @@ model Tenant {
   communityPosts     CommunityPost[]
   communityReplies   CommunityReply[]
   aiUsageLogs        AiUsageLog[]
+  siteComments       SiteComment[]
+  siteLikes          SiteLike[]
+  siteProfileBlocks  SiteProfileBlock[]
 
   @@map("tenants")
 }
@@ -148,6 +231,15 @@ model User {
   name         String
   role         Role
   createdAt    DateTime @default(now())
+
+  /// Verificação real de e-mail exigida na aquisição (cadastro do plano
+  /// free) — link enviado via Resend logo após o signup. Null enquanto não
+  /// confirmado; não bloqueia o uso do app, só fica pendente (mesmo padrão
+  /// não-bloqueante do banner de CRP/estudante). Token de uso único, expira
+  /// em 24h (ver AuthService.verifyEmail); limpo depois de confirmado.
+  emailVerifiedAt            DateTime?
+  emailVerificationToken     String?   @unique
+  emailVerificationExpiresAt DateTime?
 
   /// Só relevante para role=PSICOLOGO_TITULAR num tenant kind=CLINICA. Rotas
   /// clínicas (Prontuário, Agenda, Teleconsulta) devem checar
@@ -172,9 +264,29 @@ model User {
   supervisorApprovalStatus  SupervisorApprovalStatus?
   supervisorRejectionReason String?
 
+  /// Imagem única (assinatura manuscrita + carimbo com nome/CRP, opcionalmente
+  /// com timbre da clínica) usada ao gerar laudo/relatório/atestado/declaração/
+  /// encaminhamento/parecer — ver PsychDocument e users/signature-upload.config.
+  signatureImagePath String?
+
+  /// Só relevante para tenant.kind=ESTUDANTE (estudante de psicologia) — item
+  /// 4. Curso pago fica bloqueado (ver CoursesService.hasModuleAccess) até
+  /// studentVerificationStatus=VERIFICADO. studentVerificationNote guarda a
+  /// justificativa da IA (aprovação/encaminhamento) ou o motivo de rejeição
+  /// do admin — nunca os dois ao mesmo tempo (sobrescrito a cada tentativa).
+  studentInstitution         String?
+  studentEnrollmentNumber    String?
+  studentDocumentPath        String?
+  studentVerificationStatus  StudentVerificationStatus @default(NAO_ENVIADO)
+  studentVerificationNote    String?
+
   prontuarioEntries ProntuarioEntry[] @relation("AutorEntry")
+  psychDocumentsAuthored PsychDocument[]
+  anamneseEntriesAuthored AnamneseEntry[]
+  documentAcceptances DocumentAcceptance[]
   testsAssigned     TestAssignment[]  @relation("TestAssignedBy")
   testsCorrected    TestAssignment[]  @relation("TestCorrectedBy")
+  testsAppliedLive  TestAssignment[]  @relation("TestAppliedBy")
   moduleProgress    ModuleProgress[]
   certificates      Certificate[]
   courseQuizAttempts CourseQuizAttempt[]
@@ -218,23 +330,44 @@ model Patient {
   /// Asaas é recusada com uma mensagem clara pedindo pra completar o cadastro.
   cpfCnpj String?
 
-  /// Aplicativo do Paciente: identidade separada dos Users da equipe (staff
-  /// tem crpStatus/Role, paciente não — são dois sistemas de login distintos
-  /// de propósito, ver auth/patient-auth.middleware.ts). `portalEnabled` só
-  /// vira true quando a equipe ativa o acesso e define a senha inicial.
-  passwordHash  String?
-  portalEnabled Boolean @default(false)
+  /// Cliente Asaas já criado pra este paciente — reaproveitado em toda cobrança
+  /// futura (mesmo padrão de Subscription.asaasCustomerId). Sem isso,
+  /// createSplitCharge criava um cliente NOVO no Asaas a cada cobrança, e o
+  /// Asaas rejeita a segunda tentativa com o mesmo e-mail/CPF ("já em uso") —
+  /// bug real que bloqueava a 2ª sessão de qualquer paciente que já tinha
+  /// agendado antes.
+  asaasCustomerId String?
+
+  /// Rascunho/anotação PRIVADA do psicólogo — mesmo padrão de Lead.notes (um
+  /// campo único, sempre sobrescrito, não append-only). NUNCA deve ser
+  /// selecionado em nenhum endpoint de patient-portal nem incluído em PDF
+  /// entregue ao paciente — é só um guia pessoal do profissional entre
+  /// sessões, diferente das entradas oficiais de ProntuarioEntry.
+  privateNote String?
+
   /// Autoatendimento: em vez da equipe definir a senha direto (fluxo antigo,
   /// ainda existe), a equipe gera esse token e manda o link pro paciente
   /// (WhatsApp, SMS — sem infra de e-mail neste projeto). Paciente abre o
-  /// link, define a própria senha, token é limpo. Expira em 48h por padrão.
+  /// link, define a própria senha (ou, se o e-mail já tiver PatientAccount
+  /// de outra clínica, só confirma o vínculo — ver PatientPortalService.
+  /// activate()). Token é limpo depois de usado. Expira em 48h por padrão.
   activationToken          String?   @unique
   activationTokenExpiresAt DateTime?
+
+  /// Vínculo com a conta global do Aplicativo do Paciente (login único,
+  /// cross-clínica — ver PatientAccount). Fica nulo enquanto a equipe não
+  /// convida esse paciente pro portal. Autenticação passa a morar
+  /// inteiramente em PatientAccount — esta linha vira só o vínculo clínico
+  /// (prontuário, agendamentos, documentos) com ESTA clínica específica.
+  patientAccountId String?
+  patientAccount   PatientAccount? @relation(fields: [patientAccountId], references: [id])
 
   prontuarioEntries ProntuarioEntry[]
   appointments      Appointment[]
   invoices          Invoice[]
   testAssignments   TestAssignment[]
+  psychDocuments    PsychDocument[]
+  anamneseEntry     AnamneseEntry?
   convertedFromLead Lead?
   courseEnrollments  CourseEnrollment[]
   moduleProgress     ModuleProgress[]
@@ -244,8 +377,40 @@ model Patient {
   pushSubscriptions  PushSubscription[]
 
   @@unique([tenantId, email])
+  /// Evita duplicar o vínculo da mesma PatientAccount com a mesma clínica
+  /// (find-or-create idempotente via upsert nesta chave — ver
+  /// BookingService.createBookingForPatient). NULL não conflita com NULL em
+  /// unique index do Postgres, então pacientes sem conta ainda (cadastro só
+  /// pela equipe, nunca convidados pro portal) não são afetados.
+  @@unique([tenantId, patientAccountId])
   @@index([tenantId])
   @@map("patients")
+}
+
+/// Conta global do Aplicativo do Paciente — um único login (e-mail+senha)
+/// usado em QUALQUER clínica/profissional, sem RLS/tenantId (mesmo padrão de
+/// Tenant/MeditationTrack: identidade "raiz", não dado clínico). Cada
+/// relação concreta com uma clínica (prontuário, agendamentos, documentos,
+/// testes) continua isolada por tenant em Patient — esta tabela só resolve
+/// "quem é essa pessoa" antes de qualquer RLS entrar em cena.
+model PatientAccount {
+  id           String    @id @default(uuid())
+  /// Sempre normalizado (lowercase+trim) em todo ponto de escrita/comparação
+  /// — ver PatientPortalService/BookingService. Sem isso, "Joao@x.com" e
+  /// "joao@x.com" virariam duas contas, anulando o propósito de ter uma
+  /// identidade só entre clínicas.
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  cpfCnpj      String?
+  birthDate    DateTime?
+  createdAt    DateTime  @default(now())
+  termsAcceptedAt DateTime?
+
+  patients Patient[]
+
+  @@map("patient_accounts")
 }
 
 /// Entrada de evolução do prontuário. Nunca é editada após criada (append-only)
@@ -329,6 +494,11 @@ model Appointment {
 
   /// Preenchido quando status vira "cancelado" ou "falta" — motivo/observação.
   cancelReason String?
+
+  /// Trava de idempotência do lembrete de e-mail 10min antes da sessão — sem
+  /// isso, o cron (roda a cada minuto) reenviaria o mesmo lembrete várias
+  /// vezes enquanto startsAt continuar dentro da janela de checagem.
+  reminder10MinSentAt DateTime?
 
   invoices Invoice[]
   availabilitySlot AvailabilitySlot?
@@ -491,6 +661,16 @@ model TestAssignment {
   /// Respostas brutas do paciente: { [questionId]: number | string }.
   answers     Json?
   submittedAt DateTime?
+  /// true quando as respostas foram preenchidas pelo psicólogo durante uma
+  /// aplicação ao vivo (pergunta lida em voz alta, paciente responde,
+  /// profissional digita) em vez do paciente responder sozinho pela área
+  /// dele — mesmas perguntas, mesmo fluxo de correção depois, só muda quem
+  /// digitou. `submit` self-service continua existindo à parte (nunca
+  /// removido); esta é uma segunda forma de preencher, não substitui a
+  /// primeira.
+  appliedLiveByStaff Boolean @default(false)
+  appliedById        String?
+  appliedBy          User?   @relation("TestAppliedBy", fields: [appliedById], references: [id])
   /// Soma automática das perguntas objetivas — só sugestão, nunca o valor
   /// final (ver finalScore/finalResultLabel).
   suggestedScore       Int?
@@ -516,6 +696,84 @@ model TestAssignment {
 
   @@index([tenantId, patientId])
   @@map("test_assignments")
+}
+
+/// Documento psicológico preenchido pelo profissional para UM paciente
+/// específico (laudo, relatório, atestado, declaração, encaminhamento ou
+/// parecer — ver psych-documents/catalog). Diferente de TestAssignment: o
+/// resultado aqui é entregue ao PACIENTE como PDF, mas só quando o
+/// psicólogo decidir liberar (releasedToPatientAt) — gerar o documento não
+/// libera sozinho, mesmo padrão de "nunca automático" já usado em
+/// TestAssignment.communicationNote e Homework. Uma vez `finalizado`, o
+/// PDF já gerado nunca é reeditado — qualquer correção exige um novo
+/// PsychDocument (mesma disciplina de append-only do ProntuarioEntry).
+model PsychDocument {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id])
+
+  /// Chave do catálogo em código (ex: "laudo", "relatorio", "atestado",
+  /// "declaracao", "encaminhamento", "parecer") — ver psych-documents/catalog.
+  templateSlug String
+  /// Título do modelo no momento da emissão (cópia, não referência) — mantém
+  /// o histórico legível mesmo se o catálogo em código mudar depois.
+  title        String
+  /// Conteúdo preenchido pelo psicólogo, por seção do modelo:
+  /// { [sectionKey]: string }.
+  fields       Json
+
+  status      String    @default("rascunho")
+  finalizedAt DateTime?
+  /// PDF gerado na finalização, relativo a uploads/psych-documents/.
+  filePath    String?
+
+  /// Nunca setado automaticamente — só quando o psicólogo aciona
+  /// explicitamente "Disponibilizar ao paciente".
+  releasedToPatientAt DateTime?
+
+  /// true só pro modelo "contrato" (Contrato de Prestação de Serviços
+  /// Psicológicos) — o paciente vê um botão "Aceitar" em vez de só
+  /// "Baixar", e o consentimento fica registrado em acceptedByPatientAt.
+  requiresPatientAcceptance Boolean   @default(false)
+  acceptedByPatientAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, patientId])
+  @@map("psych_documents")
+}
+
+/// Ficha de anamnese (entrevista/história de admissão) de UM paciente —
+/// modelo escolhido por faixa etária no catálogo em código (ver
+/// anamnese/catalog: "infantil"/"adolescente"/"adulto"/"idoso"). Ao
+/// contrário de ProntuarioEntry/PsychDocument, é um documento interno de
+/// trabalho, não append-only nem finalizado: `patientId` é único porque
+/// existe UMA anamnese por paciente, sempre editável (upsert), sem
+/// histórico de versões — cada salvamento sobrescreve o anterior, mesmo
+/// padrão de Patient.privateNote.
+model AnamneseEntry {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId String   @unique
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+
+  /// Chave do catálogo em código ("infantil"/"adolescente"/"adulto"/"idoso") — ver anamnese/catalog.
+  templateSlug String
+  /// Conteúdo preenchido pelo psicólogo, por seção do modelo: { [sectionKey]: string }.
+  fields       Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("anamnese_entries")
 }
 
 /// Compra de curso avulso (Marketplace) OU acesso liberado por já ter
@@ -642,6 +900,8 @@ model Course {
   title       String
   description String
   priceCents  Int?
+  /// Ver enum CourseAudience — decide quem pode acessar (CoursesService.hasModuleAccess).
+  audience    CourseAudience @default(ESTUDANTES)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -859,6 +1119,97 @@ enum CommunityCategory {
   GERAL
 }
 
+/// Comentário/feedback de visitante na página pública (/p/{slug}) — NUNCA
+/// editável (nem pelo profissional, nem pelo admin): só existem os estados
+/// abaixo, todos reversíveis, o texto em si é imutável depois de enviado.
+///
+/// `consentToPublish`: marcado pelo próprio visitante no envio — condição
+/// necessária (mas não suficiente) pra aparecer na página pública. Sem isso,
+/// o comentário é só feedback privado que o profissional pode ler mas nunca
+/// publicar (ver SiteCommentsService.setPublished).
+///
+/// `publishedByProfessional`: decisão do profissional de mostrar ou não este
+/// comentário específico na própria página — nunca pode virar true se
+/// `consentToPublish` for false (validado no service, não é uma CHECK de
+/// banco porque Prisma não expressa isso declarativamente).
+///
+/// `blockedByAdmin`/`blockedReason`: veto do admin da plataforma (violação do
+/// código de ética do CRP, por exemplo) — quando true, o comentário fica
+/// invisível na página pública INDEPENDENTE do que o profissional escolheu;
+/// o profissional continua vendo o próprio comentário e o motivo do bloqueio
+/// no painel, só não consegue revertê-lo.
+///
+/// Tem RLS com a exceção `__system__` (mesmo padrão de `patients`/`users`) —
+/// necessário pro admin poder revisar/bloquear comentários de qualquer
+/// clínica (ver AdminService), ao contrário de `leads`, que é só do próprio
+/// profissional.
+model SiteComment {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  authorName String
+  content    String
+
+  /// 1-5, só preenchido em depoimentos importados de outra plataforma (ver
+  /// `importedFrom`) — o formulário nativo do site não coleta nota.
+  rating Int?
+  /// Nome da plataforma de origem (ex: "Conexa"), só setado em depoimentos
+  /// importados — exibido como selo de transparência na página pública,
+  /// nunca omitido pra não aparentar que veio do formulário nativo do site.
+  importedFrom String?
+
+  consentToPublish        Boolean
+  publishedByProfessional Boolean @default(false)
+  blockedByAdmin          Boolean @default(false)
+  blockedReason           String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("site_comments")
+}
+
+/// Curtida anônima na página pública do profissional. `visitorToken` é gerado
+/// no navegador do visitante (localStorage, sem conta/login associado) só pra
+/// evitar curtida duplicada do mesmo aparelho — não é uma identidade real,
+/// diferente de `PatientAccount`. Mesma RLS de `SiteComment` (exceção
+/// `__system__`), embora hoje só o próprio profissional e o público leiam a
+/// contagem; a exceção existe por consistência com o restante do domínio, não
+/// por um caso de uso do admin já concreto.
+model SiteLike {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visitorToken String
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, visitorToken])
+  @@map("site_likes")
+}
+
+/// Conteúdo repetível do Site Profissional (formação, experiência,
+/// credenciais, FAQ) — mesmo padrão de PsychDocument/AnamneseEntry: a
+/// ESTRUTURA de cada tipo vive em código (ver profile/block-catalog.ts),
+/// o banco só guarda `type` + `fields: Json` livres. Adicionar um novo tipo
+/// de bloco no catálogo nunca exige migração. `position` controla a ordem
+/// de exibição na página pública, editável pelo psicólogo.
+model SiteProfileBlock {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  type     String
+  fields   Json
+  position Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, position])
+  @@map("site_profile_blocks")
+}
+
 /// Comunidade é o único espaço deliberadamente CROSS-TENANT do sistema — troca
 /// de caso/indicação entre assinantes de clínicas diferentes. Por isso, ao
 /// contrário de toda outra tabela, NÃO tem RLS: tenantId aqui é só atribuição
@@ -1020,6 +1371,12 @@ model Subscription {
   asaasSubscriptionId  String?
   status               SubscriptionStatus @default(TRIALING)
   currentPeriodEnd     DateTime?
+  /// Cortesia concedida manualmente pelo admin (ex: Programa Piloto — 3
+  /// meses grátis), nunca por pagamento real no Asaas. Distingue de
+  /// assinatura paga no painel de receita (AdminService.getRevenueSummary)
+  /// e é o que o cron de expiração de cortesias verifica antes de rebaixar
+  /// `status` — sem isso, uma cortesia ficaria ativa pra sempre.
+  isComplimentary      Boolean            @default(false)
   createdAt            DateTime           @default(now())
 
   @@map("subscriptions")
@@ -1031,14 +1388,52 @@ model Subscription {
 /// restrição de "só assinante CLINICA vê" é feita no service de leitura
 /// (DocumentTemplatesService), não no banco — mesmo padrão do bloco gratuito
 /// em CoursesService.
+/// Área "Contratos" no dashboard (renomeada de "Documentos" — a área nova
+/// de laudo/relatório/etc. em PsychDocument herdou o nome "Documentos").
+/// Modelo fixo enviado pelo admin (upload de arquivo, mesmo padrão de
+/// sempre). `requiresAcceptance` marca contratos que o assinante É
+/// OBRIGADO a aceitar antes de continuar usando o dashboard (ex: Termos de
+/// Serviço) — ver DocumentAcceptance e o guard de aceite pendente.
+/// STAFF = psicólogo/secretária/supervisor (tenant.kind=CLINICA, ver
+/// AccessGateService); ESTUDANTE = quem compra curso na Loja/Marketplace.
+/// Existe pra impedir que um termo de um público apareça como pendência
+/// pro outro — ex: sem isso, cadastrar um "Termo de Uso do Aluno" faria
+/// TODO psicólogo (que nunca vai vê-lo em lugar nenhum) ficar bloqueado
+/// pra sempre no gate de acesso clínico, esperando aceitar algo que nunca
+/// é exibido pra ele.
+enum DocumentTemplateAudience {
+  STAFF
+  ESTUDANTE
+}
+
 model DocumentTemplate {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  filePath    String
-  createdAt   DateTime @default(now())
+  id                String   @id @default(uuid())
+  title             String
+  description       String
+  filePath          String
+  requiresAcceptance Boolean @default(false)
+  audience          DocumentTemplateAudience @default(STAFF)
+  createdAt         DateTime @default(now())
+
+  acceptances DocumentAcceptance[]
 
   @@map("document_templates")
+}
+
+/// Registro de aceite de um contrato/termo obrigatório por um usuário da
+/// equipe (User) — nunca por Patient, que tem seu próprio consentimento em
+/// PsychDocument.acceptedByPatientAt (área "Contrato de prestação de
+/// serviços" é um PsychDocument, não um DocumentTemplate).
+model DocumentAcceptance {
+  id                 String           @id @default(uuid())
+  documentTemplateId String
+  documentTemplate   DocumentTemplate @relation(fields: [documentTemplateId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acceptedAt         DateTime         @default(now())
+
+  @@unique([documentTemplateId, userId])
+  @@map("document_acceptances")
 }
 
 /// Biblioteca de materiais (Biblioteca no menu) — apostilas, planilhas,
@@ -1104,6 +1499,42 @@ model PlatformSettings {
   id           String @id @default(uuid())
   colorPalette String @default("salvia")
 
+  /// Sobrescreve os valores padrão de apps/api/src/billing/plans.ts — null
+  /// mantém o preço normal. Existe pra permitir promoção relâmpago (ex:
+  /// assinar por R$1 num teste) sem precisar mexer em código/redeploy; o
+  /// admin volta pro valor normal só apagando o override (ver admin/aparencia).
+  subscriptionMonthlyPriceCents Int?
+  subscriptionYearlyPriceCents  Int?
+
   @@map("platform_settings")
+}
+
+enum CampaignLeadStatus {
+  NOVO
+  CONTATADO
+  CONVERTIDO
+  DESCARTADO
+}
+
+/// Interessado no Programa Piloto (100 psicólogos, 3 meses grátis) — nível
+/// de PLATAFORMA, sem tenantId, propositalmente separado do CRM de
+/// pacientes (`Lead`, que é por-tenant e pertence à clínica de cada
+/// psicólogo). Captado pela página pública /programa-piloto, revisado no
+/// admin; `convertedTenantId` só é preenchido depois que a pessoa faz o
+/// cadastro normal em /signup e o admin concede a cortesia de 3 meses
+/// (ver AdminService.grantComplimentaryTrial).
+model CampaignLead {
+  id                String             @id @default(uuid())
+  name              String
+  email             String
+  phone             String
+  /// Opt-in obrigatório — nunca criado sem isso (ver CampaignLeadsService.create).
+  consentedAt       DateTime
+  status            CampaignLeadStatus @default(NOVO)
+  convertedTenantId String?
+  notes             String?
+  createdAt         DateTime           @default(now())
+
+  @@map("campaign_leads")
 }
 

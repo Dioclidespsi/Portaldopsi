@@ -28,6 +28,11 @@ export class BillingController {
     return this.billing.createAsaasSubscription(dto);
   }
 
+  @Get('asaas-payment-link')
+  getAsaasPaymentLink() {
+    return this.billing.getAsaasPaymentLink();
+  }
+
   /**
    * Rota pública (excluída do AuthMiddleware em auth.module.ts) — autenticada
    * pela assinatura do Stripe, não por JWT. `req.body` chega como Buffer cru

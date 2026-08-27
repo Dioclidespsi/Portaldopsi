@@ -30,17 +30,21 @@ DROP POLICY IF EXISTS tenant_isolation ON users;
 CREATE POLICY tenant_isolation ON users
   USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
 
+-- Também aceita '__system__': o console do administrador (PrismaService.forSystem())
+-- precisa conseguir localizar/exportar o prontuário de qualquer paciente, de
+-- qualquer tenant, quando o CRP exigir (psicólogo saiu da plataforma, cometeu
+-- irregularidade, ou o paciente pede a qualquer tempo) — ver admin/prontuario.
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patients FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON patients;
 CREATE POLICY tenant_isolation ON patients
-  USING ("tenantId" = current_setting('app.tenant_id', true));
+  USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
 
 ALTER TABLE prontuario_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prontuario_entries FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON prontuario_entries;
 CREATE POLICY tenant_isolation ON prontuario_entries
-  USING ("tenantId" = current_setting('app.tenant_id', true));
+  USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
 
 ALTER TABLE homeworks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE homeworks FORCE ROW LEVEL SECURITY;
@@ -100,6 +104,18 @@ DROP POLICY IF EXISTS tenant_isolation ON test_assignments;
 CREATE POLICY tenant_isolation ON test_assignments
   USING ("tenantId" = current_setting('app.tenant_id', true));
 
+ALTER TABLE psych_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE psych_documents FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON psych_documents;
+CREATE POLICY tenant_isolation ON psych_documents
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
+ALTER TABLE anamnese_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anamnese_entries FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON anamnese_entries;
+CREATE POLICY tenant_isolation ON anamnese_entries
+  USING ("tenantId" = current_setting('app.tenant_id', true));
+
 ALTER TABLE module_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE module_progress FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON module_progress;
@@ -139,6 +155,31 @@ ALTER TABLE ai_usage_logs FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON ai_usage_logs;
 CREATE POLICY tenant_isolation ON ai_usage_logs
   USING ("tenantId" = current_setting('app.tenant_id', true));
+
+-- Também aceita '__system__': o admin da plataforma precisa revisar/bloquear
+-- comentários de qualquer clínica por violação do código de ética do CRP
+-- (ver AdminService.listSiteComments/blockSiteComment) — sem isso, essas
+-- queries sempre voltariam vazias, mesmo padrão de patients/users acima.
+ALTER TABLE site_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_comments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON site_comments;
+CREATE POLICY tenant_isolation ON site_comments
+  USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
+
+ALTER TABLE site_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_likes FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON site_likes;
+CREATE POLICY tenant_isolation ON site_likes
+  USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
+
+-- Exceção __system__ por consistência com o restante do domínio do Site
+-- Profissional (site_comments/site_likes acima), sem caso de uso do admin
+-- ainda concreto pra site_profile_blocks.
+ALTER TABLE site_profile_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_profile_blocks FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON site_profile_blocks;
+CREATE POLICY tenant_isolation ON site_profile_blocks
+  USING ("tenantId" = current_setting('app.tenant_id', true) OR current_setting('app.tenant_id', true) = '__system__');
 
 -- tenants, certificates, community_posts, community_replies, community_likes,
 -- community_reports e community_notifications não levam policy de

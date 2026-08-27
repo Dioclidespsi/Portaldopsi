@@ -6,7 +6,8 @@ import { getRequestContext } from '../common/tenant-context';
 import { EnrollmentSource, SubscriptionStatus } from '@prisma/client';
 import { AsaasService } from '../asaas/asaas.service';
 import { CreatePlatformSubscriptionDto } from '../asaas/dto/create-platform-subscription.dto';
-import { PLANS, PlanKey } from './plans';
+import { PlanKey } from './plans';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
 /**
  * Assinatura do TENANT na própria plataforma (o psicólogo pagando o Portal do
@@ -24,6 +25,7 @@ export class BillingService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly asaas: AsaasService,
+    private readonly platformSettings: PlatformSettingsService,
   ) {
     const key = config.get<string>('STRIPE_SECRET_KEY');
     this.stripe = key ? new Stripe(key) : null;
@@ -48,7 +50,7 @@ export class BillingService {
     const priceId = this.config.get<string>(envKey);
     if (!priceId) {
       throw new ServiceUnavailableException(
-        `Plano "${PLANS[plan].label}" ainda não tem Price configurado: defina ${envKey} em apps/api/.env com o id do Price criado no seu painel Stripe.`,
+        `Plano "${plan}" ainda não tem Price configurado: defina ${envKey} em apps/api/.env com o id do Price criado no seu painel Stripe.`,
       );
     }
     return priceId;
@@ -90,6 +92,10 @@ export class BillingService {
     return this.asaas.createPlatformSubscription(dto);
   }
 
+  getAsaasPaymentLink() {
+    return this.asaas.getSubscriptionPaymentLink();
+  }
+
   /**
    * Checkout avulso (Marketplace) — `mode: 'payment'`, não `'subscription'`.
    * Usa `price_data` inline em vez de um Price pré-criado porque o valor vem
@@ -120,7 +126,7 @@ export class BillingService {
   }
 
   listPlans() {
-    return PLANS;
+    return this.platformSettings.getEffectivePlans();
   }
 
   async getSubscription() {
