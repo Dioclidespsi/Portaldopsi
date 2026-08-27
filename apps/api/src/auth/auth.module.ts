@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthMiddleware } from './auth.middleware';
@@ -9,6 +10,8 @@ import { EmailModule } from '../email/email.module';
 @Module({
   imports: [
     EmailModule,
+    /// Só pros dois endpoints de "esqueci a senha" (ver auth.controller.ts) — nunca aplicado globalmente.
+    ThrottlerModule.forRoot([{ ttl: 60 * 60 * 1000, limit: 20 }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -30,6 +33,8 @@ export class AuthModule implements NestModule {
         { path: 'auth/signup', method: RequestMethod.POST },
         { path: 'auth/login', method: RequestMethod.POST },
         { path: 'auth/verify-email', method: RequestMethod.POST },
+        { path: 'auth/request-password-reset', method: RequestMethod.POST },
+        { path: 'auth/reset-password', method: RequestMethod.POST },
         { path: 'billing/webhook', method: RequestMethod.POST },
         { path: 'asaas/webhook', method: RequestMethod.POST },
         { path: 'public/tenants/:slug', method: RequestMethod.GET },

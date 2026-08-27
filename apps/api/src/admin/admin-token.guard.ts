@@ -1,19 +1,24 @@
 import { CanActivate, ExecutionContext, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
 /**
  * Autenticação do console do administrador da plataforma (não é um tenant,
- * não é um `User`) — um segredo único compartilhado (`ADMIN_TOKEN`), enviado
- * no header `x-admin-token`. Suficiente pro estágio atual (operação por uma
+ * não é um `User`) — um segredo único compartilhado, enviado no header
+ * `x-admin-token`. Suficiente pro estágio atual (operação por uma
  * pessoa/equipe pequena); se a equipe que opera a plataforma crescer, trocar
  * por um modelo real de admin-user com login próprio.
+ *
+ * O valor efetivo vem de PlatformSettingsService.getEffectiveAdminToken()
+ * (banco, com fallback pro ADMIN_TOKEN do .env) — não mais direto do
+ * ConfigService — pra permitir trocar o segredo em runtime (ver "esqueci o
+ * token", AdminRecoveryController) sem precisar reiniciar a API.
  */
 @Injectable()
 export class AdminTokenGuard implements CanActivate {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly platformSettings: PlatformSettingsService) {}
 
-  canActivate(context: ExecutionContext): boolean {
-    const adminToken = this.config.get<string>('ADMIN_TOKEN');
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const adminToken = await this.platformSettings.getEffectiveAdminToken();
     if (!adminToken) {
       throw new ServiceUnavailableException(
         'Console do administrador ainda não configurado: defina ADMIN_TOKEN em apps/api/.env.',

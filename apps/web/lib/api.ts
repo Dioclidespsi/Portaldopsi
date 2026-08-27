@@ -85,6 +85,15 @@ export function login(data: { slug: string; email: string; password: string }) {
   return request<{ accessToken: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) });
 }
 
+/** Resposta sempre igual, exista ou não a conta — nunca confirma nem nega quem tem cadastro. */
+export function requestPasswordReset(data: { slug: string; email: string }) {
+  return request<{ sent: true }>('/auth/request-password-reset', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function resetPassword(data: { token: string; newPassword: string }) {
+  return request<{ reset: true }>('/auth/reset-password', { method: 'POST', body: JSON.stringify(data) });
+}
+
 export interface Me {
   id: string;
   name: string;

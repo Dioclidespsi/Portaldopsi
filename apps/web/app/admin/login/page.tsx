@@ -43,6 +43,7 @@ export default function AdminLoginPage() {
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>
       </form>
+      <p className="foot-link"><Link href="/admin/esqueci-token">Esqueci o token</Link></p>
     </div>
   );
 }

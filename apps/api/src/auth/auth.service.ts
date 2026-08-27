@@ -8,9 +8,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const SALT_ROUNDS = 12;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 /**
  * O Site Profissional vive em /{slug} (raiz do domínio, sem prefixo) — um
@@ -157,5 +160,51 @@ export class AuthService {
     }
 
     return this.issueToken({ sub: user.id, tenantId: tenant.id, role: user.role, tenantKind: tenant.kind });
+  }
+
+  /**
+   * Sempre responde igual, exista ou não o tenant/e-mail — nunca confirma
+   * nem nega quem tem conta (evita enumeração). Mesma busca tenant→user de
+   * login().
+   */
+  async requestPasswordReset(dto: RequestPasswordResetDto) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.slug } });
+    if (tenant) {
+      const [, user] = await this.prisma.$transaction([
+        this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenant.id}, TRUE)`,
+        this.prisma.user.findUnique({ where: { tenantId_email: { tenantId: tenant.id, email: dto.email } } }),
+      ]);
+      if (user) {
+        const token = randomUUID();
+        await this.prisma.forTenant(tenant.id).user.update({
+          where: { id: user.id },
+          data: { passwordResetToken: token, passwordResetExpiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS) },
+        });
+        const webUrl = this.config.get<string>('PUBLIC_WEB_URL', 'https://portaldopsi.com.br');
+        await this.email.sendPasswordReset({
+          email: user.email,
+          name: user.name,
+          resetUrl: `${webUrl}/redefinir-senha?token=${token}`,
+        });
+      }
+    }
+    return { sent: true };
+  }
+
+  /** Token de uso único — some depois de trocada a senha, mesmo padrão de verifyEmail. */
+  async resetPassword(dto: ResetPasswordDto) {
+    const system = this.prisma.forSystem();
+    const user = await system.user.findUnique({ where: { passwordResetToken: dto.token } });
+    if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+      throw new UnauthorizedException('Link de redefinição inválido ou expirado.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+    await system.user.update({
+      where: { id: user.id },
+      data: { passwordHash, passwordResetToken: null, passwordResetExpiresAt: null },
+    });
+
+    return { reset: true };
   }
 }

@@ -241,6 +241,12 @@ model User {
   emailVerificationToken     String?   @unique
   emailVerificationExpiresAt DateTime?
 
+  /// "Esqueci minha senha" — token de uso único, expira em 1h (mais curto
+  /// que a verificação de e-mail, porque este dá acesso à conta). Ver
+  /// AuthService.requestPasswordReset/resetPassword.
+  passwordResetToken     String?   @unique
+  passwordResetExpiresAt DateTime?
+
   /// Só relevante para role=PSICOLOGO_TITULAR num tenant kind=CLINICA. Rotas
   /// clínicas (Prontuário, Agenda, Teleconsulta) devem checar
   /// crpStatus=VERIFICADO antes de liberar acesso — estudante nunca atende.
@@ -407,6 +413,10 @@ model PatientAccount {
   birthDate    DateTime?
   createdAt    DateTime  @default(now())
   termsAcceptedAt DateTime?
+
+  /// "Esqueci minha senha" — mesmo padrão de User.passwordResetToken.
+  passwordResetToken     String?   @unique
+  passwordResetExpiresAt DateTime?
 
   patients Patient[]
 
@@ -1505,6 +1515,12 @@ model PlatformSettings {
   /// admin volta pro valor normal só apagando o override (ver admin/aparencia).
   subscriptionMonthlyPriceCents Int?
   subscriptionYearlyPriceCents  Int?
+
+  /// Token efetivo do console do admin — null cai no ADMIN_TOKEN do .env
+  /// (comportamento original). Preenchido pelo fluxo de "esqueci o token"
+  /// (ver AdminRecoveryController), o que permite trocar o segredo em
+  /// runtime sem reiniciar a API. Ver AdminTokenGuard.
+  adminToken String?
 
   @@map("platform_settings")
 }

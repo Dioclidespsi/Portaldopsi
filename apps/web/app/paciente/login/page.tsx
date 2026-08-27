@@ -46,6 +46,7 @@ export default function PatientLoginPage() {
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>
       </form>
+      <p className="foot-link"><Link href="/paciente/esqueci-senha">Esqueci minha senha</Link></p>
     </div>
   );
 }

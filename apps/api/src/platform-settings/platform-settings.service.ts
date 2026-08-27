@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { PLANS } from '../billing/plans';
 import { UpdatePlatformSettingsDto } from './dto/update-platform-settings.dto';
 
@@ -10,7 +13,11 @@ function formatBRL(cents: number): string {
 /** Singleton — sempre no máximo uma linha (ver schema.prisma). `platform_settings` não tem RLS/tenantId: config global da plataforma, não do tenant. */
 @Injectable()
 export class PlatformSettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+    private readonly config: ConfigService,
+  ) {}
 
   async get() {
     const existing = await this.prisma.platformSettings.findFirst();
@@ -44,5 +51,29 @@ export class PlatformSettingsService {
       MONTHLY: { cycle: 'MONTHLY', valueCents: monthlyCents, label: `Mensal — ${formatBRL(monthlyCents)}/mês` },
       YEARLY: { cycle: 'YEARLY', valueCents: yearlyCents, label: `Anual — ${formatBRL(yearlyCents)}/ano` },
     };
+  }
+
+  /** null cai no ADMIN_TOKEN do .env (comportamento original) — ver AdminTokenGuard. */
+  async getEffectiveAdminToken(): Promise<string | undefined> {
+    const settings = await this.get();
+    return settings.adminToken ?? this.config.get<string>('ADMIN_TOKEN');
+  }
+
+  /**
+   * "Esqueci o token" — gera um segredo novo e substitui o efetivo em
+   * runtime (grava em `adminToken`, sem precisar reiniciar a API). O valor
+   * novo nunca volta na resposta HTTP, só vai por e-mail pro endereço fixo
+   * configurado em ADMIN_RECOVERY_EMAIL — sem isso, o reset fica
+   * silenciosamente desativado (mesmo padrão de BREVO_API_KEY ausente).
+   */
+  async rotateAdminToken(): Promise<{ sent: boolean }> {
+    const recoveryEmail = this.config.get<string>('ADMIN_RECOVERY_EMAIL');
+    if (!recoveryEmail) return { sent: false };
+
+    const existing = await this.get();
+    const newToken = randomBytes(24).toString('hex');
+    await this.prisma.platformSettings.update({ where: { id: existing.id }, data: { adminToken: newToken } });
+    await this.email.sendAdminTokenReset({ email: recoveryEmail, newToken });
+    return { sent: true };
   }
 }

@@ -95,6 +95,24 @@ export class EmailService {
     );
   }
 
+  /** Link expira em 1h (mais curto que a verificação de e-mail — este dá acesso à conta). Ver AuthService/PatientPortalService.resetPassword. */
+  async sendPasswordReset(params: { email: string; name: string; resetUrl: string }): Promise<void> {
+    await this.send(
+      { email: params.email, name: params.name },
+      'Redefinir senha — Portal do Psi',
+      `<p>Olá, ${params.name}!</p><p>Recebemos um pedido pra redefinir sua senha no Portal do Psi:</p><p><a href="${params.resetUrl}">${params.resetUrl}</a></p><p>Esse link expira em 1 hora. Se você não pediu isso, pode ignorar este e-mail.</p>`,
+    );
+  }
+
+  /** O valor novo nunca é devolvido pela API — só vai por e-mail. Ver PlatformSettingsService.rotateAdminToken. */
+  async sendAdminTokenReset(params: { email: string; newToken: string }): Promise<void> {
+    await this.send(
+      { email: params.email },
+      'Novo token de administrador — Portal do Psi',
+      `<p>Um novo token de administrador foi gerado para o Portal do Psi:</p><p><strong>${params.newToken}</strong></p><p>Se você não pediu essa troca, gere outro imediatamente pelo mesmo fluxo — o token anterior já parou de funcionar.</p>`,
+    );
+  }
+
   async sendReminder10Min(params: AppointmentEmailParams): Promise<void> {
     const when = this.formatWhen(params.startsAt);
     if (params.patient.email) {

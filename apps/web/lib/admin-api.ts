@@ -42,6 +42,16 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
   return res.ok;
 }
 
+/** Sem guard, sem corpo — o token novo só vai pro e-mail fixo de recuperação (ADMIN_RECOVERY_EMAIL). */
+export async function requestAdminTokenReset(): Promise<{ sent: boolean }> {
+  const res = await fetch(`${API_URL}/admin/request-token-reset`, { method: 'POST' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json();
+}
+
 export interface PendingCrp {
   id: string;
   name: string;

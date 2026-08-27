@@ -47,6 +47,15 @@ export function patientLogin(data: { email: string; password: string }) {
   return request<{ accessToken: string }>('/patient-portal/login', { method: 'POST', body: JSON.stringify(data) });
 }
 
+/** Resposta sempre igual, exista ou não a conta — nunca confirma nem nega quem tem cadastro. */
+export function requestPatientPasswordReset(data: { email: string }) {
+  return request<{ sent: true }>('/patient-portal/request-password-reset', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function resetPatientPassword(data: { token: string; newPassword: string }) {
+  return request<{ reset: true }>('/patient-portal/reset-password', { method: 'POST', body: JSON.stringify(data) });
+}
+
 /** Autoatendimento via link gerado pela equipe (ver generatePatientActivationLink em lib/api.ts). */
 export function activatePatientPortal(data: { token: string; password: string; termsAccepted?: boolean }) {
   return request<{ accessToken: string }>('/patient-portal/activate', { method: 'POST', body: JSON.stringify(data) });

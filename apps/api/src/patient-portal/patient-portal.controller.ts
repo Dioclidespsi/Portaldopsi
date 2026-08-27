@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import * as path from 'path';
 import { PatientPortalService } from './patient-portal.service';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
+import { RequestPatientPasswordResetDto } from './dto/request-patient-password-reset.dto';
+import { ResetPatientPasswordDto } from './dto/reset-patient-password.dto';
 import { CompleteHomeworkDto } from './dto/complete-homework.dto';
 import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 import { MEDITATION_UPLOAD_DIR } from '../meditation/meditation-upload.config';
@@ -23,6 +26,22 @@ export class PatientPortalController {
   @Post('activate')
   activate(@Body() dto: ActivatePatientPortalDto) {
     return this.portal.activate(dto);
+  }
+
+  /** Pública — excluída do PatientAuthMiddleware em patient-portal.module.ts. */
+  @Post('request-password-reset')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
+  requestPasswordReset(@Body() dto: RequestPatientPasswordResetDto) {
+    return this.portal.requestPasswordReset(dto);
+  }
+
+  /** Pública — excluída do PatientAuthMiddleware em patient-portal.module.ts. */
+  @Post('reset-password')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
+  resetPassword(@Body() dto: ResetPatientPasswordDto) {
+    return this.portal.resetPassword(dto);
   }
 
   @Get('me')

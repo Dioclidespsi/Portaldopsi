@@ -49,6 +49,7 @@ export default function LoginPage() {
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>
       </form>
+      <p className="foot-link"><Link href="/esqueci-senha">Esqueci minha senha</Link></p>
       <p className="foot-link">Ainda não tem clínica? <Link href="/signup">Criar agora</Link></p>
     </div>
   );

@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,15 +9,19 @@ import { getPatientContext } from '../common/patient-context';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { ActivatePatientPortalDto } from './dto/activate-patient-portal.dto';
+import { RequestPatientPasswordResetDto } from './dto/request-patient-password-reset.dto';
+import { ResetPatientPasswordDto } from './dto/reset-patient-password.dto';
 import { PatientJwtPayload } from './patient-jwt.types';
 import { computeSuggestedScore } from '../psych-tests/scoring';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 import { PSYCH_DOCUMENT_OUTPUT_DIR } from '../psych-documents/psych-documents.service';
 import { TeleconsultaService } from '../teleconsulta/teleconsulta.service';
+import { EmailService } from '../email/email.service';
 import * as path from 'path';
 
 const SALT_ROUNDS = 12;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 /** Sempre normalizar antes de gravar/comparar — senão "Joao@x.com" e "joao@x.com" viram duas contas. */
 function normalizeEmail(email: string): string {
@@ -35,6 +41,8 @@ export class PatientPortalService {
     private readonly jwt: JwtService,
     private readonly notifications: NotificationsService,
     private readonly teleconsulta: TeleconsultaService,
+    private readonly email: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -92,6 +100,40 @@ export class PatientPortalService {
     }
     const payload: PatientJwtPayload = { sub: account.id, kind: 'PACIENTE' };
     return { accessToken: this.jwt.sign(payload) };
+  }
+
+  /** Sempre responde igual, exista ou não a conta — evita enumeração (mesmo padrão de AuthService.requestPasswordReset). */
+  async requestPasswordReset(dto: RequestPatientPasswordResetDto) {
+    const email = normalizeEmail(dto.email);
+    const account = await this.prisma.patientAccount.findUnique({ where: { email } });
+    if (account) {
+      const token = randomUUID();
+      await this.prisma.patientAccount.update({
+        where: { id: account.id },
+        data: { passwordResetToken: token, passwordResetExpiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS) },
+      });
+      const webUrl = this.config.get<string>('PUBLIC_WEB_URL', 'https://portaldopsi.com.br');
+      await this.email.sendPasswordReset({
+        email: account.email,
+        name: account.name,
+        resetUrl: `${webUrl}/paciente/redefinir-senha?token=${token}`,
+      });
+    }
+    return { sent: true };
+  }
+
+  /** Token de uso único — mesmo padrão de AuthService.resetPassword. */
+  async resetPassword(dto: ResetPatientPasswordDto) {
+    const account = await this.prisma.patientAccount.findUnique({ where: { passwordResetToken: dto.token } });
+    if (!account || !account.passwordResetExpiresAt || account.passwordResetExpiresAt < new Date()) {
+      throw new UnauthorizedException('Link de redefinição inválido ou expirado.');
+    }
+    const passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+    await this.prisma.patientAccount.update({
+      where: { id: account.id },
+      data: { passwordHash, passwordResetToken: null, passwordResetExpiresAt: null },
+    });
+    return { reset: true };
   }
 
   async me() {
