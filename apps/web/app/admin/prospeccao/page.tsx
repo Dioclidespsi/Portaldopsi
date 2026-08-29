@@ -8,6 +8,7 @@ import { getAdminToken } from '../../../lib/admin-api';
 import {
   createProspect,
   createSearchRequest,
+  executeSearchRequest,
   getProspectingReport,
   listProspects,
   listSearchRequests,
@@ -108,6 +109,7 @@ export default function AdminProspeccaoPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showSearchForm, setShowSearchForm] = useState(false);
+  const [executingId, setExecutingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '', city: '', state: '', specialties: '', approaches: '', audience: '', serviceMode: '',
@@ -207,6 +209,25 @@ export default function AdminProspeccaoPage() {
     }
   }
 
+  async function onExecuteSearchRequest(id: string) {
+    setError(null);
+    setInfo(null);
+    setExecutingId(id);
+    try {
+      const updated = await executeSearchRequest(id);
+      setInfo(
+        updated.status === 'CONCLUIDA'
+          ? `Pesquisa concluída — ${updated.resultCount} profissional(is) encontrado(s) no total.`
+          : `Lote processado — ${updated.resultCount}/${updated.quantity} até agora. Clique em "Executar mais" pra continuar.`,
+      );
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExecutingId(null);
+    }
+  }
+
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
@@ -241,8 +262,10 @@ export default function AdminProspeccaoPage() {
           </button>
         </div>
         <p className="sub" style={{ fontSize: '0.8rem', margin: '0.4rem 0 0' }}>
-          Define os critérios da busca. A execução hoje é manual (sem Apify/API contratada ainda) — o pedido
-          fica na fila abaixo e os resultados entram como profissionais cadastrados normalmente.
+          Define os critérios da busca. Depois de registrar, clique em &quot;Executar&quot; pra rodar a busca
+          (via Google Custom Search + extração por IA) — processa até 10 por vez, pra nunca travar nem gastar
+          cota à toa; clique de novo pra continuar até bater a quantidade desejada. Sem
+          GOOGLE_SEARCH_API_KEY/GOOGLE_SEARCH_ENGINE_ID configuradas no servidor, a execução fica indisponível.
         </p>
 
         {showSearchForm && (
@@ -277,9 +300,19 @@ export default function AdminProspeccaoPage() {
                   {' — '}{r.quantity} leads desejados
                 </span>
                 <span className="sub" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {SEARCH_REQUEST_STATUS_LABEL[r.status]}{r.resultCount > 0 ? ` (${r.resultCount} encontrados)` : ''}
-                  {r.status === 'PENDENTE' && (
-                    <button type="button" onClick={() => onCancelSearchRequest(r.id)} style={{ fontSize: '0.74rem', padding: '0.15rem 0.4rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
+                  {SEARCH_REQUEST_STATUS_LABEL[r.status]}{r.resultCount > 0 ? ` (${r.resultCount}/${r.quantity} encontrados)` : ''}
+                  {(r.status === 'PENDENTE' || r.status === 'EM_ANDAMENTO') && (
+                    <button
+                      type="button"
+                      onClick={() => onExecuteSearchRequest(r.id)}
+                      disabled={executingId === r.id}
+                      style={{ fontSize: '0.74rem', padding: '0.15rem 0.5rem', background: 'var(--accent)', color: '#fff', border: 'none' }}
+                    >
+                      {executingId === r.id ? 'Executando…' : r.status === 'EM_ANDAMENTO' ? 'Executar mais' : 'Executar'}
+                    </button>
+                  )}
+                  {(r.status === 'PENDENTE' || r.status === 'EM_ANDAMENTO') && (
+                    <button type="button" onClick={() => onCancelSearchRequest(r.id)} disabled={executingId === r.id} style={{ fontSize: '0.74rem', padding: '0.15rem 0.4rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
                       Cancelar
                     </button>
                   )}

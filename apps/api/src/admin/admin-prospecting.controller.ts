@@ -50,6 +50,11 @@ export class AdminProspectingController {
     return this.prospecting.updateSearchRequestStatus(id, dto.status, dto.resultCount, dto.notes);
   }
 
+  @Post('search-requests/:id/execute')
+  executeSearchRequest(@Param('id') id: string) {
+    return this.prospecting.executeSearchRequest(id);
+  }
+
   @Post(':id/block')
   block(@Param('id') id: string, @Body() dto: BlockProspectDto) {
     return this.prospecting.block(id, dto.reason);

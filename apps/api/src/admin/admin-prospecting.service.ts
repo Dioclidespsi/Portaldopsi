@@ -6,6 +6,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProspectDto } from './dto/create-prospect.dto';
 import { UpdateProspectDto } from './dto/update-prospect.dto';
 import { ListProspectsDto } from './dto/list-prospects.dto';
+import { GoogleSearchProvider } from './google-search.provider';
+
+/** Quantos resultados a IA/Google processam por chamada de `execute` — nunca o pedido inteiro de uma vez (item 21 do spec: consciência de custo, sem timeout). */
+const EXECUTE_BATCH_SIZE = 10;
 
 /** Uma entrada do "porquê" de cada score — ver item 27 do spec (nunca só o número). */
 export interface ScoreReason {
@@ -39,6 +43,7 @@ export class AdminProspectingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly googleSearch: GoogleSearchProvider,
   ) {
     const key = this.config.get<string>('ANTHROPIC_API_KEY');
     this.aiClient = key ? new Anthropic({ apiKey: key }) : null;
@@ -227,6 +232,66 @@ export class AdminProspectingService {
         resultCount: resultCount ?? existing.resultCount,
         notes: notes ?? existing.notes,
         completedAt: status === 'CONCLUIDA' ? new Date() : existing.completedAt,
+      },
+    });
+  }
+
+  /**
+   * Executa UM LOTE (até EXECUTE_BATCH_SIZE) do pedido de pesquisa via
+   * Google Custom Search + extração por IA (ver GoogleSearchProvider),
+   * reaproveitando `create()` pra dedup/score — nenhuma lógica duplicada.
+   * Clique de novo em "Executar" continua de `offset` em diante até
+   * atingir `quantity`. Nunca processa o pedido inteiro de uma vez (evita
+   * timeout e gasto de cota descontrolado — item 21 do spec).
+   */
+  async executeSearchRequest(id: string) {
+    const req = await this.prisma.prospectSearchRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Pedido de pesquisa não encontrado.');
+    if (req.status === 'CONCLUIDA' || req.status === 'CANCELADA') {
+      throw new NotFoundException('Este pedido já foi concluído ou cancelado.');
+    }
+
+    await this.prisma.prospectSearchRequest.update({ where: { id }, data: { status: 'EM_ANDAMENTO' } });
+
+    const query = this.googleSearch.buildQuery(req);
+    let results: Awaited<ReturnType<GoogleSearchProvider['search']>>;
+    try {
+      results = await this.googleSearch.search(query, req.offset + 1);
+    } catch (err) {
+      // Falhou antes de processar qualquer coisa (ex: sem credencial) — volta pro estado
+      // anterior em vez de deixar "Em andamento" travado sem opção de cancelar na tela.
+      await this.prisma.prospectSearchRequest.update({ where: { id }, data: { status: req.status } });
+      throw err;
+    }
+
+    let created = 0;
+    let blocked = 0;
+    let skipped = 0;
+    for (const result of results) {
+      if (req.resultCount + created >= req.quantity) break;
+      const candidate = await this.googleSearch.extractCandidate(result);
+      if (!candidate) { skipped++; continue; }
+      const outcome = await this.create({
+        ...candidate,
+        source: `Google Custom Search — pedido "${query}"`,
+        sourceUrl: result.link,
+      } as CreateProspectDto);
+      if (outcome.blocked) blocked++;
+      else if (!outcome.matchedExisting) created++;
+    }
+
+    const newResultCount = req.resultCount + created;
+    const newOffset = req.offset + results.length;
+    const done = newResultCount >= req.quantity || results.length === 0;
+
+    return this.prisma.prospectSearchRequest.update({
+      where: { id },
+      data: {
+        resultCount: newResultCount,
+        offset: newOffset,
+        status: done ? 'CONCLUIDA' : 'EM_ANDAMENTO',
+        completedAt: done ? new Date() : null,
+        notes: `Último lote: ${created} novo(s), ${blocked} bloqueado(s), ${skipped} sem dado suficiente.`,
       },
     });
   }

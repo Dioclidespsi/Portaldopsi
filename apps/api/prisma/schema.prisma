@@ -1686,12 +1686,13 @@ enum ProspectSearchStatus {
   CANCELADA
 }
 
-/// Pedido de pesquisa estruturado (item 24 do spec) — captura os critérios;
-/// a execução em si, nesta fase sem Apify/API contratada, é feita
-/// manualmente (hoje, pelo próprio Claude via busca na web) e os resultados
-/// entram como ProspectProfessional normalmente, referenciando este pedido
-/// em `source`. Fica pronto pra, no futuro, um LeadSourceProvider automático
-/// consumir a fila sozinho sem mudar esta tabela.
+/// Pedido de pesquisa estruturado (item 24 do spec) — captura os critérios.
+/// Execução via GoogleSearchProvider (LeadSourceProvider — item 2 do spec):
+/// Google Custom Search acha candidatos, cada página é lida e a IA extrai
+/// os dados estruturados, que passam pela MESMA lógica de dedup/score do
+/// cadastro manual (AdminProspectingService.create) — nenhuma duplicação
+/// de regra. Processado em lotes de até 10 por chamada de `execute` (ver
+/// controller) pra nunca estourar timeout nem gastar cota de uma vez só.
 model ProspectSearchRequest {
   id              String               @id @default(uuid())
   city            String?
@@ -1707,6 +1708,8 @@ model ProspectSearchRequest {
   quantity        Int                  @default(10)
   status          ProspectSearchStatus @default(PENDENTE)
   resultCount     Int                  @default(0)
+  /// Próxima posição a pedir ao Google (parâmetro `start`) — permite continuar de onde parou.
+  offset          Int                  @default(0)
   notes           String?
   createdAt       DateTime             @default(now())
   completedAt     DateTime?

@@ -10,6 +10,7 @@ import { AdminTokenGuard } from './admin-token.guard';
 import { AdminRecoveryController } from './admin-recovery.controller';
 import { AdminProspectingController } from './admin-prospecting.controller';
 import { AdminProspectingService } from './admin-prospecting.service';
+import { GoogleSearchProvider } from './google-search.provider';
 import { AsaasModule } from '../asaas/asaas.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 
@@ -21,6 +22,6 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
     ThrottlerModule.forRoot([{ ttl: 60 * 60 * 1000, limit: 20 }]),
   ],
   controllers: [AdminController, AdminCoursesController, AdminProntuarioController, AdminRecoveryController, AdminProspectingController],
-  providers: [AdminService, AdminCoursesService, AdminProntuarioService, AdminTokenGuard, AdminProspectingService],
+  providers: [AdminService, AdminCoursesService, AdminProntuarioService, AdminTokenGuard, AdminProspectingService, GoogleSearchProvider],
 })
 export class AdminModule {}

@@ -198,3 +198,8 @@ export function updateSearchRequestStatus(
 ): Promise<ProspectSearchRequest> {
   return request(`/admin/prospecting/search-requests/${id}`, { method: 'PATCH', body: JSON.stringify({ status, resultCount, notes }) });
 }
+
+/** Processa até 10 resultados do pedido (ver EXECUTE_BATCH_SIZE no backend) — clique de novo pra continuar. */
+export function executeSearchRequest(id: string): Promise<ProspectSearchRequest> {
+  return request(`/admin/prospecting/search-requests/${id}/execute`, { method: 'POST' });
+}
