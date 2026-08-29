@@ -6,6 +6,7 @@ import { clearAdminToken } from '../lib/admin-api';
 
 const LINKS = [
   { href: '/admin', label: 'Verificação de CRP' },
+  { href: '/admin/prospeccao', label: 'Prospecção' },
   { href: '/admin/usuarios', label: 'Usuários' },
   { href: '/admin/financeiro', label: 'Financeiro' },
   { href: '/admin/estudantes', label: 'Estudantes' },

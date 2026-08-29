@@ -127,33 +127,33 @@ model Tenant {
   /// — usada na seção "Sobre o atendimento", separada do bio pra não repetir
   /// o mesmo texto duas vezes na página.
   attendanceInfo String?
-  photoUrl     String?
-  specialties  String?
-  publicEmail  String?
-  publicPhone  String?
+  photoUrl       String?
+  specialties    String?
+  publicEmail    String?
+  publicPhone    String?
   /// Endereço físico da clínica — mostrado no Site Profissional e no
   /// cabeçalho/rodapé (texto) dos documentos gerados, junto com telefone/
   /// e-mail (ver psych-document-pdf-renderer.ts).
-  publicAddress String?
+  publicAddress  String?
   /// Cidade/UF separados do endereço — mostrados como selo ao lado do nome
   /// no Site Profissional, mesmo sem endereço físico preenchido (útil pra
   /// quem atende só online).
-  publicCity  String?
-  publicState String?
+  publicCity     String?
+  publicState    String?
 
   /// Redes sociais — cada uma é 100% opcional; só aparece no Site
   /// Profissional quando preenchida (mesmo padrão de publicEmail/publicPhone,
   /// sem flag de habilitar/desabilitar separada: o campo vazio já é "desligado").
-  socialInstagram String?
-  socialYoutube   String?
-  socialFacebook  String?
-  socialLinkedin  String?
-  socialTiktok    String?
+  socialInstagram   String?
+  socialYoutube     String?
+  socialFacebook    String?
+  socialLinkedin    String?
+  socialTiktok      String?
   /// Chave de uma paleta fixa (ver apps/web/lib/site-palettes.ts) — escolhida
   /// pelo psicólogo, aplicada só na página pública (/p/{slug}), nunca no
   /// dashboard interno. Lista fechada de propósito, validada no DTO.
-  colorPalette String  @default("salvia")
-  published    Boolean @default(false)
+  colorPalette      String  @default("salvia")
+  published         Boolean @default(false)
   /// Opt-in separado de `published`: um psicólogo pode ter a página própria no
   /// ar (/p/{slug}) sem querer aparecer na busca pública agregada da home da
   /// plataforma (/profissionais) — ver DirectoryService. Falso por padrão.
@@ -192,32 +192,32 @@ model Tenant {
 
   createdAt DateTime @default(now())
 
-  users              User[]
-  patients           Patient[]
-  prontuarioEntries  ProntuarioEntry[]
-  homeworks          Homework[]
-  appointments       Appointment[]
-  availabilitySlots  AvailabilitySlot[]
-  invoices           Invoice[]
-  subscription       Subscription?
-  enrollments        CourseEnrollment[]
-  testAssignments    TestAssignment[]
-  psychDocuments     PsychDocument[]
-  anamneseEntries    AnamneseEntry[]
-  moduleProgress     ModuleProgress[]
-  certificates       Certificate[]
-  courseQuizAttempts CourseQuizAttempt[]
-  pushSubscriptions  PushSubscription[]
+  users               User[]
+  patients            Patient[]
+  prontuarioEntries   ProntuarioEntry[]
+  homeworks           Homework[]
+  appointments        Appointment[]
+  availabilitySlots   AvailabilitySlot[]
+  invoices            Invoice[]
+  subscription        Subscription?
+  enrollments         CourseEnrollment[]
+  testAssignments     TestAssignment[]
+  psychDocuments      PsychDocument[]
+  anamneseEntries     AnamneseEntry[]
+  moduleProgress      ModuleProgress[]
+  certificates        Certificate[]
+  courseQuizAttempts  CourseQuizAttempt[]
+  pushSubscriptions   PushSubscription[]
   supervisionSessions SupervisionSession[]
   supervisionMessages SupervisionMessage[]
-  leads              Lead[]
-  leadActivities     LeadActivity[]
-  communityPosts     CommunityPost[]
-  communityReplies   CommunityReply[]
-  aiUsageLogs        AiUsageLog[]
-  siteComments       SiteComment[]
-  siteLikes          SiteLike[]
-  siteProfileBlocks  SiteProfileBlock[]
+  leads               Lead[]
+  leadActivities      LeadActivity[]
+  communityPosts      CommunityPost[]
+  communityReplies    CommunityReply[]
+  aiUsageLogs         AiUsageLog[]
+  siteComments        SiteComment[]
+  siteLikes           SiteLike[]
+  siteProfileBlocks   SiteProfileBlock[]
 
   @@map("tenants")
 }
@@ -252,12 +252,12 @@ model User {
   /// crpStatus=VERIFICADO antes de liberar acesso — estudante nunca atende.
   /// Ainda NÃO é checado em nenhum guard (ver README) — o fluxo de submissão/
   /// aprovação existe, mas bloquear acesso é uma decisão separada em aberto.
-  crpNumber         String?
-  crpStatus         CrpStatus @default(NAO_ENVIADO)
+  crpNumber          String?
+  crpStatus          CrpStatus @default(NAO_ENVIADO)
   /// Caminho local do documento enviado para análise (uploads/crp/, fora do
   /// diretório público) — ver users/crp.controller.ts. Nunca exposto direto
   /// por URL; só baixável pelo próprio titular ou pelo admin da plataforma.
-  crpDocumentPath   String?
+  crpDocumentPath    String?
   /// Preenchido pelo admin ao rejeitar — mostrado pro psicólogo no banner de
   /// pendências pra ele saber o que corrigir antes de reenviar.
   crpRejectionReason String?
@@ -280,45 +280,45 @@ model User {
   /// studentVerificationStatus=VERIFICADO. studentVerificationNote guarda a
   /// justificativa da IA (aprovação/encaminhamento) ou o motivo de rejeição
   /// do admin — nunca os dois ao mesmo tempo (sobrescrito a cada tentativa).
-  studentInstitution         String?
-  studentEnrollmentNumber    String?
-  studentDocumentPath        String?
-  studentVerificationStatus  StudentVerificationStatus @default(NAO_ENVIADO)
-  studentVerificationNote    String?
+  studentInstitution        String?
+  studentEnrollmentNumber   String?
+  studentDocumentPath       String?
+  studentVerificationStatus StudentVerificationStatus @default(NAO_ENVIADO)
+  studentVerificationNote   String?
 
-  prontuarioEntries ProntuarioEntry[] @relation("AutorEntry")
-  psychDocumentsAuthored PsychDocument[]
-  anamneseEntriesAuthored AnamneseEntry[]
-  documentAcceptances DocumentAcceptance[]
-  testsAssigned     TestAssignment[]  @relation("TestAssignedBy")
-  testsCorrected    TestAssignment[]  @relation("TestCorrectedBy")
-  testsAppliedLive  TestAssignment[]  @relation("TestAppliedBy")
-  moduleProgress    ModuleProgress[]
-  certificates      Certificate[]
-  courseQuizAttempts CourseQuizAttempt[]
-  supervisionsGiven    SupervisionSession[] @relation("Supervisor")
-  supervisionsReceived SupervisionSession[] @relation("Supervisee")
-  supervisionMessagesAsSupervisor SupervisionMessage[] @relation("SupervisionMessageSupervisor")
-  supervisionMessagesAsSupervisee SupervisionMessage[] @relation("SupervisionMessageSupervisee")
-  supervisionMessagesSent         SupervisionMessage[] @relation("SupervisionMessageSender")
-  assignedLeads        Lead[]           @relation("LeadAssignee")
-  leadActivities       LeadActivity[]
-  communityPosts       CommunityPost[]
-  communityReplies     CommunityReply[]
-  communityReports       CommunityReport[]
-  communityLikes         CommunityLike[]
-  communityNotifications CommunityNotification[]
-  aiUsageLogs            AiUsageLog[]
-  homeworksAssigned      Homework[]
+  prontuarioEntries               ProntuarioEntry[]       @relation("AutorEntry")
+  psychDocumentsAuthored          PsychDocument[]
+  anamneseEntriesAuthored         AnamneseEntry[]
+  documentAcceptances             DocumentAcceptance[]
+  testsAssigned                   TestAssignment[]        @relation("TestAssignedBy")
+  testsCorrected                  TestAssignment[]        @relation("TestCorrectedBy")
+  testsAppliedLive                TestAssignment[]        @relation("TestAppliedBy")
+  moduleProgress                  ModuleProgress[]
+  certificates                    Certificate[]
+  courseQuizAttempts              CourseQuizAttempt[]
+  supervisionsGiven               SupervisionSession[]    @relation("Supervisor")
+  supervisionsReceived            SupervisionSession[]    @relation("Supervisee")
+  supervisionMessagesAsSupervisor SupervisionMessage[]    @relation("SupervisionMessageSupervisor")
+  supervisionMessagesAsSupervisee SupervisionMessage[]    @relation("SupervisionMessageSupervisee")
+  supervisionMessagesSent         SupervisionMessage[]    @relation("SupervisionMessageSender")
+  assignedLeads                   Lead[]                  @relation("LeadAssignee")
+  leadActivities                  LeadActivity[]
+  communityPosts                  CommunityPost[]
+  communityReplies                CommunityReply[]
+  communityReports                CommunityReport[]
+  communityLikes                  CommunityLike[]
+  communityNotifications          CommunityNotification[]
+  aiUsageLogs                     AiUsageLog[]
+  homeworksAssigned               Homework[]
 
   @@unique([tenantId, email])
   @@map("users")
 }
 
 model Patient {
-  id        String   @id @default(uuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name       String
   /// Nome social ou apelido — exibido no lugar do nome civil quando preenchido,
   /// sem substituir `name` (que segue sendo o nome legal usado em documentos).
@@ -328,8 +328,8 @@ model Patient {
   birthDate  DateTime?
   /// Paciente inativo continua com todo o histórico intacto, só some do
   /// seletor de agendamento e da listagem padrão (filtro "Ativos").
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
 
   /// CPF/CNPJ do paciente — exigido pelo Asaas pra gerar cobrança real (ver
   /// AsaasService.createSplitCharge). Sem isso preenchido, a cobrança via
@@ -368,13 +368,13 @@ model Patient {
   patientAccountId String?
   patientAccount   PatientAccount? @relation(fields: [patientAccountId], references: [id])
 
-  prontuarioEntries ProntuarioEntry[]
-  appointments      Appointment[]
-  invoices          Invoice[]
-  testAssignments   TestAssignment[]
-  psychDocuments    PsychDocument[]
-  anamneseEntry     AnamneseEntry?
-  convertedFromLead Lead?
+  prontuarioEntries  ProntuarioEntry[]
+  appointments       Appointment[]
+  invoices           Invoice[]
+  testAssignments    TestAssignment[]
+  psychDocuments     PsychDocument[]
+  anamneseEntry      AnamneseEntry?
+  convertedFromLead  Lead?
   courseEnrollments  CourseEnrollment[]
   moduleProgress     ModuleProgress[]
   courseQuizAttempts CourseQuizAttempt[]
@@ -400,18 +400,18 @@ model Patient {
 /// testes) continua isolada por tenant em Patient — esta tabela só resolve
 /// "quem é essa pessoa" antes de qualquer RLS entrar em cena.
 model PatientAccount {
-  id           String    @id @default(uuid())
+  id              String    @id @default(uuid())
   /// Sempre normalizado (lowercase+trim) em todo ponto de escrita/comparação
   /// — ver PatientPortalService/BookingService. Sem isso, "Joao@x.com" e
   /// "joao@x.com" virariam duas contas, anulando o propósito de ter uma
   /// identidade só entre clínicas.
-  email        String    @unique
-  passwordHash String
-  name         String
-  phone        String?
-  cpfCnpj      String?
-  birthDate    DateTime?
-  createdAt    DateTime  @default(now())
+  email           String    @unique
+  passwordHash    String
+  name            String
+  phone           String?
+  cpfCnpj         String?
+  birthDate       DateTime?
+  createdAt       DateTime  @default(now())
   termsAcceptedAt DateTime?
 
   /// "Esqueci minha senha" — mesmo padrão de User.passwordResetToken.
@@ -510,7 +510,7 @@ model Appointment {
   /// vezes enquanto startsAt continuar dentro da janela de checagem.
   reminder10MinSentAt DateTime?
 
-  invoices Invoice[]
+  invoices         Invoice[]
   availabilitySlot AvailabilitySlot?
 
   @@index([tenantId, startsAt])
@@ -528,16 +528,16 @@ model Appointment {
 /// expiração é verificada sob demanda (toda leitura de disponibilidade, ver
 /// BookingService.expireStaleHolds) em vez de um worker em background.
 model AvailabilitySlot {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   startsAt  DateTime
   endsAt    DateTime
-  status    String   @default("disponivel")
+  status    String    @default("disponivel")
   /// Só setado quando status="reservado" — se `now() > heldUntil` e ainda
   /// "reservado", a próxima leitura libera o horário de volta.
   heldUntil DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   appointmentId String?      @unique
   appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
@@ -551,18 +551,18 @@ model AvailabilitySlot {
 /// plataforma. Diferente de Subscription, que é o psicólogo pagando a
 /// plataforma.
 model Invoice {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patientId   String
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   amountCents Int
-  status      String   @default("pendente")
+  status      String    @default("pendente")
   dueDate     DateTime
   /// Carimbado quando status vira "pago"; limpo se reverter. Base pro resumo
   /// financeiro (recebido no mês) em vez de usar dueDate como proxy.
   paidAt      DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   /// Sessão de origem da cobrança, opcional — não obrigatório porque cobrança
   /// avulsa (ex: pacote de sessões) também é um caso real.
@@ -585,15 +585,15 @@ model Invoice {
 /// template tem perguntas objetivas (múltipla escolha, usando responseScale)
 /// e/ou subjetivas (texto livre, sem pontuação).
 model TestTemplate {
-  id           String @id @default(uuid())
-  slug         String @unique
-  title        String
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  title         String
   /// Subgrupo livre (ex: "Ansiedade", "Depressão", "Carreira") — texto, não
   /// enum, pra admin poder criar categorias novas sem mudar código.
-  category     String
-  source       String
-  disclaimer   String
-  instructions String
+  category      String
+  source        String
+  disclaimer    String
+  instructions  String
   /// Escala compartilhada pelas perguntas objetivas deste template (ex: 0-3,
   /// "Nunca".."Quase todos os dias"). Perguntas subjetivas ignoram isso.
   responseScale Json?
@@ -632,7 +632,7 @@ model TestQuestion {
   /// escolhido, em vez de somado direto. Ver scoring.ts. Não combinar com
   /// `options` preenchido — instrumentos com opções por item (ex: HAD, BDI)
   /// já codificam a direção certa na própria ordem das opções.
-  reverseScored  Boolean @default(false)
+  reverseScored  Boolean      @default(false)
   /// Opções específicas desta pergunta — sobrepõe TestTemplate.responseScale
   /// quando preenchido. Necessário pra escalas onde cada item tem frases de
   /// resposta próprias (ex: HAD, Beck), não uma escala Likert compartilhada.
@@ -669,8 +669,8 @@ model TestAssignment {
   status String @default("pendente")
 
   /// Respostas brutas do paciente: { [questionId]: number | string }.
-  answers     Json?
-  submittedAt DateTime?
+  answers                 Json?
+  submittedAt             DateTime?
   /// true quando as respostas foram preenchidas pelo psicólogo durante uma
   /// aplicação ao vivo (pergunta lida em voz alta, paciente responde,
   /// profissional digita) em vez do paciente responder sozinho pela área
@@ -678,13 +678,13 @@ model TestAssignment {
   /// digitou. `submit` self-service continua existindo à parte (nunca
   /// removido); esta é uma segunda forma de preencher, não substitui a
   /// primeira.
-  appliedLiveByStaff Boolean @default(false)
-  appliedById        String?
-  appliedBy          User?   @relation("TestAppliedBy", fields: [appliedById], references: [id])
+  appliedLiveByStaff      Boolean   @default(false)
+  appliedById             String?
+  appliedBy               User?     @relation("TestAppliedBy", fields: [appliedById], references: [id])
   /// Soma automática das perguntas objetivas — só sugestão, nunca o valor
   /// final (ver finalScore/finalResultLabel).
-  suggestedScore       Int?
-  suggestedResultLabel String?
+  suggestedScore          Int?
+  suggestedResultLabel    String?
   /// Escores por subescala calculados na submissão (ver scoring.ts): array
   /// de { key, label, score, resultLabel }. Só preenchido quando o template
   /// usa TestTemplate.subscales. Sempre sugestão — nunca o valor final.
@@ -692,8 +692,8 @@ model TestAssignment {
   /// Escores compostos calculados na submissão a partir de derivedScores.
   suggestedDerivedScores  Json?
 
-  finalScore       Int?
-  finalResultLabel String?
+  finalScore        Int?
+  finalResultLabel  String?
   /// Como/se o psicólogo decidiu comunicar o resultado ao paciente — nunca
   /// exibido automaticamente na área do paciente.
   communicationNote String?
@@ -718,13 +718,13 @@ model TestAssignment {
 /// PDF já gerado nunca é reeditado — qualquer correção exige um novo
 /// PsychDocument (mesma disciplina de append-only do ProntuarioEntry).
 model PsychDocument {
-  id           String   @id @default(uuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patientId    String
-  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  authorId     String
-  author       User     @relation(fields: [authorId], references: [id])
+  id        String  @id @default(uuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User    @relation(fields: [authorId], references: [id])
 
   /// Chave do catálogo em código (ex: "laudo", "relatorio", "atestado",
   /// "declaracao", "encaminhamento", "parecer") — ver psych-documents/catalog.
@@ -766,13 +766,13 @@ model PsychDocument {
 /// histórico de versões — cada salvamento sobrescreve o anterior, mesmo
 /// padrão de Patient.privateNote.
 model AnamneseEntry {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patientId String   @unique
-  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patientId String  @unique
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
+  author    User    @relation(fields: [authorId], references: [id])
 
   /// Chave do catálogo em código ("infantil"/"adolescente"/"adulto"/"idoso") — ver anamnese/catalog.
   templateSlug String
@@ -851,23 +851,23 @@ model ModuleProgress {
 /// constraint de unicidade (só referência/relatório), então pode ficar
 /// preenchido com o tenant da clínica do paciente sem risco de colisão.
 model Certificate {
-  id                String   @id @default(uuid())
-  tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId            String?
-  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  patientId         String?
-  patient           Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  courseSlug        String
-  course            Course   @relation(fields: [courseSlug], references: [slug])
-  verificationCode  String   @unique @default(uuid())
-  issuedAt          DateTime @default(now())
+  id               String   @id @default(uuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patientId        String?
+  patient          Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  courseSlug       String
+  course           Course   @relation(fields: [courseSlug], references: [slug])
+  verificationCode String   @unique @default(uuid())
+  issuedAt         DateTime @default(now())
   /// PNG renderizado automaticamente (nome+curso+data+código compostos sobre
   /// o CertificateTemplate vigente no momento da emissão) — relativo a
   /// uploads/certificates/. Null se nenhum CertificateTemplate estava
   /// configurado quando o certificado foi emitido (nunca re-renderizado
   /// retroativamente se o modelo mudar depois).
-  filePath          String?
+  filePath         String?
 
   @@unique([userId, courseSlug])
   @@unique([patientId, courseSlug])
@@ -905,15 +905,15 @@ model CertificateTemplate {
 /// acesso incluso na assinatura da plataforma; quem não assina compra avulso
 /// via Marketplace (CourseEnrollment) e paga `priceCents`.
 model Course {
-  id          String   @id @default(uuid())
-  slug        String   @unique
+  id          String         @id @default(uuid())
+  slug        String         @unique
   title       String
   description String
   priceCents  Int?
   /// Ver enum CourseAudience — decide quem pode acessar (CoursesService.hasModuleAccess).
   audience    CourseAudience @default(ESTUDANTES)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
 
   modules      CourseModule[]
   enrollments  CourseEnrollment[]
@@ -923,9 +923,9 @@ model Course {
 }
 
 model CourseModule {
-  id       String @id @default(uuid())
+  id       String  @id @default(uuid())
   courseId String
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   order    Int
   title    String
   /// Libera sem assinatura/matrícula — isca/lead-magnet (mesmo papel do
@@ -948,7 +948,7 @@ model CourseLesson {
   youtubeUrl  String?
   /// Aula extra/bônus: aparece à parte, nunca bloqueia nem é bloqueada pela
   /// sequência obrigatória de quiz das aulas principais do módulo.
-  isExtra     Boolean @default(false)
+  isExtra     Boolean      @default(false)
 
   materials CourseLessonMaterial[]
   quiz      CourseQuiz?
@@ -989,11 +989,11 @@ model CourseQuiz {
 }
 
 model CourseQuizQuestion {
-  id     String     @id @default(uuid())
-  quizId String
-  quiz   CourseQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  order  Int
-  prompt String
+  id              String     @id @default(uuid())
+  quizId          String
+  quiz            CourseQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  order           Int
+  prompt          String
   /// [{ "id": "a", "label": "..." }, ...]
   options         Json
   correctOptionId String
@@ -1028,18 +1028,18 @@ model CourseQuizAttempt {
 /// cadastrado via POST /users); supervisor externo cross-tenant fica para
 /// depois.
 model SupervisionSession {
-  id           String   @id @default(uuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supervisorId String
-  supervisor   User     @relation("Supervisor", fields: [supervisorId], references: [id])
-  superviseeId String
-  supervisee   User     @relation("Supervisee", fields: [superviseeId], references: [id])
-  startsAt     DateTime
-  endsAt       DateTime
-  notes        String?
-  status       String   @default("agendado")
-  createdAt    DateTime @default(now())
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisorId  String
+  supervisor    User     @relation("Supervisor", fields: [supervisorId], references: [id])
+  superviseeId  String
+  supervisee    User     @relation("Supervisee", fields: [superviseeId], references: [id])
+  startsAt      DateTime
+  endsAt        DateTime
+  notes         String?
+  status        String   @default("agendado")
+  createdAt     DateTime @default(now())
   /// Sala Daily.co criada automaticamente ao agendar (ver
   /// SupervisionService.create/createTeleconsultaRoom) — mesmo padrão do
   /// Appointment, mas sem gate de consentAt (não é dado do paciente).
@@ -1117,7 +1117,6 @@ model LeadActivity {
   @@map("lead_activities")
 }
 
-
 /// Categorias fixas do fórum — lista fechada de propósito (como LeadStage),
 /// pra manter o feed organizado sem virar taxonomia livre descontrolada.
 enum CommunityCategory {
@@ -1163,7 +1162,7 @@ model SiteComment {
 
   /// 1-5, só preenchido em depoimentos importados de outra plataforma (ver
   /// `importedFrom`) — o formulário nativo do site não coleta nota.
-  rating Int?
+  rating       Int?
   /// Nome da plataforma de origem (ex: "Conexa"), só setado em depoimentos
   /// importados — exibido como selo de transparência na página pública,
   /// nunca omitido pra não aparentar que veio do formulário nativo do site.
@@ -1417,13 +1416,13 @@ enum DocumentTemplateAudience {
 }
 
 model DocumentTemplate {
-  id                String   @id @default(uuid())
-  title             String
-  description       String
-  filePath          String
-  requiresAcceptance Boolean @default(false)
-  audience          DocumentTemplateAudience @default(STAFF)
-  createdAt         DateTime @default(now())
+  id                 String                   @id @default(uuid())
+  title              String
+  description        String
+  filePath           String
+  requiresAcceptance Boolean                  @default(false)
+  audience           DocumentTemplateAudience @default(STAFF)
+  createdAt          DateTime                 @default(now())
 
   acceptances DocumentAcceptance[]
 
@@ -1554,3 +1553,163 @@ model CampaignLead {
   @@map("campaign_leads")
 }
 
+enum ProspectStage {
+  ENCONTRADO
+  QUALIFICADO
+  SELECIONADO
+  CONTATO_REALIZADO
+  RESPONDEU
+  INTERESSADO
+  CADASTRO_INICIADO
+  CADASTRADO
+  SEM_INTERESSE
+  NAO_LOCALIZADO
+  DESCARTADO
+  OPT_OUT
+}
+
+/// Módulo de Prospecção Inteligente de Profissionais — nível de PLATAFORMA
+/// (sem tenantId), a própria equipe do Portal do Psi buscando psicólogos que
+/// ainda não são clientes. NÃO confundir com `Lead` (prospect de PACIENTE,
+/// por-tenant, gerido pela clínica) nem com `CampaignLead` (captação pública
+/// de interesse via formulário). Contato é sempre manual — ver
+/// `ProspectingService`/`ManualCommunicationProvider`; nenhum envio
+/// automático existe nesta fase.
+model ProspectProfessional {
+  id String @id @default(uuid())
+
+  // Identificação
+  fullName         String
+  professionalName String?
+  crp              String?
+  city             String?
+  state            String?
+  country          String  @default("BR")
+
+  // Atuação profissional
+  specialties     String?
+  approaches      String?
+  audience        String?
+  ageRange        String?
+  /// presencial | online | híbrido — texto livre, mesmo padrão de Tenant.specialties.
+  serviceMode     String?
+  experienceNotes String?
+
+  // Presença digital
+  website           String?
+  instagram         String?
+  facebook          String?
+  linkedin          String?
+  googleBusinessUrl String?
+  reviewsCount      Int?
+  hasOnlineBooking  Boolean @default(false)
+  hasContactForm    Boolean @default(false)
+
+  // Contato público (nunca inferido — só o que está publicamente disponível)
+  phone       String?
+  whatsapp    String?
+  publicEmail String?
+
+  // Lead Score — explicável, nunca só o número (ver item 27 do spec de prospecção)
+  score          Int?
+  scoreBreakdown Json?
+  aiSummary      String?
+  aiOpportunity  String?
+  aiStrategy     String?
+  aiQualifiedAt  DateTime?
+
+  // Funil/CRM
+  stage             ProspectStage @default(ENCONTRADO)
+  assignedToAdmin   String?
+  notes             String?
+  convertedTenantId String?
+
+  /// Governança LGPD (item 19 do spec) — marcado, o prospect nunca mais
+  /// aparece em listagens/seleção pra contato; dado preservado só pelo
+  /// mínimo necessário pra não repetir uma abordagem indevida.
+  doNotContact Boolean @default(false)
+
+  // Proveniência — obrigatório registrar de onde veio cada dado (item 3).
+  source         String?
+  sourceUrl      String?
+  sourceType     String?
+  collectedAt    DateTime  @default(now())
+  lastVerifiedAt DateTime?
+
+  /// Hash normalizado (nome+telefone+site+instagram+cidade) — evita
+  /// duplicar o mesmo profissional quando aparece em buscas diferentes
+  /// (item 17 do spec); ver ProspectingService.buildDedupKey.
+  dedupKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities ProspectActivity[]
+
+  @@index([stage])
+  @@index([score])
+  @@index([city, state])
+  @@map("prospect_professionals")
+}
+
+/// Histórico cronológico (append-only) — mesmo padrão de LeadActivity.
+model ProspectActivity {
+  id         String               @id @default(uuid())
+  prospectId String
+  prospect   ProspectProfessional @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  content    String
+  createdBy  String?
+  createdAt  DateTime             @default(now())
+
+  @@index([prospectId])
+  @@map("prospect_activities")
+}
+
+/// Bloqueio permanente por dedupKey (item 19 do spec: "preservar apenas o
+/// mínimo necessário para evitar novo contato indevido") — sobrevive mesmo
+/// depois que o ProspectProfessional é removido de vez, pra que a MESMA
+/// pessoa nunca seja recriada como lead "novo" numa pesquisa futura. Ver
+/// AdminProspectingService.block/create.
+model ProspectBlocklist {
+  id        String   @id @default(uuid())
+  dedupKey  String   @unique
+  reason    String?
+  blockedAt DateTime @default(now())
+
+  @@map("prospect_blocklist")
+}
+
+enum ProspectSearchStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+/// Pedido de pesquisa estruturado (item 24 do spec) — captura os critérios;
+/// a execução em si, nesta fase sem Apify/API contratada, é feita
+/// manualmente (hoje, pelo próprio Claude via busca na web) e os resultados
+/// entram como ProspectProfessional normalmente, referenciando este pedido
+/// em `source`. Fica pronto pra, no futuro, um LeadSourceProvider automático
+/// consumir a fila sozinho sem mudar esta tabela.
+model ProspectSearchRequest {
+  id              String               @id @default(uuid())
+  city            String?
+  state           String?
+  specialty       String?
+  approach        String?
+  audience        String?
+  serviceMode     String?
+  /// Palavras que devem aparecer na busca — texto livre, separado por vírgula.
+  includeKeywords String?
+  /// Palavras que devem ser evitadas — texto livre, separado por vírgula.
+  excludeKeywords String?
+  quantity        Int                  @default(10)
+  status          ProspectSearchStatus @default(PENDENTE)
+  resultCount     Int                  @default(0)
+  notes           String?
+  createdAt       DateTime             @default(now())
+  completedAt     DateTime?
+
+  @@map("prospect_search_requests")
+}

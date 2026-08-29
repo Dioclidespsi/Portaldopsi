@@ -8,6 +8,8 @@ import { AdminProntuarioController } from './admin-prontuario.controller';
 import { AdminProntuarioService } from './admin-prontuario.service';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminRecoveryController } from './admin-recovery.controller';
+import { AdminProspectingController } from './admin-prospecting.controller';
+import { AdminProspectingService } from './admin-prospecting.service';
 import { AsaasModule } from '../asaas/asaas.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 
@@ -18,7 +20,7 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
     /// Só pro endpoint de "esqueci o token" (ver AdminRecoveryController) — nunca aplicado globalmente.
     ThrottlerModule.forRoot([{ ttl: 60 * 60 * 1000, limit: 20 }]),
   ],
-  controllers: [AdminController, AdminCoursesController, AdminProntuarioController, AdminRecoveryController],
-  providers: [AdminService, AdminCoursesService, AdminProntuarioService, AdminTokenGuard],
+  controllers: [AdminController, AdminCoursesController, AdminProntuarioController, AdminRecoveryController, AdminProspectingController],
+  providers: [AdminService, AdminCoursesService, AdminProntuarioService, AdminTokenGuard, AdminProspectingService],
 })
 export class AdminModule {}
