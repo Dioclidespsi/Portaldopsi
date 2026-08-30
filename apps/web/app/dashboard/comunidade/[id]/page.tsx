@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Flag, Heart } from 'lucide-react';
 import DashboardShell from '../../../../components/DashboardShell';
 import {
   CommunityPostDetail,
@@ -89,7 +90,7 @@ export default function ComunidadePostPage() {
     <DashboardShell title="Comunidade" description={post.title}>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px', padding: '1.1rem', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0.7rem' }}>
-          <Avatar name={post.authorName} size={42} />
+          <Avatar name={post.authorName} photoUrl={post.authorPhotoUrl} size={42} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
               <strong style={{ fontSize: '0.9rem' }}>{post.authorName}</strong>
@@ -106,15 +107,15 @@ export default function ComunidadePostPage() {
               <CategoryChip category={post.category} />
               <button
                 onClick={onTogglePostLike}
-                style={{ fontSize: '0.78rem', padding: '0.2rem 0.5rem', background: 'transparent', color: post.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: post.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
               >
-                {post.likedByMe ? '♥' : '♡'} {post._count?.likes ?? 0}
+                <Heart size={14} fill={post.likedByMe ? 'currentColor' : 'none'} /> {post._count?.likes ?? 0}
               </button>
               <button
                 onClick={() => setReportingId(reportingId === post.id ? null : post.id)}
-                style={{ fontSize: '0.78rem', padding: '0.2rem 0.5rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
               >
-                🚩 Denunciar
+                <Flag size={14} /> Denunciar
               </button>
               {reportSent === post.id && <span className="sub" style={{ fontSize: '0.76rem' }}>Denúncia enviada.</span>}
             </div>
@@ -136,7 +137,7 @@ export default function ComunidadePostPage() {
       {post.replies.map((r) => (
         <div key={r.id} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px', padding: '0.8rem', marginBottom: '0.6rem' }}>
           <div style={{ display: 'flex', gap: '0.6rem' }}>
-            <Avatar name={r.authorName} size={30} />
+            <Avatar name={r.authorName} photoUrl={r.authorPhotoUrl} size={30} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <strong style={{ fontSize: '0.82rem' }}>{r.authorName}</strong>
@@ -148,15 +149,15 @@ export default function ComunidadePostPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => onToggleReplyLike(r.id)}
-                  style={{ fontSize: '0.74rem', padding: '0.15rem 0.4rem', background: 'transparent', color: r.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.74rem', padding: '0.2rem 0.5rem', background: 'transparent', color: r.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
                 >
-                  {r.likedByMe ? '♥' : '♡'} {r._count?.likes ?? 0}
+                  <Heart size={12} fill={r.likedByMe ? 'currentColor' : 'none'} /> {r._count?.likes ?? 0}
                 </button>
                 <button
                   onClick={() => setReportingId(reportingId === r.id ? null : r.id)}
-                  style={{ fontSize: '0.74rem', padding: '0.15rem 0.4rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.74rem', padding: '0.2rem 0.5rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
                 >
-                  🚩 Denunciar
+                  <Flag size={12} /> Denunciar
                 </button>
                 {reportSent === r.id && <span className="sub" style={{ fontSize: '0.72rem' }}>Denúncia enviada.</span>}
               </div>

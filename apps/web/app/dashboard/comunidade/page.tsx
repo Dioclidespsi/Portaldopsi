@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Bell, Heart, MessageCircle } from 'lucide-react';
 import DashboardShell from '../../../components/DashboardShell';
 import {
   CommunityCategory,
@@ -10,6 +11,7 @@ import {
   CommunityPost,
   COMMUNITY_CATEGORY_LABEL,
   createCommunityPost,
+  fetchOwnProfile,
   listCommunityNotifications,
   listCommunityPosts,
   markAllCommunityNotificationsRead,
@@ -28,9 +30,11 @@ export default function ComunidadePage() {
   const [search, setSearch] = useState('');
   const [notifications, setNotifications] = useState<CommunityNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showNewPost, setShowNewPost] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [newCategory, setNewCategory] = useState<CommunityCategory>('GERAL');
+  const [hasOwnPhoto, setHasOwnPhoto] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +47,13 @@ export default function ComunidadePage() {
   }
 
   useEffect(() => {
+    // fetchOwnProfile só existe pra PSICOLOGO_TITULAR (Site Profissional é
+    // por clínica) — secretária/supervisor também postam na Comunidade, então
+    // essa checagem nunca pode derrubar o carregamento da página pra eles.
+    fetchOwnProfile()
+      .then((p) => setHasOwnPhoto(Boolean(p.photoUrl)))
+      .catch(() => undefined);
+
     Promise.all([reload(1), listCommunityNotifications().then(setNotifications)])
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
@@ -113,7 +124,7 @@ export default function ComunidadePage() {
             onClick={onOpenNotifications}
             style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink)', position: 'relative', padding: '0.5rem 0.7rem' }}
           >
-            🔔
+            <Bell size={16} />
             {unreadCount > 0 && (
               <span
                 style={{
@@ -161,32 +172,63 @@ export default function ComunidadePage() {
         </div>
       </div>
 
-      {/* Fixo no topo (espaço antes vazio) — item 9: publicar não deve exigir rolar até o fim da lista de posts. */}
-      <div className="card" style={{ margin: '1rem 0' }}>
-        <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.6rem' }}>Novo post</h3>
-        <form onSubmit={onCreate}>
-          <label>
-            Categoria
-            <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as CommunityCategory)}>
-              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
-            </select>
-          </label>
-          <label>
-            Título
-            <input value={title} onChange={(e) => setTitle(e.target.value)} required />
-          </label>
-          <label>
-            Conteúdo
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={3}
-              style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', background: 'var(--ground)' }}
-              required
-            />
-          </label>
-          <button type="submit">Publicar</button>
-        </form>
+      {/* Visível mas discreto (item 9: nunca exigir rolar até o fim da lista pra publicar) — o
+          destaque da página é pros posts e interações, não pro formulário de criar um novo. */}
+      <div style={{ margin: '1rem 0' }}>
+        {!showNewPost ? (
+          <button
+            type="button"
+            onClick={() => setShowNewPost(true)}
+            style={{
+              width: '100%', textAlign: 'left', fontSize: '0.85rem', padding: '0.6rem 0.9rem',
+              background: 'var(--surface)', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '10px',
+            }}
+          >
+            + Criar post…
+          </button>
+        ) : (
+          <div className="card">
+            <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.6rem' }}>Novo post</h3>
+            <form onSubmit={onCreate}>
+              <label>
+                Categoria
+                <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as CommunityCategory)}>
+                  {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
+                </select>
+              </label>
+              <label>
+                Título
+                <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+              </label>
+              <label>
+                Conteúdo
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={3}
+                  style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', background: 'var(--ground)' }}
+                  required
+                />
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button type="submit">Publicar</button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewPost(false)}
+                  style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+        {!hasOwnPhoto && (
+          <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.78rem' }}>
+            Você ainda não tem uma foto de perfil — ela aparece ao lado do seu nome nos posts e respostas.{' '}
+            <Link href="/dashboard/site" style={{ color: 'var(--accent)', fontWeight: 600 }}>Adicionar foto →</Link>
+          </p>
+        )}
       </div>
 
       <form onSubmit={onFilter} style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end', margin: '1rem 0' }}>
@@ -208,12 +250,12 @@ export default function ComunidadePage() {
         <div
           key={post.id}
           style={{
-            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px',
-            padding: '1rem', marginBottom: '0.8rem',
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '12px',
+            padding: '1.1rem', marginBottom: '0.9rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}
         >
-          <div style={{ display: 'flex', gap: '0.7rem' }}>
-            <Avatar name={post.authorName} />
+          <div style={{ display: 'flex', gap: '0.8rem' }}>
+            <Avatar name={post.authorName} photoUrl={post.authorPhotoUrl} size={42} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.15rem' }}>
                 <strong style={{ fontSize: '0.85rem' }}>{post.authorName}</strong>
@@ -234,12 +276,12 @@ export default function ComunidadePage() {
                 <CategoryChip category={post.category} />
                 <button
                   onClick={() => onToggleLike(post.id)}
-                  style={{ fontSize: '0.78rem', padding: '0.2rem 0.5rem', background: 'transparent', color: post.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: post.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
                 >
-                  {post.likedByMe ? '♥' : '♡'} {post._count?.likes ?? 0}
+                  <Heart size={14} fill={post.likedByMe ? 'currentColor' : 'none'} /> {post._count?.likes ?? 0}
                 </button>
-                <Link href={`/dashboard/comunidade/${post.id}`} style={{ fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
-                  💬 {post._count?.replies ?? 0} resposta{(post._count?.replies ?? 0) === 1 ? '' : 's'}
+                <Link href={`/dashboard/comunidade/${post.id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
+                  <MessageCircle size={14} /> {post._count?.replies ?? 0} resposta{(post._count?.replies ?? 0) === 1 ? '' : 's'}
                 </Link>
               </div>
             </div>

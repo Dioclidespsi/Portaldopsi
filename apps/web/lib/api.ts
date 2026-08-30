@@ -1140,6 +1140,7 @@ export interface CommunityPost {
   category: CommunityCategory;
   createdAt: string;
   authorName: string;
+  authorPhotoUrl?: string | null;
   tenantName: string;
   authorCrpVerified: boolean;
   authorSpecialty?: string | null;
@@ -1152,6 +1153,7 @@ export interface CommunityReply {
   content: string;
   createdAt: string;
   authorName: string;
+  authorPhotoUrl?: string | null;
   tenantName: string;
   authorCrpVerified: boolean;
   authorSpecialty?: string | null;

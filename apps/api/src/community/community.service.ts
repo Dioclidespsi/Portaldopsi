@@ -10,11 +10,13 @@ import { ListCommunityPostsDto } from './dto/list-posts.dto';
  * PrismaService direto, nunca forCurrentTenant(). tenantId/authorId aqui são
  * só atribuição de quem postou, não filtro de leitura.
  *
- * `authorName`/`tenantName`/`authorCrpVerified`/`authorSpecialty` são
- * snapshot de texto capturado na criação, via forCurrentTenant() (contexto
- * do autor É o tenant atual, então esse acesso respeita RLS normalmente) —
- * nunca via include ao vivo, que cruzaria pra `users`/`tenants` (RLS) sem
- * app.tenant_id setado e quebraria.
+ * `authorName`/`authorPhotoUrl`/`tenantName`/`authorCrpVerified`/
+ * `authorSpecialty` são snapshot de texto capturado na criação, via
+ * forCurrentTenant() (contexto do autor É o tenant atual, então esse acesso
+ * respeita RLS normalmente) — nunca via include ao vivo, que cruzaria pra
+ * `users`/`tenants` (RLS) sem app.tenant_id setado e quebraria.
+ * `authorPhotoUrl` reaproveita a mesma foto do Site Profissional
+ * (Tenant.photoUrl) — não existe uma foto separada "só pra comunidade".
  */
 @Injectable()
 export class CommunityService {
@@ -24,12 +26,13 @@ export class CommunityService {
     const { userId, tenantId } = getRequestContext();
     const user = await this.prisma.forCurrentTenant().user.findUniqueOrThrow({
       where: { id: userId },
-      select: { name: true, crpStatus: true, tenant: { select: { name: true, specialties: true } } },
+      select: { name: true, crpStatus: true, tenant: { select: { name: true, specialties: true, photoUrl: true } } },
     });
     return {
       tenantId,
       authorId: userId,
       authorName: user.name,
+      authorPhotoUrl: user.tenant.photoUrl,
       tenantName: user.tenant.name,
       authorCrpVerified: user.crpStatus === 'VERIFICADO',
       authorSpecialty: user.tenant.specialties,

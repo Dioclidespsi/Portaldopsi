@@ -24,7 +24,18 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
+/** Mostra a foto de perfil (Site Profissional) quando o autor tem uma cadastrada — cai pra iniciais coloridas quando não tem. */
+export function Avatar({ name, photoUrl, size = 36 }: { name: string; photoUrl?: string | null; size?: number }) {
+  if (photoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt={name}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      />
+    );
+  }
   const color = AVATAR_PALETTE[hashString(name) % AVATAR_PALETTE.length];
   return (
     <div

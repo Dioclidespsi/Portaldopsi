@@ -1244,6 +1244,7 @@ model CommunityPost {
   authorId          String
   author            User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorName        String
+  authorPhotoUrl    String?
   authorCrpVerified Boolean           @default(false)
   authorSpecialty   String?
   category          CommunityCategory @default(GERAL)
@@ -1272,6 +1273,7 @@ model CommunityReply {
   authorId          String
   author            User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorName        String
+  authorPhotoUrl    String?
   authorCrpVerified Boolean       @default(false)
   authorSpecialty   String?
   content           String
