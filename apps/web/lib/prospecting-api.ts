@@ -203,3 +203,8 @@ export function updateSearchRequestStatus(
 export function executeSearchRequest(id: string): Promise<ProspectSearchRequest> {
   return request(`/admin/prospecting/search-requests/${id}/execute`, { method: 'POST' });
 }
+
+/** Apaga só o histórico de pesquisas concluídas/canceladas — nunca mexe nos leads já extraídos. */
+export function deleteFinishedSearchRequests(): Promise<{ deleted: number }> {
+  return request('/admin/prospecting/search-requests/finished', { method: 'DELETE' });
+}

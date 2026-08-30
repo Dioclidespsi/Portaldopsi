@@ -8,6 +8,7 @@ import { getAdminToken } from '../../../lib/admin-api';
 import {
   createProspect,
   createSearchRequest,
+  deleteFinishedSearchRequests,
   executeSearchRequest,
   getProspectingReport,
   listProspects,
@@ -110,6 +111,7 @@ export default function AdminProspeccaoPage() {
   const [showForm, setShowForm] = useState(false);
   const [showSearchForm, setShowSearchForm] = useState(false);
   const [executingId, setExecutingId] = useState<string | null>(null);
+  const [clearingHistory, setClearingHistory] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '', city: '', state: '', specialties: '', approaches: '', audience: '', serviceMode: '',
@@ -228,7 +230,25 @@ export default function AdminProspeccaoPage() {
     }
   }
 
+  async function onClearHistory() {
+    if (!window.confirm('Apagar o histórico de pesquisas concluídas/canceladas? Os leads já extraídos e classificados não são afetados.')) return;
+    setError(null);
+    setInfo(null);
+    setClearingHistory(true);
+    try {
+      const { deleted } = await deleteFinishedSearchRequests();
+      setInfo(deleted > 0 ? `${deleted} pesquisa(s) removida(s) do histórico.` : 'Nenhuma pesquisa concluída/cancelada pra remover.');
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setClearingHistory(false);
+    }
+  }
+
   if (loading) return <div className="shell">Carregando…</div>;
+
+  const hasFinishedSearchRequests = searchRequests.some((r) => r.status === 'CONCLUIDA' || r.status === 'CANCELADA');
 
   return (
     <AdminShell
@@ -315,6 +335,17 @@ export default function AdminProspeccaoPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {hasFinishedSearchRequests && (
+          <button
+            type="button"
+            onClick={onClearHistory}
+            disabled={clearingHistory}
+            style={{ marginTop: '0.8rem', fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+          >
+            {clearingHistory ? 'Limpando…' : 'Limpar histórico (concluídas/canceladas)'}
+          </button>
         )}
       </div>
 

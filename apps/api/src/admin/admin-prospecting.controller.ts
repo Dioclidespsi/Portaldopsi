@@ -45,6 +45,12 @@ export class AdminProspectingController {
     return this.prospecting.listSearchRequests();
   }
 
+  /** Limpa o histórico (concluídas/canceladas) — nunca mexe nos leads já extraídos. */
+  @Delete('search-requests/finished')
+  deleteFinishedSearchRequests() {
+    return this.prospecting.deleteFinishedSearchRequests();
+  }
+
   @Patch('search-requests/:id')
   updateSearchRequest(@Param('id') id: string, @Body() dto: UpdateProspectSearchRequestDto) {
     return this.prospecting.updateSearchRequestStatus(id, dto.status, dto.resultCount, dto.notes);

@@ -216,6 +216,20 @@ export class AdminProspectingService {
     return this.prisma.prospectSearchRequest.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
+  /**
+   * Limpa só o HISTÓRICO de pesquisas (a fila de "pedidos de busca" em si) —
+   * ProspectSearchRequest não tem nenhuma relação com ProspectProfessional
+   * (os leads extraídos viram registros independentes), então apagar isso
+   * nunca afeta um lead já classificado. PENDENTE/EM_ANDAMENTO ficam de fora
+   * de propósito — só concluída/cancelada é "histórico" de verdade.
+   */
+  async deleteFinishedSearchRequests() {
+    const { count } = await this.prisma.prospectSearchRequest.deleteMany({
+      where: { status: { in: ['CONCLUIDA', 'CANCELADA'] } },
+    });
+    return { deleted: count };
+  }
+
   createSearchRequest(data: {
     city?: string; state?: string; specialty?: string; approach?: string; audience?: string;
     serviceMode?: string; includeKeywords?: string; excludeKeywords?: string; quantity?: number;
