@@ -118,6 +118,10 @@ export class TeleconsultaService {
           room_name: appointment.videoRoomName,
           exp,
           is_owner: opts.isOwner,
+          // Nível de token tem prioridade sobre sala/domínio (doc oficial da
+          // Daily) — é o jeito confiável de forçar português, mais garantido
+          // que só o parâmetro ?lang= na URL do cliente.
+          lang: 'pt-BR',
           ...(opts.userName ? { user_name: opts.userName } : {}),
         },
       }),

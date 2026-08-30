@@ -2,6 +2,7 @@
 
 import { Fragment, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { CheckCircle2 } from 'lucide-react';
 import DashboardShell from '../../../components/DashboardShell';
 import AgendaCalendar from '../../../components/AgendaCalendar';
 import DaySlotPicker from '../../../components/DaySlotPicker';
@@ -439,8 +440,8 @@ export default function AgendaPage() {
                           onPick={setRescheduleTime}
                         />
                         {rescheduleDone && (
-                          <p className="sub" style={{ marginTop: '0.6rem', color: 'var(--accent)', fontWeight: 600 }}>
-                            ✓ Reagendado para {rescheduleDone}.
+                          <p className="sub" style={{ marginTop: '0.6rem', color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <CheckCircle2 size={16} /> Reagendado para {rescheduleDone}.
                           </p>
                         )}
                         {rescheduleError && (

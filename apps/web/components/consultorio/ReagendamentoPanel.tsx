@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import DaySlotPicker from '../DaySlotPicker';
 import { Appointment, rescheduleAppointment } from '../../lib/api';
 
@@ -99,8 +100,8 @@ export default function ReagendamentoPanel({
       />
 
       {done && (
-        <p className="sub" style={{ marginTop: '0.6rem', color: 'var(--accent)', fontWeight: 600 }}>
-          ✓ Reagendado para {done}.
+        <p className="sub" style={{ marginTop: '0.6rem', color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <CheckCircle2 size={16} /> Reagendado para {done}.
         </p>
       )}
       {error && <p style={{ marginTop: '0.6rem' }}><span className="error">Horário ocupado ou indisponível: {error}</span></p>}
