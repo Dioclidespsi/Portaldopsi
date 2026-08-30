@@ -231,19 +231,29 @@ export default function ComunidadePage() {
         )}
       </div>
 
-      <form onSubmit={onFilter} style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end', margin: '1rem 0' }}>
-        <label style={{ flex: 1, minWidth: '200px' }}>
-          Buscar
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título ou conteúdo…" />
-        </label>
-        <label>
-          Categoria
-          <select value={category} onChange={(e) => setCategory(e.target.value as CommunityCategory | '')}>
-            <option value="">Todas</option>
-            {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
-          </select>
-        </label>
-        <button type="submit" style={{ fontSize: '0.85rem' }}>Filtrar</button>
+      <form onSubmit={onFilter} style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', margin: '0 0 1rem' }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar posts…"
+          aria-label="Buscar posts"
+          style={{ flex: 1, minWidth: '160px', fontSize: '0.82rem', padding: '0.35rem 0.6rem' }}
+        />
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as CommunityCategory | '')}
+          aria-label="Categoria"
+          style={{ fontSize: '0.82rem', padding: '0.35rem 0.6rem', width: 'auto' }}
+        >
+          <option value="">Todas as categorias</option>
+          {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
+        </select>
+        <button
+          type="submit"
+          style={{ fontSize: '0.78rem', padding: '0.35rem 0.7rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+        >
+          Filtrar
+        </button>
       </form>
 
       {posts.map((post) => (
