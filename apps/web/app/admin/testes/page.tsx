@@ -171,7 +171,7 @@ export default function AdminTestsPage() {
                   {expandedId === t.id && (
                     <tr>
                       <td colSpan={4}>
-                        <div className="callout-box">
+                        <div className="card">
                           <p style={{ margin: '0 0 0.4rem' }}><strong>Fonte:</strong> {t.source}</p>
                           <p style={{ margin: '0 0 0.4rem' }}><strong>Aviso:</strong> {t.disclaimer}</p>
                           <ol style={{ margin: 0, paddingLeft: '1.2rem' }}>

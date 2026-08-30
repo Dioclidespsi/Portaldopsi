@@ -65,7 +65,7 @@ export default function AdminVideosPage() {
       {pending.map((t) => {
         const videoId = extractYouTubeId(t.presentationVideoUrl);
         return (
-          <div key={t.id} className="callout-box" style={{ marginTop: '1rem' }}>
+          <div key={t.id} className="card" style={{ marginTop: '1rem' }}>
             <p style={{ margin: '0 0 0.6rem', fontWeight: 600 }}>
               {t.name} ({t.slug})
             </p>

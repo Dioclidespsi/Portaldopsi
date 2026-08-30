@@ -112,7 +112,7 @@ export default function AdminContratosPage() {
       </table>
 
       {acceptanceView && (
-        <div className="callout-box" style={{ marginTop: '1rem' }}>
+        <div className="card" style={{ marginTop: '1rem' }}>
           <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>
             {acceptanceView.template.title} — {acceptanceView.accepted.length} de {acceptanceView.totalTitulares} psicólogo(s) titular(es) já aceitaram
           </p>

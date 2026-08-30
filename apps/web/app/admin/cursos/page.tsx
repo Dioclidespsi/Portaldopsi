@@ -95,7 +95,7 @@ function QuizEditor({ lesson, onSaved, onDeleted }: { lesson: AdminCourseLesson;
   }
 
   return (
-    <div className="callout-box" style={{ marginTop: '0.6rem' }}>
+    <div className="card" style={{ marginTop: '0.6rem' }}>
       <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
         <label style={{ flexDirection: 'row', alignItems: 'center', gap: '0.4rem' }}>
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} style={{ width: 'auto' }} />
@@ -457,7 +457,7 @@ export default function AdminCursosPage() {
         const course = courses.find((c) => c.id === expandedId);
         if (!course) return null;
         return (
-          <div className="callout-box" style={{ marginTop: '1rem' }}>
+          <div className="card" style={{ marginTop: '1rem' }}>
             <h3 style={{ fontSize: '0.92rem', marginTop: 0 }}>Módulos e aulas de "{course.title}"</h3>
             <CourseEditor course={course} onChange={(updated) => setCourses((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))} />
           </div>

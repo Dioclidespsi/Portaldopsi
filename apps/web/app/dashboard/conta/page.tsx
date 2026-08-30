@@ -136,7 +136,7 @@ export default function ContaPage() {
   if (loading || !account) return <div className="shell">Carregando…</div>;
 
   return (
-    <DashboardShell title={"Minha conta"} description={"{account.name} — {isTitular ? 'titular de' : 'membro de'} {account.tenantName}"}>
+    <DashboardShell title="Minha conta" description={`${account.name} — ${isTitular ? 'titular de' : 'membro de'} ${account.tenantName}`}>
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.2rem' }}>E-mail de login</h3>
       <form onSubmit={onChangeEmail}>
         <label>

@@ -114,7 +114,7 @@ export default function AdminProntuariosPage() {
       )}
 
       {selected && (
-        <div className="callout-box" style={{ marginTop: '1.2rem' }}>
+        <div className="card" style={{ marginTop: '1.2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
             <div>
               <strong>{selected.patient.name}{selected.patient.socialName && ` (${selected.patient.socialName})`}</strong>

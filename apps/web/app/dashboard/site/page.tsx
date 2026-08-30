@@ -269,7 +269,12 @@ export default function SiteProfissionalPage() {
   }
 
   return (
-    <DashboardShell title={"Site profissional"} description={"Página pública em <Link href={`/${profile.slug}`} target=\"_blank\">portaldopsi.com.br/{profile.slug}</Link> {!profile.published && ' — ainda não publicada.'}"}>
+    <DashboardShell title="Site profissional">
+      <p className="sub">
+        Página pública em <Link href={`/${profile.slug}`} target="_blank">portaldopsi.com.br/{profile.slug}</Link>
+        {!profile.published && ' — ainda não publicada.'}
+      </p>
+
       <form onSubmit={onSave}>
         <h3 style={{ fontSize: '0.95rem', margin: '1.2rem 0 0.8rem', borderTop: '1px solid var(--line)', paddingTop: '1.2rem' }}>
           Sobre o psicólogo

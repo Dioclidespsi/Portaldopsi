@@ -169,7 +169,7 @@ export default function AdminProgramaPilotoPage() {
       {error && <span className="error">{error}</span>}
 
       {leads.map((lead) => (
-        <div key={lead.id} className="callout-box" style={{ marginTop: '1rem' }}>
+        <div key={lead.id} className="card" style={{ marginTop: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
             <p style={{ margin: '0 0 0.3rem', fontSize: '0.92rem', fontWeight: 700 }}>{lead.name}</p>
             <AdminWhatsAppButton name={lead.name} phone={lead.phone} templates={ADMIN_CAMPAIGN_LEAD_TEMPLATES} />

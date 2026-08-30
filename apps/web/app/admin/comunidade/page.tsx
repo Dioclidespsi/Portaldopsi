@@ -60,7 +60,7 @@ export default function AdminComunidadePage() {
   return (
     <AdminShell title={"Moderação da Comunidade"} description={"Fila de denúncias de posts e respostas — único espaço do sistema que atravessa clínicas diferentes."}>
       {reports.map((r) => (
-        <div key={r.id} className="callout-box" style={{ marginTop: '1rem' }}>
+        <div key={r.id} className="card" style={{ marginTop: '1rem' }}>
           <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
             Denunciado por <strong>{r.reporter.name}</strong> — motivo: {r.reason}
           </p>

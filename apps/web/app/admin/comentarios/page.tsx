@@ -59,7 +59,7 @@ export default function AdminComentariosPage() {
       {error && <span className="error">{error}</span>}
 
       {comments.map((c) => (
-        <div key={c.id} className="callout-box" style={{ marginTop: '1rem' }}>
+        <div key={c.id} className="card" style={{ marginTop: '1rem' }}>
           <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
             {c.tenant.name} ({c.tenant.slug}) — {new Date(c.createdAt).toLocaleDateString('pt-BR')}
           </p>

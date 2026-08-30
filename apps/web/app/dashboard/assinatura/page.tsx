@@ -96,7 +96,18 @@ export default function AssinaturaPage() {
   }
 
   return (
-    <DashboardShell title={"Assinatura"} description={"Status atual: <strong>{STATUS_LABEL[status]}</strong> {subscription?.currentPeriodEnd && ( <> {' '}· {status === 'TRIALING' ? 'período de teste termina em' : 'renova em'}{' '} {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} {daysRemaining !== null && (daysRemaining >= 0 ? ` (${daysRemaining} dia${daysRemaining === 1 ? '' : 's'})` : ' (vencido)')} </> )}"}>
+    <DashboardShell title="Assinatura">
+      <p className="sub">
+        Status atual: <strong>{STATUS_LABEL[status]}</strong>
+        {subscription?.currentPeriodEnd && (
+          <>
+            {' '}· {status === 'TRIALING' ? 'período de teste termina em' : 'renova em'}{' '}
+            {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+            {daysRemaining !== null && (daysRemaining >= 0 ? ` (${daysRemaining} dia${daysRemaining === 1 ? '' : 's'})` : ' (vencido)')}
+          </>
+        )}
+      </p>
+
       {status !== 'ACTIVE' && subscription?.hasAsaas && (
         <div className="callout-box" style={{ marginTop: '0.8rem' }}>
           {paymentLink ? (

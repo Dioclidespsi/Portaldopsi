@@ -32,7 +32,7 @@ const USAGE_LABELS: { key: keyof AdminTenantOverview['usage']; label: string }[]
 
 function StatCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="callout-box" style={{ flex: '1 1 220px' }}>
+    <div className="card" style={{ flex: '1 1 220px' }}>
       <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--ink-soft)' }}>{title}</p>
       {children}
     </div>
