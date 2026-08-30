@@ -7,6 +7,7 @@ import { CreateProspectDto } from './dto/create-prospect.dto';
 import { UpdateProspectDto } from './dto/update-prospect.dto';
 import { ListProspectsDto } from './dto/list-prospects.dto';
 import { GoogleSearchProvider } from './google-search.provider';
+import { createAnthropicClient } from '../common/anthropic-client';
 
 /** Quantos resultados a IA/Google processam por chamada de `execute` — nunca o pedido inteiro de uma vez (item 21 do spec: consciência de custo, sem timeout). */
 const EXECUTE_BATCH_SIZE = 10;
@@ -46,7 +47,7 @@ export class AdminProspectingService {
     private readonly googleSearch: GoogleSearchProvider,
   ) {
     const key = this.config.get<string>('ANTHROPIC_API_KEY');
-    this.aiClient = key ? new Anthropic({ apiKey: key }) : null;
+    this.aiClient = key ? createAnthropicClient(key, this.config) : null;
     this.aiModel = this.config.get<string>('ANTHROPIC_MODEL', 'claude-sonnet-5');
     if (!this.aiClient) {
       this.logger.warn(

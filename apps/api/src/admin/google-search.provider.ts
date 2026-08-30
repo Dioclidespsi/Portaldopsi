@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
+import { createAnthropicClient } from '../common/anthropic-client';
 
 export interface GoogleSearchResult {
   title: string;
@@ -75,7 +76,7 @@ export class GoogleSearchProvider {
       );
     }
     const anthropicKey = this.config.get<string>('ANTHROPIC_API_KEY');
-    this.aiClient = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
+    this.aiClient = anthropicKey ? createAnthropicClient(anthropicKey, this.config) : null;
   }
 
   isConfigured(): boolean {

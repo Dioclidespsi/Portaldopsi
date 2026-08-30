@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
+import { createAnthropicClient } from '../common/anthropic-client';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
@@ -35,7 +36,7 @@ export class AiService {
     private readonly prisma: PrismaService,
   ) {
     const key = config.get<string>('ANTHROPIC_API_KEY');
-    this.client = key ? new Anthropic({ apiKey: key }) : null;
+    this.client = key ? createAnthropicClient(key, this.config) : null;
     this.model = config.get<string>('ANTHROPIC_MODEL', 'claude-sonnet-5');
     this.dailyLimit = Number(config.get<string>('AI_DAILY_LIMIT_PER_TENANT', '50'));
     if (!this.client) {
