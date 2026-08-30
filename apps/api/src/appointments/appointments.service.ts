@@ -85,6 +85,40 @@ export class AppointmentsService {
     });
   }
 
+  async reschedule(id: string, startsAtRaw: string, endsAtRaw: string) {
+    const startsAt = new Date(startsAtRaw);
+    const endsAt = new Date(endsAtRaw);
+    if (endsAt <= startsAt) {
+      throw new BadRequestException('endsAt precisa ser depois de startsAt.');
+    }
+
+    await this.findOne(id);
+    const tenantPrisma = this.prisma.forCurrentTenant();
+
+    /// Mesma checagem de conflito de create() — exclui o próprio
+    /// agendamento (senão ele sempre "colidiria" consigo mesmo).
+    const conflict = await tenantPrisma.appointment.findFirst({
+      where: {
+        id: { not: id },
+        status: { notIn: ['cancelado'] },
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+      },
+      include: { patient: { select: { name: true } } },
+    });
+    if (conflict) {
+      throw new BadRequestException(
+        `Conflito de horário com o agendamento de ${conflict.patient.name} às ${conflict.startsAt.toLocaleString('pt-BR')}.`,
+      );
+    }
+
+    return tenantPrisma.appointment.update({
+      where: { id },
+      data: { startsAt, endsAt },
+      include: { patient: { select: { name: true } } },
+    });
+  }
+
   async findOne(id: string) {
     const appointment = await this.prisma
       .forCurrentTenant()

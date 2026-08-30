@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
+import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { STAFF_ROLES } from '../common/roles';
@@ -30,5 +31,10 @@ export class AppointmentsController {
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateAppointmentStatusDto) {
     return this.appointments.updateStatus(id, dto.status, dto.cancelReason);
+  }
+
+  @Patch(':id/reschedule')
+  reschedule(@Param('id') id: string, @Body() dto: RescheduleAppointmentDto) {
+    return this.appointments.reschedule(id, dto.startsAt, dto.endsAt);
   }
 }

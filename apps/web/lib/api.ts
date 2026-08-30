@@ -141,6 +141,7 @@ export function setPatientPrivateNote(id: string, privateNote: string) {
 
 export interface Appointment {
   id: string;
+  patientId?: string;
   startsAt: string;
   endsAt: string;
   status: string;
@@ -161,6 +162,13 @@ export function listAppointments(params?: { from?: string; to?: string; patientI
 
 export function createAppointment(data: { patientId: string; startsAt: string; endsAt: string }) {
   return request<Appointment>('/appointments', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function rescheduleAppointment(id: string, data: { startsAt: string; endsAt: string }) {
+  return request<Appointment>(`/appointments/${id}/reschedule`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 }
 
 export function updateAppointmentStatus(id: string, status: string, cancelReason?: string) {

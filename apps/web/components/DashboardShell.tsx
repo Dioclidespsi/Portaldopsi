@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Award, BookOpen, Bot, Building2, Calendar, DollarSign, FileText, Globe, GraduationCap,
-  MessageSquare, Settings, Sparkles, Users,
+  MessageSquare, Settings, Sparkles, Users, Video,
 } from 'lucide-react';
 import AppSidebar, { SidebarSection } from './AppSidebar';
 import AppMobileNav from './AppMobileNav';
@@ -15,6 +15,7 @@ const SECTIONS: SidebarSection[] = [
   {
     label: 'Atendimento',
     items: [
+      { href: '/dashboard/consultorio', label: 'Consultório', icon: Video },
       { href: '/dashboard', label: 'Pacientes', icon: Users },
       { href: '/dashboard/agenda', label: 'Agenda', icon: Calendar },
       { href: '/dashboard/crm', label: 'CRM', icon: Sparkles },
