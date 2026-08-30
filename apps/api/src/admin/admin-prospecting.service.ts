@@ -271,6 +271,8 @@ export class AdminProspectingService {
     try {
       for (const result of results) {
         if (req.resultCount + created >= req.quantity) break;
+        // Filtro barato antes de gastar IA — vídeo/PDF/curso nunca vira lead de verdade.
+        if (this.googleSearch.shouldSkip(result.link)) { skipped++; processed++; continue; }
         // Uma página pode listar vários profissionais (diretório) — ver GoogleSearchProvider.extractCandidates.
         const candidates = await this.googleSearch.extractCandidates(result);
         if (candidates.length === 0) { skipped++; processed++; continue; }

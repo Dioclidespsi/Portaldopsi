@@ -46,7 +46,26 @@ export class GoogleSearchProvider {
   private readonly logger = new Logger(GoogleSearchProvider.name);
   private readonly serperApiKey?: string;
   private readonly aiClient: Anthropic | null;
-  private readonly aiModel: string;
+
+  /**
+   * Extração é tarefa mecânica (ler texto, montar JSON) — usa um modelo bem
+   * mais barato que o resto do app ($1/$5 por milhão de tokens, metade do
+   * Sonnet 5), sem perda relevante de qualidade pra esse tipo de trabalho.
+   * Cache de prompt NÃO se aplica aqui: o texto de instrução tem ~150-200
+   * tokens, abaixo do mínimo cacheável (1024 no Sonnet 5, 4096 no Haiku
+   * 4.5) — implementar cache_control não geraria economia nenhuma hoje.
+   */
+  private static readonly EXTRACTION_MODEL = 'claude-haiku-4-5';
+
+  /**
+   * Domínios/padrões que, testados na prática, nunca retornam profissional
+   * específico (vídeo, rede social genérica, PDF de curso) — filtrados
+   * ANTES de gastar uma chamada de IA, não depois.
+   */
+  private static readonly SKIP_URL_PATTERNS = [
+    'youtube.com', 'youtu.be', 'tiktok.com', 'facebook.com/watch',
+    '.pdf', '/curso/', '/cursos/', 'reddit.com',
+  ];
 
   constructor(private readonly config: ConfigService) {
     this.serperApiKey = this.config.get<string>('SERPER_API_KEY');
@@ -57,11 +76,15 @@ export class GoogleSearchProvider {
     }
     const anthropicKey = this.config.get<string>('ANTHROPIC_API_KEY');
     this.aiClient = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
-    this.aiModel = this.config.get<string>('ANTHROPIC_MODEL', 'claude-sonnet-5');
   }
 
   isConfigured(): boolean {
     return Boolean(this.serperApiKey);
+  }
+
+  shouldSkip(url: string): boolean {
+    const lower = url.toLowerCase();
+    return GoogleSearchProvider.SKIP_URL_PATTERNS.some((p) => lower.includes(p));
   }
 
   /**
@@ -174,7 +197,7 @@ export class GoogleSearchProvider {
     let response;
     try {
       response = await this.aiClient.messages.create({
-        model: this.aiModel,
+        model: GoogleSearchProvider.EXTRACTION_MODEL,
         max_tokens: 1500,
         system:
           'Você extrai dados de contato PROFISSIONAL PÚBLICO de psicólogos a partir de uma página web, pro ' +
