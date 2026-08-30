@@ -2,32 +2,28 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Cria o cliente Anthropic roteado pelo Helicone (observabilidade de custo/
- * uso + cache de resposta) quando HELICONE_API_KEY está configurada —
- * mesma chave de API da Anthropic, só troca o destino da chamada. Sem a
- * chave do Helicone, chama a Anthropic direto, exatamente como antes:
- * opcional, nunca quebra nada.
+ * Cria o cliente Anthropic roteado pelo LiteLLM (proxy auto-hospedado no
+ * próprio VPS, /opt/litellm — ver README lá) quando LITELLM_PROXY_URL e
+ * LITELLM_MASTER_KEY estão configuradas. Sem elas, chama a Anthropic
+ * direto, exatamente como antes: opcional, nunca quebra nada.
  *
- * Cache habilitado por padrão (Helicone-Cache-Enabled) — chamada idêntica
- * (mesmo prompt) dentro de 7 dias devolve a resposta salva, sem gastar
- * crédito de novo. Faz sentido pro nosso caso (extrair dados de uma
- * página pública, qualificar um lead) porque o conteúdo raramente muda
- * de uma hora pra outra.
+ * Por que auto-hospedado em vez de um serviço tipo Helicone: cadastro
+ * grátis deles estava fechado no momento (2026-08-30) — LiteLLM roda local,
+ * sem depender de conta de terceiro. Modo "passthrough" (rota
+ * `/anthropic/v1/messages`, formato nativo intacto) — dá painel de custo/
+ * uso por modelo, mas cache NÃO se aplica nesse modo (só funciona no
+ * formato unificado deles, que exigiria reescrever as chamadas — avaliado
+ * e descartado por risco, ver commit da integração).
  *
- * Ver https://docs.helicone.ai/integrations/anthropic/javascript e
- * https://docs.helicone.ai/features/advanced-usage/caching.
+ * A chave enviada é a LITELLM_MASTER_KEY (vira o header `x-api-key` que o
+ * SDK já manda sozinho), não a ANTHROPIC_API_KEY real — essa fica só no
+ * .env do próprio proxy (/opt/litellm/.env), nunca trafega daqui.
  */
 export function createAnthropicClient(apiKey: string, config: ConfigService): Anthropic {
-  const heliconeKey = config.get<string>('HELICONE_API_KEY');
-  if (!heliconeKey) {
+  const proxyUrl = config.get<string>('LITELLM_PROXY_URL');
+  const proxyKey = config.get<string>('LITELLM_MASTER_KEY');
+  if (!proxyUrl || !proxyKey) {
     return new Anthropic({ apiKey });
   }
-  return new Anthropic({
-    apiKey,
-    baseURL: 'https://anthropic.helicone.ai',
-    defaultHeaders: {
-      'Helicone-Auth': `Bearer ${heliconeKey}`,
-      'Helicone-Cache-Enabled': 'true',
-    },
-  });
+  return new Anthropic({ apiKey: proxyKey, baseURL: proxyUrl });
 }
