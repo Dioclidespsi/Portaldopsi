@@ -263,9 +263,9 @@ export default function AdminProspeccaoPage() {
         </div>
         <p className="sub" style={{ fontSize: '0.8rem', margin: '0.4rem 0 0' }}>
           Define os critérios da busca. Depois de registrar, clique em &quot;Executar&quot; pra rodar a busca
-          (via Google Custom Search + extração por IA) — processa até 10 por vez, pra nunca travar nem gastar
-          cota à toa; clique de novo pra continuar até bater a quantidade desejada. Sem
-          GOOGLE_SEARCH_API_KEY/GOOGLE_SEARCH_ENGINE_ID configuradas no servidor, a execução fica indisponível.
+          (via Serper + extração por IA) — processa até 10 por vez, pra nunca travar nem gastar cota à toa;
+          clique de novo pra continuar até bater a quantidade desejada. Sem SERPER_API_KEY configurada no
+          servidor, a execução fica indisponível.
         </p>
 
         {showSearchForm && (

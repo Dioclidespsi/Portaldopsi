@@ -267,17 +267,39 @@ export class AdminProspectingService {
     let created = 0;
     let blocked = 0;
     let skipped = 0;
-    for (const result of results) {
-      if (req.resultCount + created >= req.quantity) break;
-      const candidate = await this.googleSearch.extractCandidate(result);
-      if (!candidate) { skipped++; continue; }
-      const outcome = await this.create({
-        ...candidate,
-        source: `Google Custom Search — pedido "${query}"`,
-        sourceUrl: result.link,
-      } as CreateProspectDto);
-      if (outcome.blocked) blocked++;
-      else if (!outcome.matchedExisting) created++;
+    let processed = 0; // quantos itens de `results` chegaram a ser totalmente processados
+    try {
+      for (const result of results) {
+        if (req.resultCount + created >= req.quantity) break;
+        // Uma página pode listar vários profissionais (diretório) — ver GoogleSearchProvider.extractCandidates.
+        const candidates = await this.googleSearch.extractCandidates(result);
+        if (candidates.length === 0) { skipped++; processed++; continue; }
+        for (const candidate of candidates) {
+          if (req.resultCount + created >= req.quantity) break;
+          const outcome = await this.create({
+            ...candidate,
+            source: `Serper — pedido "${query}"`,
+            sourceUrl: result.link,
+          } as CreateProspectDto);
+          if (outcome.blocked) blocked++;
+          else if (!outcome.matchedExisting) created++;
+        }
+        processed++;
+      }
+    } catch (err) {
+      // Falha real (ex: IA sem crédito) no meio do lote — salva o progresso PARCIAL já
+      // feito até aqui (create() já persistiu no banco) em vez de descartar, mas nunca
+      // marca como "concluída": o admin vê o erro de verdade e pode tentar de novo.
+      await this.prisma.prospectSearchRequest.update({
+        where: { id },
+        data: {
+          resultCount: req.resultCount + created,
+          offset: req.offset + processed,
+          status: 'EM_ANDAMENTO',
+          notes: `Lote interrompido por erro: ${created} novo(s) antes de falhar. ${(err as Error).message}`,
+        },
+      });
+      throw err;
     }
 
     const newResultCount = req.resultCount + created;
@@ -291,7 +313,7 @@ export class AdminProspectingService {
         offset: newOffset,
         status: done ? 'CONCLUIDA' : 'EM_ANDAMENTO',
         completedAt: done ? new Date() : null,
-        notes: `Último lote: ${created} novo(s), ${blocked} bloqueado(s), ${skipped} sem dado suficiente.`,
+        notes: `Último lote: ${created} novo(s), ${blocked} bloqueado(s), ${skipped} página(s) sem profissional identificável.`,
       },
     });
   }
