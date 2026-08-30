@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import { AiChatTurn, AiUsage, askAiAssistant, getAiUsage } from '../../../lib/api';
 
 export default function AssistentePage() {
@@ -44,14 +44,7 @@ export default function AssistentePage() {
   const limitReached = usage ? usage.used >= usage.limit : false;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Assistente IA</h2>
-      <p className="sub">
-        Dúvidas gerais de uso da plataforma, organização de agenda e gestão de clínica — sem acesso
-        a dado de paciente. Este chat lembra as mensagens anteriores da conversa atual.
-      </p>
-
+    <DashboardShell title={"Assistente IA"} description={"Dúvidas gerais de uso da plataforma, organização de agenda e gestão de clínica — sem acesso a dado de paciente. Este chat lembra as mensagens anteriores da conversa atual."}>
       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <Link
           href="/dashboard"
@@ -117,6 +110,6 @@ export default function AssistentePage() {
         <button type="submit" disabled={loading || limitReached}>{loading ? '…' : 'Perguntar'}</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AdminNav from '../../../../components/AdminNav';
+import AdminShell from '../../../../components/AdminShell';
 import AdminWhatsAppButton from '../../../../components/AdminWhatsAppButton';
 import AdminEmailButton from '../../../../components/AdminEmailButton';
 import AdminInstagramButton from '../../../../components/AdminInstagramButton';
@@ -162,21 +162,17 @@ export default function ProspectDetailPage() {
   if (loading) return <div className="shell">Carregando…</div>;
   if (!prospect) return <div className="shell">Profissional não encontrado.</div>;
 
-  return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <Link href="/admin/prospeccao" style={{ fontSize: '0.85rem' }}>← Voltar pra lista</Link>
+  const location = [prospect.city, prospect.state].filter(Boolean).join('/') || 'Localização não informada';
+  const description = `${location}${prospect.crp ? ` · CRP ${prospect.crp}` : ''}`;
 
-      <h2 style={{ fontSize: '1.1rem', marginTop: '0.6rem' }}>{prospect.fullName}</h2>
-      <p className="sub">
-        {[prospect.city, prospect.state].filter(Boolean).join('/') || 'Localização não informada'}
-        {prospect.crp ? ` · CRP ${prospect.crp}` : ''}
-      </p>
+  return (
+    <AdminShell title={prospect.fullName} description={description}>
+      <Link href="/admin/prospeccao" style={{ fontSize: '0.85rem' }}>← Voltar pra lista</Link>
 
       {error && <span className="error">{error}</span>}
 
       {/* OPORTUNIDADE */}
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
           <p style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700 }}>
             Score: {prospect.score ?? '—'}/100
@@ -197,7 +193,7 @@ export default function ProspectDetailPage() {
       </div>
 
       {/* ANÁLISE DA IA */}
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <p style={{ margin: 0, fontWeight: 700 }}>Análise da IA</p>
           <button onClick={onQualify} disabled={busy} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
@@ -216,7 +212,7 @@ export default function ProspectDetailPage() {
       </div>
 
       {/* CONTATOS PÚBLICOS */}
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <p style={{ margin: '0 0 0.6rem', fontWeight: 700 }}>Contatos públicos e ações</p>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           {prospect.whatsapp && (
@@ -242,7 +238,7 @@ export default function ProspectDetailPage() {
       </div>
 
       {/* ATUAÇÃO */}
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <p style={{ margin: '0 0 0.4rem', fontWeight: 700 }}>Atuação profissional</p>
         <p className="sub" style={{ margin: 0 }}>Especialidades: {prospect.specialties ?? '—'}</p>
         <p className="sub" style={{ margin: 0 }}>Abordagens: {prospect.approaches ?? '—'}</p>
@@ -252,7 +248,7 @@ export default function ProspectDetailPage() {
       </div>
 
       {/* FUNIL / ESTÁGIO */}
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--ink-soft)' }}>
           Estágio no funil
           <select value={prospect.stage} onChange={(e) => onStageChange(e.target.value)} disabled={busy}>
@@ -264,7 +260,7 @@ export default function ProspectDetailPage() {
       </div>
 
       {/* CRM / HISTÓRICO */}
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <p style={{ margin: '0 0 0.6rem', fontWeight: 700 }}>Histórico</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.8rem' }}>
           {(prospect.activities ?? []).map((a) => (
@@ -296,6 +292,6 @@ export default function ProspectDetailPage() {
           Bloquear permanentemente
         </button>
       </div>
-    </div>
+    </AdminShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import AdminWhatsAppButton from '../../../components/AdminWhatsAppButton';
 import {
   approveStudentVerification,
@@ -69,14 +69,7 @@ export default function AdminEstudantesPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Verificação de matrícula (estudantes de psicologia)</h2>
-      <p className="sub">
-        Fila de compras de curso avulso que a IA não conseguiu aprovar automaticamente (documento em PDF, dado
-        inconsistente ou indisponibilidade da IA) — revisão manual antes de liberar o acesso ao curso pago.
-      </p>
-
+    <AdminShell title={"Verificação de matrícula (estudantes de psicologia)"} description={"Fila de compras de curso avulso que a IA não conseguiu aprovar automaticamente (documento em PDF, dado inconsistente ou indisponibilidade da IA) — revisão manual antes de liberar o acesso ao curso pago."}>
       <table style={{ marginTop: '1rem' }}>
         <thead>
           <tr><th>Nome</th><th>Instituição</th><th>Matrícula</th><th>Nota da IA</th><th>Documento</th><th>Ação</th></tr>
@@ -125,6 +118,6 @@ export default function AdminEstudantesPage() {
         </form>
       )}
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

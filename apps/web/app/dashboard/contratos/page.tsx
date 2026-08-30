@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   acceptDocumentTemplate,
   DocumentTemplate,
@@ -56,10 +56,7 @@ export default function ContratosPage() {
   const otherTemplates = templates.filter((t) => !pending.some((p) => p.id === t.id));
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Contratos</h2>
-      <p className="sub">Termos de serviço da plataforma e modelos de contrato incluídos na sua assinatura.</p>
+    <DashboardShell title={"Contratos"} description={"Termos de serviço da plataforma e modelos de contrato incluídos na sua assinatura."}>
       {error && <span className="error">{error}</span>}
 
       {pending.length > 0 && (
@@ -111,6 +108,6 @@ export default function ContratosPage() {
         ))}
         {otherTemplates.length === 0 && <p className="sub">Nenhum outro modelo disponível ainda.</p>}
       </div>
-    </div>
+    </DashboardShell>
   );
 }

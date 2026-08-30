@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import AdminWhatsAppButton from '../../../components/AdminWhatsAppButton';
 import {
   approveSupervisor,
@@ -59,15 +59,7 @@ export default function AdminSupervisorsPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Aprovação de supervisores</h2>
-      <p className="sub">
-        Fila de usuários cadastrados como SUPERVISOR por uma clínica assinante e que aguardam autorização da
-        plataforma para poder atuar como supervisor (CRP já é verificado no cadastro do assinante, não é checado
-        de novo aqui).
-      </p>
-
+    <AdminShell title={"Aprovação de supervisores"} description={"Fila de usuários cadastrados como SUPERVISOR por uma clínica assinante e que aguardam autorização da plataforma para poder atuar como supervisor (CRP já é verificado no cadastro do assinante, não é checado de novo aqui)."}>
       <table style={{ marginTop: '1rem' }}>
         <thead>
           <tr><th>Nome</th><th>E-mail</th><th>Clínica</th><th>Ação</th></tr>
@@ -110,6 +102,6 @@ export default function AdminSupervisorsPage() {
         </form>
       )}
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

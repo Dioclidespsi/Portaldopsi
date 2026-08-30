@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import AdminWhatsAppButton from '../../../components/AdminWhatsAppButton';
 import {
   AdminCampaignLead,
@@ -165,15 +165,7 @@ export default function AdminProgramaPilotoPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Programa Piloto</h2>
-      <p className="sub">
-        Interessados captados em /programa-piloto. Depois que a pessoa se cadastrar de verdade em /signup, busque
-        pelo nome ou identificador (slug) do tenant dela aqui pra conceder 3 meses de acesso sem cobrança. O Índice
-        de Ativação mostra quem está realmente usando o produto, não só quem se cadastrou.
-      </p>
-
+    <AdminShell title={"Programa Piloto"} description={"Interessados captados em /programa-piloto. Depois que a pessoa se cadastrar de verdade em /signup, busque pelo nome ou identificador (slug) do tenant dela aqui pra conceder 3 meses de acesso sem cobrança. O Índice de Ativação mostra quem está realmente usando o produto, não só quem se cadastrou."}>
       {error && <span className="error">{error}</span>}
 
       {leads.map((lead) => (
@@ -243,6 +235,6 @@ export default function AdminProgramaPilotoPage() {
         </div>
       ))}
       {leads.length === 0 && <p className="sub" style={{ marginTop: '1rem' }}>Nenhum interessado ainda.</p>}
-    </div>
+    </AdminShell>
   );
 }

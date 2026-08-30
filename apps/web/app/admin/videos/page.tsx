@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   approvePresentationVideo,
   getAdminToken,
@@ -59,14 +59,7 @@ export default function AdminVideosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Vídeos de apresentação</h2>
-      <p className="sub">
-        Só o admin da plataforma publica um vídeo de apresentação — assista antes de aprovar, pra evitar conteúdo que
-        viole o código de ética do CRP. Os vídeos ficam hospedados no YouTube do próprio profissional (não listados).
-      </p>
-
+    <AdminShell title={"Vídeos de apresentação"} description={"Só o admin da plataforma publica um vídeo de apresentação — assista antes de aprovar, pra evitar conteúdo que viole o código de ética do CRP. Os vídeos ficam hospedados no YouTube do próprio profissional (não listados)."}>
       {error && <span className="error">{error}</span>}
 
       {pending.map((t) => {
@@ -122,6 +115,6 @@ export default function AdminVideosPage() {
         );
       })}
       {pending.length === 0 && <p className="sub" style={{ marginTop: '1rem' }}>Nenhum vídeo aguardando revisão.</p>}
-    </div>
+    </AdminShell>
   );
 }

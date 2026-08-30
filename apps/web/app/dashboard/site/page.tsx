@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   createSiteProfileBlock,
   deleteSiteProfileBlock,
@@ -269,14 +269,7 @@ export default function SiteProfissionalPage() {
   }
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Site profissional</h2>
-      <p className="sub">
-        Página pública em <Link href={`/${profile.slug}`} target="_blank">portaldopsi.com.br/{profile.slug}</Link>
-        {!profile.published && ' — ainda não publicada.'}
-      </p>
-
+    <DashboardShell title={"Site profissional"} description={"Página pública em <Link href={`/${profile.slug}`} target=\"_blank\">portaldopsi.com.br/{profile.slug}</Link> {!profile.published && ' — ainda não publicada.'}"}>
       <form onSubmit={onSave}>
         <h3 style={{ fontSize: '0.95rem', margin: '1.2rem 0 0.8rem', borderTop: '1px solid var(--line)', paddingTop: '1.2rem' }}>
           Sobre o psicólogo
@@ -659,6 +652,6 @@ export default function SiteProfissionalPage() {
         </div>
       ))}
       {comments.length === 0 && <p className="sub">Nenhum comentário ainda.</p>}
-    </div>
+    </DashboardShell>
   );
 }

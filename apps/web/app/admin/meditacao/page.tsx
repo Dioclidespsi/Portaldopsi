@@ -2,7 +2,7 @@
 
 import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminMeditationTrack,
   createMeditationTrack,
@@ -81,11 +81,7 @@ export default function AdminMeditationPage() {
   }, {});
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Trilhas de meditação</h2>
-      <p className="sub">Áudios guiados disponíveis pra qualquer paciente, no aplicativo do paciente.</p>
-
+    <AdminShell title={"Trilhas de meditação"} description={"Áudios guiados disponíveis pra qualquer paciente, no aplicativo do paciente."}>
       {Object.entries(byCategory).map(([cat, items]) => (
         <div key={cat} style={{ marginTop: '1.2rem' }}>
           <h3 style={{ fontSize: '0.92rem' }}>{cat}</h3>
@@ -144,6 +140,6 @@ export default function AdminMeditationPage() {
         <button type="submit">Enviar trilha</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

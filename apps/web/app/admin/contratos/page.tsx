@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminDocumentAcceptance,
   AdminDocumentTemplate,
@@ -85,15 +85,7 @@ export default function AdminContratosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Contratos</h2>
-      <p className="sub">
-        Modelos de documento/contrato — escolha o público certo: "Psicólogo/clínica" bloqueia o uso das ferramentas
-        clínicas até aceitar (ver gate de acesso); "Aluno (Loja)" é exigido no momento da compra de um curso. Marque
-        "Exige aceite" para termos que precisam de consentimento obrigatório.
-      </p>
-
+    <AdminShell title={"Contratos"} description={"Modelos de documento/contrato — escolha o público certo: \"Psicólogo/clínica\" bloqueia o uso das ferramentas clínicas até aceitar (ver gate de acesso); \"Aluno (Loja)\" é exigido no momento da compra de um curso. Marque \"Exige aceite\" para termos que precisam de consentimento obrigatório."}>
       <table style={{ marginTop: '1rem' }}>
         <thead><tr><th>Título</th><th>Público</th><th>Descrição</th><th>Exige aceite?</th><th>Ação</th></tr></thead>
         <tbody>
@@ -166,6 +158,6 @@ export default function AdminContratosPage() {
         <button type="submit">Enviar modelo</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

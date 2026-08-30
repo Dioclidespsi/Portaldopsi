@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import AdminWhatsAppButton from '../../../components/AdminWhatsAppButton';
 import { AdminTenantOverview, AdminUsersOverview, getAdminToken, getUsersOverview } from '../../../lib/admin-api';
 import { ADMIN_VERIFICATION_TEMPLATES } from '../../../lib/whatsapp';
@@ -89,13 +89,7 @@ export default function AdminUsuariosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Usuários</h2>
-      <p className="sub">
-        Quantos psicólogos(as)/clínicas estão cadastrados, em que condição (CRP e plano) e o que já usaram de fato —
-        não só quem se cadastrou.
-      </p>
+    <AdminShell title={"Usuários"} description={"Quantos psicólogos(as)/clínicas estão cadastrados, em que condição (CRP e plano) e o que já usaram de fato — não só quem se cadastrou."}>
       {error && <span className="error">{error}</span>}
 
       {data && (
@@ -177,6 +171,6 @@ export default function AdminUsuariosPage() {
           </table>
         </>
       )}
-    </div>
+    </AdminShell>
   );
 }

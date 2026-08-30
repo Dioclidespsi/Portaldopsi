@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   createSupervisionSession,
   createSupervisionTeleconsultaRoom,
@@ -144,11 +144,7 @@ export default function SupervisaoPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Supervisão</h2>
-      <p className="sub">Agenda e registro de sessões entre você e um supervisor cadastrado nesta clínica.</p>
-
+    <DashboardShell title={"Supervisão"} description={"Agenda e registro de sessões entre você e um supervisor cadastrado nesta clínica."}>
       <table>
         <thead><tr><th>Supervisor</th><th>Início</th><th>Fim</th><th>Status</th><th>Videochamada</th></tr></thead>
         <tbody>
@@ -249,6 +245,6 @@ export default function SupervisaoPage() {
           </form>
         </div>
       )}
-    </div>
+    </DashboardShell>
   );
 }

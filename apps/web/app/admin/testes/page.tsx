@@ -2,7 +2,7 @@
 
 import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminTestQuestionInput,
   AdminTestTemplate,
@@ -135,14 +135,7 @@ export default function AdminTestsPage() {
   }, {});
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Testes e escalas</h2>
-      <p className="sub">
-        Catálogo compartilhado entre todas as clínicas — o psicólogo só disponibiliza pro paciente, nunca edita o
-        conteúdo. Perguntas objetivas usam a escala de resposta abaixo; subjetivas são texto livre, sem pontuação.
-      </p>
-
+    <AdminShell title={"Testes e escalas"} description={"Catálogo compartilhado entre todas as clínicas — o psicólogo só disponibiliza pro paciente, nunca edita o conteúdo. Perguntas objetivas usam a escala de resposta abaixo; subjetivas são texto livre, sem pontuação."}>
       {Object.entries(byCategory).map(([cat, items]) => (
         <div key={cat} style={{ marginTop: '1.2rem' }}>
           <h3 style={{ fontSize: '0.92rem' }}>{cat}</h3>
@@ -487,6 +480,6 @@ export default function AdminTestsPage() {
         </div>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

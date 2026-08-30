@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   AccountInfo,
   changeAccountEmail,
@@ -136,13 +136,7 @@ export default function ContaPage() {
   if (loading || !account) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Minha conta</h2>
-      <p className="sub">
-        {account.name} — {isTitular ? 'titular de' : 'membro de'} {account.tenantName}
-      </p>
-
+    <DashboardShell title={"Minha conta"} description={"{account.name} — {isTitular ? 'titular de' : 'membro de'} {account.tenantName}"}>
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.2rem' }}>E-mail de login</h3>
       <form onSubmit={onChangeEmail}>
         <label>
@@ -228,6 +222,6 @@ export default function ContaPage() {
           </form>
         </>
       )}
-    </div>
+    </DashboardShell>
   );
 }

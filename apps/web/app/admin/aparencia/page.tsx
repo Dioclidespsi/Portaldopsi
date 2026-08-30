@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import { getAdminToken, getPlatformSettings, updatePlatformSettings } from '../../../lib/admin-api';
 import { SITE_PALETTES } from '../../../lib/site-palettes';
 
@@ -70,14 +70,7 @@ export default function AdminAparenciaPage() {
   const preview = SITE_PALETTES[colorPalette] ?? SITE_PALETTES.salvia;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Aparência do site</h2>
-      <p className="sub">
-        Paleta de cores da plataforma em si (home pública, telas de login, loja de cursos) — diferente da paleta que
-        cada psicólogo escolhe pra própria página em Site profissional.
-      </p>
-
+    <AdminShell title={"Aparência do site"} description={"Paleta de cores da plataforma em si (home pública, telas de login, loja de cursos) — diferente da paleta que cada psicólogo escolhe pra própria página em Site profissional."}>
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '420px' }}>
         <label>
           Paleta de cores
@@ -132,6 +125,6 @@ export default function AdminAparenciaPage() {
       </form>
       {saved && <span style={{ color: 'var(--accent)', fontSize: '0.85rem' }}>Salvo — pode levar até um minuto pra refletir no site.</span>}
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

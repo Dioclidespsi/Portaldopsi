@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import DashboardNav from '../../../../components/DashboardNav';
+import DashboardShell from '../../../../components/DashboardShell';
 import WhatsAppButton from '../../../../components/WhatsAppButton';
 import {
   addProntuarioEntry,
@@ -317,14 +317,16 @@ export default function PatientDetailPage() {
   if (loading) return <div className="shell">Carregando…</div>;
   if (!patient) return null;
 
+  const patientTitle = `${patient.name}${patient.socialName ? ` (${patient.socialName})` : ''}`;
+  const patientDescription = `${patient.email ?? '—'} · ${patient.phone ?? '—'}`;
+
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
-        <h2 style={{ fontSize: '1.05rem', margin: 0 }}>{patient.name}{patient.socialName && ` (${patient.socialName})`}</h2>
-        {patient.phone && <WhatsAppButton name={patient.socialName || patient.name} phone={patient.phone} />}
-      </div>
-      <p className="sub">{patient.email ?? '—'} · {patient.phone ?? '—'}</p>
+    <DashboardShell title={patientTitle} description={patientDescription}>
+      {patient.phone && (
+        <div style={{ marginBottom: '0.6rem' }}>
+          <WhatsAppButton name={patient.socialName || patient.name} phone={patient.phone} />
+        </div>
+      )}
       {error && <span className="error">{error}</span>}
 
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.2rem' }}>🔒 Anotações privadas (só você vê)</h3>
@@ -586,6 +588,6 @@ export default function PatientDetailPage() {
           </form>
         </>
       )}
-    </div>
+    </DashboardShell>
   );
 }

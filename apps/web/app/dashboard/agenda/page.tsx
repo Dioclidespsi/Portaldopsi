@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import AgendaCalendar from '../../../components/AgendaCalendar';
 import {
   Appointment,
@@ -237,10 +237,8 @@ export default function AgendaPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
-        <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Agenda</h2>
+    <DashboardShell title="Agenda">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '0.6rem' }}>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
           <button
             type="button"
@@ -544,6 +542,6 @@ export default function AgendaPage() {
           )}
         </tbody>
       </table>
-    </div>
+    </DashboardShell>
   );
 }

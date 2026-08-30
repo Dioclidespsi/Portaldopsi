@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import { getAdminToken } from '../../../lib/admin-api';
 import {
   createProspect,
@@ -57,7 +57,7 @@ function priorityLabel(score: number | null): { label: string; color: string } {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="callout-box" style={{ flex: '1 1 140px', textAlign: 'center' }}>
+    <div className="card" style={{ flex: '1 1 140px', textAlign: 'center' }}>
       <p style={{ margin: '0 0 0.2rem', fontSize: '1.4rem', fontWeight: 700, color: 'var(--ink)' }}>{value}</p>
       <p className="sub" style={{ margin: 0, fontSize: '0.78rem' }}>{label}</p>
     </div>
@@ -231,15 +231,10 @@ export default function AdminProspeccaoPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Prospecção Inteligente de Profissionais</h2>
-      <p className="sub">
-        Máquina de descoberta e qualificação — não é uma lista de contatos, é a priorização de quem abordar
-        primeiro. Nenhum contato é feito automaticamente: cada ação de comunicação é aberta manualmente por
-        você, na página de detalhe de cada profissional.
-      </p>
-
+    <AdminShell
+      title="Prospecção Inteligente de Profissionais"
+      description="Máquina de descoberta e qualificação — não é uma lista de contatos, é a priorização de quem abordar primeiro. Nenhum contato é feito automaticamente: cada ação de comunicação é aberta manualmente por você, na página de detalhe de cada profissional."
+    >
       {error && <span className="error">{error}</span>}
       {info && <p className="sub" style={{ background: 'rgba(47,111,98,0.08)', padding: '0.6rem 0.8rem', borderRadius: '8px' }}>{info}</p>}
 
@@ -254,7 +249,7 @@ export default function AdminProspeccaoPage() {
       )}
 
       {/* NOVA PESQUISA */}
-      <div className="callout-box" style={{ marginBottom: '1rem' }}>
+      <div className="card" style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
           <p style={{ margin: 0, fontWeight: 700 }}>Nova pesquisa</p>
           <button type="button" onClick={() => setShowSearchForm((v) => !v)}>
@@ -339,7 +334,7 @@ export default function AdminProspeccaoPage() {
       </form>
 
       {showForm && (
-        <form onSubmit={onCreate} className="callout-box" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
+        <form onSubmit={onCreate} className="card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
           <input required placeholder="Nome completo *" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} />
           <input placeholder="Cidade" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
           <input placeholder="Estado (UF)" value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} />
@@ -396,6 +391,6 @@ export default function AdminProspeccaoPage() {
         </tbody>
       </table>
       {items.length === 0 && <p className="sub" style={{ marginTop: '1rem' }}>Nenhum profissional encontrado com esses filtros.</p>}
-    </div>
+    </AdminShell>
   );
 }

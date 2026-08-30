@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   Appointment,
   chargeInvoiceViaAsaas,
@@ -218,26 +218,22 @@ export default function FinanceiroPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Financeiro</h2>
-      <p className="sub">Lançamento manual sempre disponível; cobrança real (Pix/boleto/cartão) via Asaas quando a sub-conta abaixo estiver conectada.</p>
-
+    <DashboardShell title={"Financeiro"} description={"Lançamento manual sempre disponível; cobrança real (Pix/boleto/cartão) via Asaas quando a sub-conta abaixo estiver conectada."}>
       {summary && (
         <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', margin: '0.8rem 0 1.2rem' }}>
-          <div className="callout-box" style={{ flex: 1, minWidth: '160px' }}>
+          <div className="card" style={{ flex: 1, minWidth: '160px' }}>
             <span className="sub" style={{ margin: 0 }}>Recebido no mês</span>
             <p style={{ margin: '0.2rem 0 0', fontSize: '1.15rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
               {centsToReais(summary.receivedThisMonthCents)}
             </p>
           </div>
-          <div className="callout-box" style={{ flex: 1, minWidth: '160px' }}>
+          <div className="card" style={{ flex: 1, minWidth: '160px' }}>
             <span className="sub" style={{ margin: 0 }}>Pendente</span>
             <p style={{ margin: '0.2rem 0 0', fontSize: '1.15rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
               {centsToReais(summary.pendingCents)}
             </p>
           </div>
-          <div className="callout-box" style={{ flex: 1, minWidth: '160px' }}>
+          <div className="card" style={{ flex: 1, minWidth: '160px' }}>
             <span className="sub" style={{ margin: 0 }}>Atrasado</span>
             <p style={{ margin: '0.2rem 0 0', fontSize: '1.15rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#ef4444' }}>
               {centsToReais(summary.overdueCents)}
@@ -440,6 +436,6 @@ export default function FinanceiroPage() {
         </form>
       )}
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

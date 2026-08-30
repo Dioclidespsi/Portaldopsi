@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../components/AdminNav';
+import AdminShell from '../../components/AdminShell';
 import AdminWhatsAppButton from '../../components/AdminWhatsAppButton';
 import { approveCrp, downloadCrpDocument, getAdminToken, listPendingCrp, PendingCrp, rejectCrp } from '../../lib/admin-api';
 import { ADMIN_VERIFICATION_TEMPLATES } from '../../lib/whatsapp';
@@ -62,11 +62,7 @@ export default function AdminCrpPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Verificação de CRP</h2>
-      <p className="sub">Fila de psicólogos que enviaram documento e aguardam aprovação manual.</p>
-
+    <AdminShell title={"Verificação de CRP"} description={"Fila de psicólogos que enviaram documento e aguardam aprovação manual."}>
       <table style={{ marginTop: '1rem' }}>
         <thead>
           <tr><th>Nome</th><th>Clínica</th><th>CRP</th><th>Documento</th><th>Ação</th></tr>
@@ -114,6 +110,6 @@ export default function AdminCrpPage() {
         </form>
       )}
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

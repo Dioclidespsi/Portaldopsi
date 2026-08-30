@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminCourse,
   AdminCourseLesson,
@@ -410,14 +410,7 @@ export default function AdminCursosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Cursos</h2>
-      <p className="sub">
-        Cadastro no molde de plataforma comercial: curso → módulo → aula (+ aulas extras), vídeo do YouTube, material de
-        apoio pra baixar e quiz objetivo por aula. Assinante da plataforma tem acesso incluso; quem compra avulso paga o preço aqui.
-      </p>
-
+    <AdminShell title={"Cursos"} description={"Cadastro no molde de plataforma comercial: curso → módulo → aula (+ aulas extras), vídeo do YouTube, material de apoio pra baixar e quiz objetivo por aula. Assinante da plataforma tem acesso incluso; quem compra avulso paga o preço aqui."}>
       <table style={{ marginTop: '1rem' }}>
         <thead><tr><th>Título</th><th>Público</th><th>Preço</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>
@@ -502,6 +495,6 @@ export default function AdminCursosPage() {
         <button type="submit">Cadastrar curso</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createPatient, fetchMe, getTenantKind, listPatients, Me, Patient, setPatientActive, submitCrp } from '../../lib/api';
 import { isValidEmail, maskCpfCnpj, maskPhone } from '../../lib/masks';
-import DashboardNav from '../../components/DashboardNav';
+import DashboardShell from '../../components/DashboardShell';
 import WhatsAppButton from '../../components/WhatsAppButton';
 
 const CRP_STATUS_LABEL: Record<string, string> = {
@@ -118,9 +118,7 @@ export default function DashboardPage() {
   if (!me) return null;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <p className="sub">Olá, {me.name} · {me.role}</p>
+    <DashboardShell title="Pacientes" description={`Olá, ${me.name} · ${me.role}`}>
 
       {me.role === 'PSICOLOGO_TITULAR' && me.crpStatus !== 'VERIFICADO' && (
         <div className="callout-box" style={{ marginBottom: '1.2rem' }}>
@@ -293,6 +291,6 @@ export default function DashboardPage() {
         <button type="submit">Adicionar</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

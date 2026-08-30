@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminProntuarioPatient,
   AdminProntuarioPatientDetail,
@@ -74,16 +74,7 @@ export default function AdminProntuariosPage() {
   }
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Prontuários (exigência do CRP)</h2>
-      <p className="sub">
-        Acesso administrativo ao prontuário completo de qualquer paciente, de qualquer clínica — para os casos em
-        que a Resolução CFP nº 06/2019 exige que a plataforma forneça o prontuário (psicólogo saiu da plataforma,
-        cometeu alguma irregularidade, ou o próprio paciente pede a qualquer tempo). O PDF exportado é só leitura,
-        sem possibilidade de edição, e nunca inclui as anotações privadas do psicólogo.
-      </p>
-
+    <AdminShell title={"Prontuários (exigência do CRP)"} description={"Acesso administrativo ao prontuário completo de qualquer paciente, de qualquer clínica — para os casos em que a Resolução CFP nº 06/2019 exige que a plataforma forneça o prontuário (psicólogo saiu da plataforma, cometeu alguma irregularidade, ou o próprio paciente pede a qualquer tempo). O PDF exportado é só leitura, sem possibilidade de edição, e nunca inclui as anotações privadas do psicólogo."}>
       <form onSubmit={onSearch} style={{ marginTop: '1rem', flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <label style={{ flex: 1, minWidth: '220px' }}>
           Slug da clínica
@@ -149,6 +140,6 @@ export default function AdminProntuariosPage() {
           {selected.entries.length === 0 && <p className="sub">Nenhuma entrada de prontuário registrada.</p>}
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   applyTestLive,
   assignTest,
@@ -194,23 +194,19 @@ export default function TestesPage() {
 
   if (patients.length === 0) {
     return (
-      <div className="shell shell-wide">
-        <DashboardNav />
+      <DashboardShell title="Aplicação de testes">
         <p className="sub">Cadastre um paciente ativo primeiro para disponibilizar um teste.</p>
-      </div>
+      </DashboardShell>
     );
   }
 
   const selectedTemplate = catalog.find((t) => t.id === testTemplateId);
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Aplicação de testes</h2>
-      <p className="sub">
-        Disponibilize um teste do catálogo pro paciente responder na área dele. Ele responde uma única vez — a
-        correção e a decisão de como comunicar o resultado acontecem aqui, nunca automaticamente pro paciente.
-      </p>
+    <DashboardShell
+      title="Aplicação de testes"
+      description="Disponibilize um teste do catálogo pro paciente responder na área dele. Ele responde uma única vez — a correção e a decisão de como comunicar o resultado acontecem aqui, nunca automaticamente pro paciente."
+    >
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <label style={{ flex: 1, minWidth: '200px' }}>
@@ -458,6 +454,6 @@ export default function TestesPage() {
         );
       })()}
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

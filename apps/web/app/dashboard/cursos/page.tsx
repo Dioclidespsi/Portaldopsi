@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   CourseLessonView,
   CourseView,
@@ -278,9 +278,7 @@ export default function CursosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Cursos</h2>
+    <DashboardShell title={"Cursos"}>
       {error && <span className="error">{error}</span>}
 
       {courses.map((course) => (
@@ -309,6 +307,6 @@ export default function CursosPage() {
         </div>
       ))}
       {courses.length === 0 && <p className="sub">Nenhum curso disponível ainda.</p>}
-    </div>
+    </DashboardShell>
   );
 }

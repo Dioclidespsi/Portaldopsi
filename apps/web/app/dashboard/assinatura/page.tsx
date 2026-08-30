@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import PaymentBadges from '../../../components/PaymentBadges';
 import {
   createAsaasCheckout,
@@ -96,20 +96,7 @@ export default function AssinaturaPage() {
   }
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Assinatura</h2>
-      <p className="sub">
-        Status atual: <strong>{STATUS_LABEL[status]}</strong>
-        {subscription?.currentPeriodEnd && (
-          <>
-            {' '}· {status === 'TRIALING' ? 'período de teste termina em' : 'renova em'}{' '}
-            {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-            {daysRemaining !== null && (daysRemaining >= 0 ? ` (${daysRemaining} dia${daysRemaining === 1 ? '' : 's'})` : ' (vencido)')}
-          </>
-        )}
-      </p>
-
+    <DashboardShell title={"Assinatura"} description={"Status atual: <strong>{STATUS_LABEL[status]}</strong> {subscription?.currentPeriodEnd && ( <> {' '}· {status === 'TRIALING' ? 'período de teste termina em' : 'renova em'}{' '} {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} {daysRemaining !== null && (daysRemaining >= 0 ? ` (${daysRemaining} dia${daysRemaining === 1 ? '' : 's'})` : ' (vencido)')} </> )}"}>
       {status !== 'ACTIVE' && subscription?.hasAsaas && (
         <div className="callout-box" style={{ marginTop: '0.8rem' }}>
           {paymentLink ? (
@@ -217,6 +204,6 @@ export default function AssinaturaPage() {
 
       {info && <div className="callout-box" style={{ marginTop: '1rem' }}>{info}</div>}
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

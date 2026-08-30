@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminIssuedCertificate,
   CertificateTemplatePositions,
@@ -102,15 +102,7 @@ export default function AdminCertificatesPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Modelo de certificado</h2>
-      <p className="sub">
-        Envie a imagem de fundo do certificado (um modelo único, usado para todos os cursos) e ajuste onde nome do
-        aluno, curso, data e código de verificação aparecem. O preenchimento e a emissão são automáticos assim que o
-        aluno conclui um curso — certificados já emitidos não são refeitos se você mudar o modelo depois.
-      </p>
-
+    <AdminShell title={"Modelo de certificado"} description={"Envie a imagem de fundo do certificado (um modelo único, usado para todos os cursos) e ajuste onde nome do aluno, curso, data e código de verificação aparecem. O preenchimento e a emissão são automáticos assim que o aluno conclui um curso — certificados já emitidos não são refeitos se você mudar o modelo depois."}>
       <form onSubmit={onSave}>
         <label style={{ maxWidth: '360px' }}>
           {hasTemplate ? 'Substituir imagem do modelo (opcional)' : 'Imagem do modelo'}
@@ -175,6 +167,6 @@ export default function AdminCertificatesPage() {
           {issued.length === 0 && <tr><td colSpan={5} style={{ color: 'var(--ink-soft)' }}>Nenhum certificado emitido ainda.</td></tr>}
         </tbody>
       </table>
-    </div>
+    </AdminShell>
   );
 }

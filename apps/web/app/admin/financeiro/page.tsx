@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import { AdminRevenueSummary, getAdminToken, getRevenueSummary } from '../../../lib/admin-api';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -46,14 +46,7 @@ export default function AdminFinanceiroPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Financeiro da plataforma</h2>
-      <p className="sub">
-        Três fontes de receita, com naturezas diferentes: MRR é uma projeção mensal a partir das assinaturas ativas
-        agora; os totais de taxa retida e Loja são acumulados históricos (desde o início), não de um período fixo.
-      </p>
-
+    <AdminShell title={"Financeiro da plataforma"} description={"Três fontes de receita, com naturezas diferentes: MRR é uma projeção mensal a partir das assinaturas ativas agora; os totais de taxa retida e Loja são acumulados históricos (desde o início), não de um período fixo."}>
       {error && <span className="error">{error}</span>}
 
       {data && (
@@ -103,6 +96,6 @@ export default function AdminFinanceiroPage() {
           </div>
         </>
       )}
-    </div>
+    </AdminShell>
   );
 }

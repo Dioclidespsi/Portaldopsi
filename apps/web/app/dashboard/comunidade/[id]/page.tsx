@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import DashboardNav from '../../../../components/DashboardNav';
+import DashboardShell from '../../../../components/DashboardShell';
 import {
   CommunityPostDetail,
   getCommunityPost,
@@ -86,9 +86,7 @@ export default function ComunidadePostPage() {
   if (!post) return null;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-
+    <DashboardShell title="Comunidade" description={post.title}>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '10px', padding: '1.1rem', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0.7rem' }}>
           <Avatar name={post.authorName} size={42} />
@@ -191,6 +189,6 @@ export default function ComunidadePostPage() {
         <button type="submit">Enviar</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

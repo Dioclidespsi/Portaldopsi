@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   AdminSiteComment,
   blockSiteComment,
@@ -55,14 +55,7 @@ export default function AdminComentariosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Comentários dos sites profissionais</h2>
-      <p className="sub">
-        Só aparece aqui o que o profissional já publicou de fato na própria página pública. Restrinja em caso de violação
-        do código de ética do CRP ou de outra política da plataforma — o texto nunca é editável, só some da página pública.
-      </p>
-
+    <AdminShell title={"Comentários dos sites profissionais"} description={"Só aparece aqui o que o profissional já publicou de fato na própria página pública. Restrinja em caso de violação do código de ética do CRP ou de outra política da plataforma — o texto nunca é editável, só some da página pública."}>
       {error && <span className="error">{error}</span>}
 
       {comments.map((c) => (
@@ -102,6 +95,6 @@ export default function AdminComentariosPage() {
         </div>
       ))}
       {comments.length === 0 && <p className="sub" style={{ marginTop: '1rem' }}>Nenhum comentário publicado ainda.</p>}
-    </div>
+    </AdminShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import { AdminBanner, deleteBanner, getAdminToken, listBanners, upsertBanner } from '../../../lib/admin-api';
 
 const POSITIONS = [1, 2] as const;
@@ -113,13 +113,7 @@ export default function AdminBannersPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Banners da home</h2>
-      <p className="sub">
-        Até 2 banners promocionais exibidos na página inicial pública da plataforma. Cada um pode ter um link opcional.
-      </p>
-
+    <AdminShell title={"Banners da home"} description={"Até 2 banners promocionais exibidos na página inicial pública da plataforma. Cada um pode ter um link opcional."}>
       {POSITIONS.map((position) => (
         <BannerSlot
           key={position}
@@ -129,6 +123,6 @@ export default function AdminBannersPage() {
           onDeleted={onDeleted}
         />
       ))}
-    </div>
+    </AdminShell>
   );
 }

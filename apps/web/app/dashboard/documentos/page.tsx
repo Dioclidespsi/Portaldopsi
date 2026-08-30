@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import CidAutocomplete from '../../../components/CidAutocomplete';
 import Link from 'next/link';
 import {
@@ -187,15 +187,7 @@ export default function DocumentosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Documentos</h2>
-      <p className="sub">
-        Preencha laudo, relatório, atestado, declaração, encaminhamento ou parecer para um paciente específico. O
-        PDF final leva sua assinatura/carimbo e só é entregue ao paciente quando você clicar em "Disponibilizar ao
-        paciente" — gerar o documento não libera sozinho.
-      </p>
-
+    <DashboardShell title={"Documentos"} description={"Preencha laudo, relatório, atestado, declaração, encaminhamento ou parecer para um paciente específico. O PDF final leva sua assinatura/carimbo e só é entregue ao paciente quando você clicar em \"Disponibilizar ao paciente\" — gerar o documento não libera sozinho."}>
       <div className="callout-box" style={{ marginTop: '1rem' }}>
         <strong>Identidade nos documentos</strong>
         <p className="sub" style={{ margin: '0.3rem 0 0.8rem' }}>
@@ -374,6 +366,6 @@ export default function DocumentosPage() {
           </table>
         </>
       )}
-    </div>
+    </DashboardShell>
   );
 }

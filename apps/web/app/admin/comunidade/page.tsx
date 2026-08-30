@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminNav from '../../../components/AdminNav';
+import AdminShell from '../../../components/AdminShell';
 import {
   CommunityReportItem,
   getAdminToken,
@@ -58,13 +58,7 @@ export default function AdminComunidadePage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <AdminNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Moderação da Comunidade</h2>
-      <p className="sub">
-        Fila de denúncias de posts e respostas — único espaço do sistema que atravessa clínicas diferentes.
-      </p>
-
+    <AdminShell title={"Moderação da Comunidade"} description={"Fila de denúncias de posts e respostas — único espaço do sistema que atravessa clínicas diferentes."}>
       {reports.map((r) => (
         <div key={r.id} className="callout-box" style={{ marginTop: '1rem' }}>
           <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
@@ -109,6 +103,6 @@ export default function AdminComunidadePage() {
       ))}
       {reports.length === 0 && <p className="sub" style={{ marginTop: '1rem' }}>Nenhuma denúncia pendente.</p>}
       {error && <span className="error">{error}</span>}
-    </div>
+    </AdminShell>
   );
 }

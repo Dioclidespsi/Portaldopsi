@@ -2,7 +2,7 @@
 
 import { DragEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   addLeadActivity,
   convertLead,
@@ -221,11 +221,7 @@ export default function CrmPage() {
   const selectedLead = leads.find((l) => l.id === selectedId) ?? null;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>CRM</h2>
-      <p className="sub">Funil de leads até virarem paciente na Agenda. Arraste o cartão entre colunas pra mudar o estágio.</p>
-
+    <DashboardShell title={"CRM"} description={"Funil de leads até virarem paciente na Agenda. Arraste o cartão entre colunas pra mudar o estágio."}>
       {report && (
         <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--ink-soft)' }}>
           <span><strong>{report.total}</strong> leads no total</span>
@@ -393,6 +389,6 @@ export default function CrmPage() {
         <button type="submit">Adicionar lead</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

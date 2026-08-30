@@ -118,6 +118,171 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
    classe — nenhuma página com <table> precisou ser editada uma por uma. */
 .table-scroll { overflow-x: auto; }
 
+/* ---- Card neutro — .callout-box é semanticamente um AVISO (fundo amarelo,
+   ver acima); isto aqui é o card neutro genérico pra agrupar conteúdo nos
+   painéis internos (admin/dashboard), sem tingir tudo de amarelo. ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 100px;
+  background: var(--accent-tint, color-mix(in srgb, var(--accent) 12%, white));
+  color: var(--accent-deep, var(--accent));
+  border: 1px solid var(--accent-tint-line, var(--accent));
+}
+.badge-neutral { background: var(--ground); color: var(--ink-soft); border-color: var(--line); }
+.badge-crit { background: color-mix(in srgb, var(--crit) 12%, white); color: var(--crit); border-color: color-mix(in srgb, var(--crit) 35%, white); }
+.badge-warn { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, white); }
+
+/* ---- App shell (admin/dashboard): barra lateral fixa + conteúdo ---- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--ground);
+  font-family: var(--font-worksans), 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.app-sidebar {
+  width: 248px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+}
+
+.app-sidebar-brand {
+  padding: 1.3rem 1.25rem 1rem;
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  display: block;
+  border-bottom: 1px solid var(--line);
+}
+.app-sidebar-brand span { color: var(--accent); }
+
+.app-sidebar-nav { flex: 1; padding: 0.9rem 0.7rem; }
+
+.app-sidebar-section { margin-bottom: 1.1rem; }
+.app-sidebar-section-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  opacity: 0.75;
+  padding: 0 0.6rem;
+  margin: 0 0 0.35rem;
+}
+
+.app-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 7px;
+  font-size: 0.87rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  line-height: 1.3;
+}
+.app-sidebar-link:hover { background: var(--ground); color: var(--ink); }
+.app-sidebar-link.active {
+  background: var(--accent-tint, color-mix(in srgb, var(--accent) 12%, white));
+  color: var(--accent-deep, var(--accent));
+  font-weight: 600;
+}
+
+.app-sidebar-footer {
+  padding: 0.9rem 1rem;
+  border-top: 1px solid var(--line);
+}
+.app-sidebar-footer button {
+  width: 100%;
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  padding: 2rem 2.4rem 3rem;
+}
+
+.app-topbar-mobile {
+  display: none;
+}
+
+.app-page-header { margin-bottom: 1.5rem; }
+.app-page-header h1 {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 1.4rem;
+  margin: 0 0 0.3rem;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar { display: none; }
+  .app-shell { display: block; }
+  .app-main { padding: 1.1rem 1.1rem 2.5rem; }
+  .app-topbar-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 0.8rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .app-topbar-mobile-brand {
+    font-family: var(--font-newsreader), Georgia, serif;
+    font-weight: 600;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .app-mobile-nav {
+    display: flex;
+    gap: 0.9rem;
+    overflow-x: auto;
+    padding: 0.7rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 53px;
+    z-index: 19;
+  }
+  .app-mobile-nav a {
+    font-size: 0.82rem;
+    white-space: nowrap;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid transparent;
+  }
+  .app-mobile-nav a.active { color: var(--accent); font-weight: 600; border-color: var(--accent); }
+}
+
 /* ---- Responsividade base — afeta todas as páginas que usam .shell/.shell-wide ---- */
 @media (max-width: 640px) {
   .shell {

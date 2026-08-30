@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import {
   CommunityCategory,
   CommunityNotification,
@@ -106,13 +106,8 @@ export default function ComunidadePage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Comunidade</h2>
-          <p className="sub">Troca de casos, indicações e experiências entre psicólogos de todo o Brasil.</p>
-        </div>
+    <DashboardShell title="Comunidade" description="Troca de casos, indicações e experiências entre psicólogos de todo o Brasil.">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
         <div style={{ position: 'relative' }}>
           <button
             onClick={onOpenNotifications}
@@ -272,6 +267,6 @@ export default function ComunidadePage() {
         </div>
       )}
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

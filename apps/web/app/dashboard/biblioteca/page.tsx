@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import { LibraryMaterial, downloadLibraryMaterial, listLibrary } from '../../../lib/api';
 
 export default function BibliotecaPage() {
@@ -35,11 +35,7 @@ export default function BibliotecaPage() {
   }, {});
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Biblioteca</h2>
-      <p className="sub">Materiais de apoio disponibilizados pela plataforma — baixe o que precisar.</p>
-
+    <DashboardShell title={"Biblioteca"} description={"Materiais de apoio disponibilizados pela plataforma — baixe o que precisar."}>
       {Object.entries(byCategory).map(([cat, items]) => (
         <div key={cat} style={{ marginTop: '1.2rem' }}>
           <h3 style={{ fontSize: '0.92rem' }}>{cat}</h3>
@@ -58,6 +54,6 @@ export default function BibliotecaPage() {
       ))}
       {materials.length === 0 && <p className="sub">Nenhum material disponível ainda.</p>}
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }

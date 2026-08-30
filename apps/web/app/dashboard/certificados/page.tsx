@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardNav from '../../../components/DashboardNav';
+import DashboardShell from '../../../components/DashboardShell';
 import { CertificateRecord, downloadCertificate, listMyCertificates } from '../../../lib/api';
 
 export default function CertificadosPage() {
@@ -30,11 +30,7 @@ export default function CertificadosPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <DashboardNav />
-      <h2 style={{ fontSize: '1.05rem' }}>Certificados</h2>
-      <p className="sub">Emitidos automaticamente ao concluir todos os módulos de um curso.</p>
-
+    <DashboardShell title={"Certificados"} description={"Emitidos automaticamente ao concluir todos os módulos de um curso."}>
       <table>
         <thead><tr><th>Curso</th><th>Emitido em</th><th>Verificação</th><th>Ação</th></tr></thead>
         <tbody>
@@ -56,6 +52,6 @@ export default function CertificadosPage() {
         </tbody>
       </table>
       {error && <span className="error">{error}</span>}
-    </div>
+    </DashboardShell>
   );
 }
