@@ -180,11 +180,11 @@ export default function ComunidadePage() {
             type="button"
             onClick={() => setShowNewPost(true)}
             style={{
-              width: '100%', textAlign: 'left', fontSize: '0.85rem', padding: '0.6rem 0.9rem',
-              background: 'var(--surface)', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '10px',
+              display: 'inline-block', fontSize: '0.82rem', padding: '0.4rem 0.8rem',
+              background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px',
             }}
           >
-            + Criar post…
+            + Criar post
           </button>
         ) : (
           <div className="card">

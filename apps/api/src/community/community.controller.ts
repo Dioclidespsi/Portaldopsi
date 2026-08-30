@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { CreateCommunityPostDto } from './dto/create-post.dto';
+import { UpdateCommunityPostDto } from './dto/update-post.dto';
 import { CreateCommunityReplyDto } from './dto/create-reply.dto';
 import { ListCommunityPostsDto } from './dto/list-posts.dto';
 import { ReportContentDto } from './dto/report-content.dto';
@@ -27,6 +28,18 @@ export class CommunityController {
   @Get('posts/:id')
   getPost(@Param('id') id: string) {
     return this.community.getPost(id);
+  }
+
+  /** Só o próprio autor — CommunityService.updatePost confere authorId. */
+  @Patch('posts/:id')
+  updatePost(@Param('id') id: string, @Body() dto: UpdateCommunityPostDto) {
+    return this.community.updatePost(id, dto);
+  }
+
+  /** Exclusão de verdade pelo próprio autor (diferente de admin.removeCommunityPost, que é moderação com motivo). */
+  @Delete('posts/:id')
+  deletePost(@Param('id') id: string) {
+    return this.community.deletePost(id);
   }
 
   @Post('posts/:id/replies')

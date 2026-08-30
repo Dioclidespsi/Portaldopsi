@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreateCommunityPostDto } from './dto/create-post.dto';
+import { UpdateCommunityPostDto } from './dto/update-post.dto';
 import { CreateCommunityReplyDto } from './dto/create-reply.dto';
 import { ListCommunityPostsDto } from './dto/list-posts.dto';
 
@@ -44,6 +45,30 @@ export class CommunityService {
     return this.prisma.communityPost.create({
       data: { ...snapshot, title: dto.title, content: dto.content, category: dto.category },
     });
+  }
+
+  /** Só o próprio autor edita, e só enquanto o post não foi removido (por denúncia ou pelo próprio admin). */
+  async updatePost(id: string, dto: UpdateCommunityPostDto) {
+    const { userId } = getRequestContext();
+    const post = await this.prisma.communityPost.findUnique({ where: { id } });
+    if (!post || post.removedAt) throw new NotFoundException('Post não encontrado.');
+    if (post.authorId !== userId) throw new ForbiddenException('Você só pode editar os seus próprios posts.');
+
+    return this.prisma.communityPost.update({
+      where: { id },
+      data: { title: dto.title, content: dto.content, category: dto.category },
+    });
+  }
+
+  /** Exclusão de verdade (não é moderação) — é o próprio autor apagando o próprio conteúdo. */
+  async deletePost(id: string) {
+    const { userId } = getRequestContext();
+    const post = await this.prisma.communityPost.findUnique({ where: { id } });
+    if (!post || post.removedAt) throw new NotFoundException('Post não encontrado.');
+    if (post.authorId !== userId) throw new ForbiddenException('Você só pode excluir os seus próprios posts.');
+
+    await this.prisma.communityPost.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async listPosts(query: ListCommunityPostsDto) {

@@ -129,6 +129,27 @@ export function removeCommunityReply(id: string, reason: string) {
   return request(`/admin/community/replies/${id}/remove`, { method: 'POST', body: JSON.stringify({ reason }) });
 }
 
+export interface AdminCommunityPost {
+  id: string;
+  title: string;
+  content: string;
+  authorName: string;
+  tenantName: string;
+  createdAt: string;
+  removedAt: string | null;
+  removedReason: string | null;
+  _count?: { replies: number };
+}
+
+/** Todos os posts (não só os denunciados) — pra poder remover qualquer post da plataforma. */
+export function listAllCommunityPosts(search?: string, page = 1) {
+  const qs = new URLSearchParams();
+  if (search) qs.set('search', search);
+  if (page > 1) qs.set('page', String(page));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return request<{ posts: AdminCommunityPost[]; total: number; page: number; take: number }>(`/admin/community/posts${suffix}`);
+}
+
 export interface AdminSiteComment {
   id: string;
   authorName: string;

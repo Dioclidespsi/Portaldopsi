@@ -2,27 +2,38 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Flag, Heart } from 'lucide-react';
+import { Flag, Heart, Pencil, Trash2 } from 'lucide-react';
 import DashboardShell from '../../../../components/DashboardShell';
 import {
+  CommunityCategory,
   CommunityPostDetail,
+  COMMUNITY_CATEGORY_LABEL,
+  deleteCommunityPost,
+  fetchMe,
   getCommunityPost,
   replyToCommunityPost,
   reportCommunityPost,
   reportCommunityReply,
   toggleCommunityPostLike,
   toggleCommunityReplyLike,
+  updateCommunityPost,
 } from '../../../../lib/api';
-import { Avatar, CategoryChip, CrpBadge, relativeTime } from '../community-ui';
+import { Avatar, CATEGORY_OPTIONS, CategoryChip, CrpBadge, relativeTime } from '../community-ui';
 
 export default function ComunidadePostPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const [post, setPost] = useState<CommunityPostDetail | null>(null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
   const [reply, setReply] = useState('');
   const [reportingId, setReportingId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [reportSent, setReportSent] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editCategory, setEditCategory] = useState<CommunityCategory>('GERAL');
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +42,44 @@ export default function ComunidadePostPage() {
       .then(setPost)
       .catch(() => router.push('/dashboard/comunidade'))
       .finally(() => setLoading(false));
+    fetchMe().then((me) => setMyUserId(me.id)).catch(() => undefined);
   }, [params.id, router]);
+
+  function startEdit() {
+    if (!post) return;
+    setEditTitle(post.title);
+    setEditContent(post.content);
+    setEditCategory(post.category);
+    setEditing(true);
+  }
+
+  async function onSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!post) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const updated = await updateCommunityPost(post.id, { title: editTitle, content: editContent, category: editCategory });
+      setPost({ ...post, ...updated });
+      setEditing(false);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onDeletePost() {
+    if (!post) return;
+    if (!window.confirm('Excluir este post? Essa ação não pode ser desfeita — as respostas também somem.')) return;
+    setError(null);
+    try {
+      await deleteCommunityPost(post.id);
+      router.push('/dashboard/comunidade');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   async function onReply(e: FormEvent) {
     e.preventDefault();
@@ -100,25 +148,77 @@ export default function ComunidadePostPage() {
             </div>
             {post.authorSpecialty && <p className="sub" style={{ margin: '0.1rem 0 0', fontSize: '0.78rem' }}>{post.authorSpecialty}</p>}
 
-            <h2 style={{ fontSize: '1.05rem', margin: '0.5rem 0 0.4rem' }}>{post.title}</h2>
-            <p style={{ fontSize: '0.92rem', whiteSpace: 'pre-wrap' }}>{post.content}</p>
+            {editing ? (
+              <form onSubmit={onSaveEdit} style={{ marginTop: '0.6rem' }}>
+                <label>
+                  Categoria
+                  <select value={editCategory} onChange={(e) => setEditCategory(e.target.value as CommunityCategory)}>
+                    {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Título
+                  <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+                </label>
+                <label>
+                  Conteúdo
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={4}
+                    style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', background: 'var(--ground)' }}
+                    required
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button>
+                  <button type="button" onClick={() => setEditing(false)} style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h2 style={{ fontSize: '1.05rem', margin: '0.5rem 0 0.4rem' }}>{post.title}</h2>
+                <p style={{ fontSize: '0.92rem', whiteSpace: 'pre-wrap' }}>{post.content}</p>
+              </>
+            )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-              <CategoryChip category={post.category} />
-              <button
-                onClick={onTogglePostLike}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: post.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
-              >
-                <Heart size={14} fill={post.likedByMe ? 'currentColor' : 'none'} /> {post._count?.likes ?? 0}
-              </button>
-              <button
-                onClick={() => setReportingId(reportingId === post.id ? null : post.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
-              >
-                <Flag size={14} /> Denunciar
-              </button>
-              {reportSent === post.id && <span className="sub" style={{ fontSize: '0.76rem' }}>Denúncia enviada.</span>}
-            </div>
+            {!editing && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                <CategoryChip category={post.category} />
+                <button
+                  onClick={onTogglePostLike}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: post.likedByMe ? 'var(--accent)' : 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
+                >
+                  <Heart size={14} fill={post.likedByMe ? 'currentColor' : 'none'} /> {post._count?.likes ?? 0}
+                </button>
+                {myUserId && post.authorId === myUserId ? (
+                  <>
+                    <button
+                      onClick={startEdit}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
+                    >
+                      <Pencil size={14} /> Editar
+                    </button>
+                    <button
+                      onClick={onDeletePost}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: 'var(--crit, #a33)', border: '1px solid var(--crit, #a33)', borderRadius: '100px' }}
+                    >
+                      <Trash2 size={14} /> Excluir
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setReportingId(reportingId === post.id ? null : post.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', padding: '0.25rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
+                  >
+                    <Flag size={14} /> Denunciar
+                  </button>
+                )}
+                {reportSent === post.id && <span className="sub" style={{ fontSize: '0.76rem' }}>Denúncia enviada.</span>}
+              </div>
+            )}
 
             {reportingId === post.id && (
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>

@@ -1139,6 +1139,7 @@ export interface CommunityPost {
   content: string;
   category: CommunityCategory;
   createdAt: string;
+  authorId: string;
   authorName: string;
   authorPhotoUrl?: string | null;
   tenantName: string;
@@ -1187,6 +1188,16 @@ export function createCommunityPost(data: { title: string; content: string; cate
 
 export function getCommunityPost(id: string) {
   return request<CommunityPostDetail>(`/community/posts/${id}`);
+}
+
+/** Só o próprio autor consegue — o backend confere authorId. */
+export function updateCommunityPost(id: string, data: Partial<{ title: string; content: string; category: CommunityCategory }>) {
+  return request<CommunityPost>(`/community/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+/** Exclusão de verdade pelo próprio autor — diferente da remoção por moderação (admin, com motivo). */
+export function deleteCommunityPost(id: string) {
+  return request<{ deleted: true }>(`/community/posts/${id}`, { method: 'DELETE' });
 }
 
 export function replyToCommunityPost(id: string, content: string) {

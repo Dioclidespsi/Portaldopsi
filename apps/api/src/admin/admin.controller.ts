@@ -132,6 +132,12 @@ export class AdminController {
     return this.admin.listCommunityReports();
   }
 
+  /** Todos os posts, não só os denunciados — pra poder remover qualquer post da plataforma. */
+  @Get('community/posts')
+  listAllCommunityPosts(@Query('search') search?: string, @Query('page') page?: string) {
+    return this.admin.listAllCommunityPosts(search, page ? Number(page) : undefined);
+  }
+
   @Post('community/reports/:id/resolve')
   resolveCommunityReport(@Param('id') id: string) {
     return this.admin.resolveCommunityReport(id);

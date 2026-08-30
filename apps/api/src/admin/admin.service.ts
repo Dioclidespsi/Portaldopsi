@@ -367,6 +367,34 @@ export class AdminService {
   }
 
   /**
+   * Todos os posts (não só os denunciados) — pro admin poder remover
+   * qualquer post da plataforma, mesmo sem denúncia. Mesma remoção
+   * (removeCommunityPost, com motivo) já usada na fila de denúncias.
+   */
+  async listAllCommunityPosts(search?: string, page = 1, take = 20) {
+    const where = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' as const } },
+            { content: { contains: search, mode: 'insensitive' as const } },
+            { authorName: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+    const [posts, total] = await Promise.all([
+      this.prisma.forSystem().communityPost.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * take,
+        take,
+        include: { _count: { select: { replies: true } } },
+      }),
+      this.prisma.forSystem().communityPost.count({ where }),
+    ]);
+    return { posts, total, page, take };
+  }
+
+  /**
    * Fila de revisão: só o que o profissional já publicou de fato (o que está
    * ou esteve visível na página pública) — comentário que o visitante não
    * autorizou, ou que o profissional nunca publicou, é feedback privado entre
