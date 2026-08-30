@@ -229,7 +229,8 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
   padding: 2rem 2.4rem 3rem;
 }
 
-.app-topbar-mobile {
+.app-topbar-mobile,
+.app-mobile-nav {
   display: none;
 }
 
