@@ -30,7 +30,11 @@ export default function TeleconsultaRoom({ appointment, small = false }: { appoi
           await createTeleconsultaRoom(appointment.id);
         }
         const { url } = await getTeleconsultaJoinLink(appointment.id);
-        if (!cancelled) setJoinUrl(url);
+        // A UI da sala em si (botões "Join"/"Leave", tela de pré-entrada) é do
+        // Daily.co — localizamos via parâmetro de URL deles, não dá pra
+        // traduzir por fora (é dentro do iframe deles).
+        const localizedUrl = `${url}&lang=pt-BR`;
+        if (!cancelled) setJoinUrl(localizedUrl);
       } catch (err) {
         if (!cancelled) setError((err as Error).message);
       } finally {

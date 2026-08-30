@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import DaySlotPicker from '../DaySlotPicker';
 import { Appointment, rescheduleAppointment } from '../../lib/api';
 
 /** Formata um Date pros inputs nativos de data/hora, em horário local (não UTC). */
@@ -29,25 +30,31 @@ export default function ReagendamentoPanel({
   const [time, setTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
 
+  // Só reinicializa o formulário quando o painel troca de agendamento de
+  // verdade (outro id) — NÃO a cada vez que startsAt muda, senão o próprio
+  // reagendamento bem-sucedido (que muda o startsAt do agendamento ativo)
+  // apagava a mensagem de confirmação assim que ela aparecia.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const start = new Date(appointment.startsAt);
     setDate(toLocalDateInput(start));
     setTime(toLocalTimeInput(start));
     setError(null);
-    setDone(false);
-  }, [appointment.id, appointment.startsAt]);
+    setDone(null);
+  }, [appointment.id]);
+
+  const durationMinutes = Math.round((new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime()) / 60000);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setDone(false);
+    setDone(null);
     if (!date || !time) return;
 
-    const durationMs = new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime();
     const newStartsAt = new Date(`${date}T${time}`);
-    const newEndsAt = new Date(newStartsAt.getTime() + durationMs);
+    const newEndsAt = new Date(newStartsAt.getTime() + durationMinutes * 60 * 1000);
 
     setSaving(true);
     try {
@@ -56,7 +63,7 @@ export default function ReagendamentoPanel({
         endsAt: newEndsAt.toISOString(),
       });
       onRescheduled(updated);
-      setDone(true);
+      setDone(new Date(updated.startsAt).toLocaleString('pt-BR'));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -68,7 +75,8 @@ export default function ReagendamentoPanel({
     <div>
       <p className="sub" style={{ marginTop: 0 }}>
         Atendimento com <strong>{appointment.patient.name}</strong> — horário atual:{' '}
-        {new Date(appointment.startsAt).toLocaleString('pt-BR')}. A duração da sessão é mantida, só o horário muda.
+        {new Date(appointment.startsAt).toLocaleString('pt-BR')}. A duração da sessão ({durationMinutes} min) é
+        mantida, só o horário muda.
       </p>
       <form onSubmit={onSubmit} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <label>
@@ -81,8 +89,21 @@ export default function ReagendamentoPanel({
         </label>
         <button type="submit" disabled={saving}>{saving ? 'Reagendando…' : 'Reagendar'}</button>
       </form>
-      {done && <p className="sub" style={{ marginTop: '0.6rem' }}>Reagendado com sucesso.</p>}
-      {error && <p style={{ marginTop: '0.6rem' }}><span className="error">{error}</span></p>}
+
+      <DaySlotPicker
+        date={date}
+        durationMinutes={durationMinutes}
+        excludeAppointmentId={appointment.id}
+        selectedTime={time}
+        onPick={setTime}
+      />
+
+      {done && (
+        <p className="sub" style={{ marginTop: '0.6rem', color: 'var(--accent)', fontWeight: 600 }}>
+          ✓ Reagendado para {done}.
+        </p>
+      )}
+      {error && <p style={{ marginTop: '0.6rem' }}><span className="error">Horário ocupado ou indisponível: {error}</span></p>}
     </div>
   );
 }

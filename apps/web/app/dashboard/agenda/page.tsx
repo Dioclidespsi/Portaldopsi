@@ -1,9 +1,10 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Fragment, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '../../../components/DashboardShell';
 import AgendaCalendar from '../../../components/AgendaCalendar';
+import DaySlotPicker from '../../../components/DaySlotPicker';
 import {
   Appointment,
   AvailabilitySlot,
@@ -17,9 +18,20 @@ import {
   listPatients,
   Patient,
   Profile,
+  rescheduleAppointment,
   updateAppointmentStatus,
   updateProfile,
 } from '../../../lib/api';
+
+/** Mesma lógica de ReagendamentoPanel (Consultório) — formata Date pros inputs nativos, em horário local. */
+function toLocalDateInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function toLocalTimeInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const WEEKDAYS = [
   { value: 1, label: 'Seg' },
@@ -74,6 +86,12 @@ export default function AgendaPage() {
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [cancelReasonDraft, setCancelReasonDraft] = useState('');
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [reschedulingBusy, setReschedulingBusy] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [rescheduleDone, setRescheduleDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -226,6 +244,45 @@ export default function AgendaPage() {
     setCancelReasonDraft('');
   }
 
+  function startReschedule(a: Appointment) {
+    const start = new Date(a.startsAt);
+    setReschedulingId(a.id);
+    setRescheduleDate(toLocalDateInput(start));
+    setRescheduleTime(toLocalTimeInput(start));
+    setRescheduleError(null);
+    setRescheduleDone(null);
+  }
+
+  function closeReschedule() {
+    setReschedulingId(null);
+    setRescheduleError(null);
+    setRescheduleDone(null);
+  }
+
+  async function onConfirmReschedule(a: Appointment) {
+    setRescheduleError(null);
+    setRescheduleDone(null);
+    if (!rescheduleDate || !rescheduleTime) return;
+
+    const durationMs = new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime();
+    const newStartsAt = new Date(`${rescheduleDate}T${rescheduleTime}`);
+    const newEndsAt = new Date(newStartsAt.getTime() + durationMs);
+
+    setReschedulingBusy(true);
+    try {
+      const updated = await rescheduleAppointment(a.id, {
+        startsAt: newStartsAt.toISOString(),
+        endsAt: newEndsAt.toISOString(),
+      });
+      setAppointments((prev) => prev.map((x) => (x.id === updated.id ? updated : x)).sort((x, y) => x.startsAt.localeCompare(y.startsAt)));
+      setRescheduleDone(new Date(updated.startsAt).toLocaleString('pt-BR'));
+    } catch (err) {
+      setRescheduleError((err as Error).message);
+    } finally {
+      setReschedulingBusy(false);
+    }
+  }
+
   const visibleAppointments = useMemo(() => {
     return appointments.filter((a) => {
       if (statusFilter !== 'todos' && a.status !== statusFilter) return false;
@@ -298,46 +355,107 @@ export default function AgendaPage() {
       ) : (
         <table>
           <thead>
-            <tr><th>Paciente</th><th>Início</th><th>Fim</th><th>Status</th><th>Motivo</th></tr>
+            <tr><th>Paciente</th><th>Início</th><th>Fim</th><th>Status</th><th>Motivo</th><th>Ações</th></tr>
           </thead>
           <tbody>
             {visibleAppointments.map((a) => (
-              <tr key={a.id}>
-                <td>{a.patient.name}</td>
-                <td>{new Date(a.startsAt).toLocaleString('pt-BR')}</td>
-                <td>{new Date(a.endsAt).toLocaleString('pt-BR')}</td>
-                <td>
-                  <select value={a.status} onChange={(e) => onStatusSelect(a.id, e.target.value)}>
-                    {Object.entries(STATUS_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  {cancelingId === a.id && (
-                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', alignItems: 'center' }}>
-                      <input
-                        value={cancelReasonDraft}
-                        onChange={(e) => setCancelReasonDraft(e.target.value)}
-                        placeholder="Motivo (opcional)"
-                        style={{ fontSize: '0.8rem', padding: '0.3rem 0.5rem' }}
-                      />
-                      <button type="button" onClick={onConfirmCancel} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
-                        Salvar
-                      </button>
+              <Fragment key={a.id}>
+                <tr>
+                  <td>{a.patient.name}</td>
+                  <td>{new Date(a.startsAt).toLocaleString('pt-BR')}</td>
+                  <td>{new Date(a.endsAt).toLocaleString('pt-BR')}</td>
+                  <td>
+                    <select value={a.status} onChange={(e) => onStatusSelect(a.id, e.target.value)}>
+                      {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                    {cancelingId === a.id && (
+                      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', alignItems: 'center' }}>
+                        <input
+                          value={cancelReasonDraft}
+                          onChange={(e) => setCancelReasonDraft(e.target.value)}
+                          placeholder="Motivo (opcional)"
+                          style={{ fontSize: '0.8rem', padding: '0.3rem 0.5rem' }}
+                        />
+                        <button type="button" onClick={onConfirmCancel} style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem' }}>
+                          Salvar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setCancelingId(null); setPendingStatus(null); }}
+                          style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td className="sub" style={{ margin: 0 }}>{a.cancelReason ?? '—'}</td>
+                  <td>
+                    {a.status !== 'cancelado' && (
                       <button
                         type="button"
-                        onClick={() => { setCancelingId(null); setPendingStatus(null); }}
-                        style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                        onClick={() => (reschedulingId === a.id ? closeReschedule() : startReschedule(a))}
+                        style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)' }}
                       >
-                        Cancelar
+                        {reschedulingId === a.id ? 'Fechar' : 'Reagendar'}
                       </button>
-                    </div>
-                  )}
-                </td>
-                <td className="sub" style={{ margin: 0 }}>{a.cancelReason ?? '—'}</td>
-              </tr>
+                    )}
+                  </td>
+                </tr>
+                {reschedulingId === a.id && (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="card" style={{ margin: '0.4rem 0' }}>
+                        <p className="sub" style={{ marginTop: 0 }}>
+                          Horário atual: {new Date(a.startsAt).toLocaleString('pt-BR')}. A duração da sessão é mantida.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                          <label>
+                            Nova data
+                            <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} required />
+                          </label>
+                          <label>
+                            Novo horário
+                            <input type="time" value={rescheduleTime} onChange={(e) => setRescheduleTime(e.target.value)} required />
+                          </label>
+                          <button type="button" onClick={() => onConfirmReschedule(a)} disabled={reschedulingBusy}>
+                            {reschedulingBusy ? 'Reagendando…' : 'Confirmar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={closeReschedule}
+                            style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+                          >
+                            Fechar
+                          </button>
+                        </div>
+                        <DaySlotPicker
+                          date={rescheduleDate}
+                          durationMinutes={Math.round((new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60000)}
+                          excludeAppointmentId={a.id}
+                          selectedTime={rescheduleTime}
+                          onPick={setRescheduleTime}
+                        />
+                        {rescheduleDone && (
+                          <p className="sub" style={{ marginTop: '0.6rem', color: 'var(--accent)', fontWeight: 600 }}>
+                            ✓ Reagendado para {rescheduleDone}.
+                          </p>
+                        )}
+                        {rescheduleError && (
+                          <p style={{ marginTop: '0.6rem' }}>
+                            <span className="error">Horário ocupado ou indisponível: {rescheduleError}</span>
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {visibleAppointments.length === 0 && (
-              <tr><td colSpan={5} style={{ color: 'var(--ink-soft)' }}>Nenhum agendamento encontrado.</td></tr>
+              <tr><td colSpan={6} style={{ color: 'var(--ink-soft)' }}>Nenhum agendamento encontrado.</td></tr>
             )}
           </tbody>
         </table>

@@ -60,15 +60,19 @@ export default function ConsultorioPage() {
     setActivePanel((prev) => (prev === panel ? null : panel));
   }
 
+  /**
+   * Nunca derruba a seleção/o painel aberto aqui — só o formulário de
+   * reagendamento sabe se deu certo, e precisa continuar montado pra mostrar
+   * a confirmação. Só ajusta a lista da trilha (se o novo dia é diferente do
+   * dia visto agora, o agendamento some da lista de hoje, mas continua sendo
+   * o atendimento ativo).
+   */
   function onRescheduled(updated: Appointment) {
+    setActiveAppointment(updated);
     if (sameDay(updated.startsAt, date)) {
       setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)).sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
-      setActiveAppointment(updated);
     } else {
-      // Foi reagendado pra outro dia — sai da lista de hoje e limpa a seleção.
       setAppointments((prev) => prev.filter((a) => a.id !== updated.id));
-      setActiveAppointment(null);
-      setActivePanel(null);
     }
   }
 
