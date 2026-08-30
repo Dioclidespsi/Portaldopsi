@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { CalendarPlus, Search } from 'lucide-react';
+import PatientShell from '../../components/PatientShell';
 import {
   cancelOwnAppointment,
-  clearPatientToken,
   confirmOwnAppointment,
   consentToTeleconsulta,
   fetchPatientMe,
@@ -47,13 +48,6 @@ function formatFriendlyDateTime(iso: string): string {
   const timePart = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return `${datePart.charAt(0).toUpperCase()}${datePart.slice(1)} às ${timePart}`;
 }
-
-const QUICK_LINKS = [
-  { href: '/paciente/testes', icon: '📝', label: 'Meus testes' },
-  { href: '/paciente/dever-de-casa', icon: '🎯', label: 'Dever de casa' },
-  { href: '/paciente/meditacao', icon: '🧘', label: 'Meditação' },
-  { href: '/paciente/documentos', icon: '📄', label: 'Meus documentos' },
-];
 
 export default function PatientDashboardPage() {
   const router = useRouter();
@@ -144,11 +138,6 @@ export default function PatientDashboardPage() {
     }
   }
 
-  function onLogout() {
-    clearPatientToken();
-    router.push('/paciente/login');
-  }
-
   if (loading) return <div className="shell">Carregando…</div>;
   if (!me) return null;
 
@@ -200,7 +189,10 @@ export default function PatientDashboardPage() {
   }
 
   return (
-    <div className="shell shell-wide">
+    <PatientShell
+      title={`${greeting()}, ${firstName(me.name)}!`}
+      description="Aqui você acompanha suas sessões e tudo relacionado ao seu acompanhamento — com qualquer profissional que atenda você pelo Portal do Psi."
+    >
       {pushToast && (
         <div className="patient-info-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '0.88rem' }}>{pushToast}</span>
@@ -225,45 +217,33 @@ export default function PatientDashboardPage() {
         </div>
       )}
 
-      <div className="patient-hero">
-        <h1>{greeting()}, {firstName(me.name)}!</h1>
-        <p>Aqui você acompanha suas sessões e tudo relacionado ao seu acompanhamento — com qualquer profissional que atenda você pelo Portal do Psi.</p>
-      </div>
-
-      <div className="patient-quicklinks">
+      {/* Navegação (testes, dever de casa, documentos, meditação) já mora na
+          sidebar agora — aqui só fica a ação de agendar, que não é navegação,
+          é uma tarefa com lógica própria (0/1/várias clínicas). */}
+      <div style={{ marginBottom: '1.2rem' }}>
         {clinics.length === 0 && (
-          <Link href="/profissionais" className="patient-quicklink" style={{ border: '1px solid var(--accent)' }}>
-            <span className="patient-quicklink-icon">🔎</span>
-            Buscar profissional
+          <Link href="/profissionais">
+            <button type="button" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+              <Search size={16} /> Buscar profissional
+            </button>
           </Link>
         )}
         {clinics.length === 1 && (
-          <Link href={`/${clinics[0].slug}#agendar`} className="patient-quicklink" style={{ border: '1px solid var(--accent)' }}>
-            <span className="patient-quicklink-icon">📅</span>
-            Marcar consulta
+          <Link href={`/${clinics[0].slug}#agendar`}>
+            <button type="button" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
+              <CalendarPlus size={16} /> Marcar consulta
+            </button>
           </Link>
         )}
         {clinics.length > 1 && (
           <button
             type="button"
-            className="patient-quicklink"
-            style={{ border: '1px solid var(--accent)' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}
             onClick={() => setShowClinicPicker((v) => !v)}
           >
-            <span className="patient-quicklink-icon">📅</span>
-            Marcar consulta
+            <CalendarPlus size={16} /> Marcar consulta
           </button>
         )}
-        {QUICK_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="patient-quicklink">
-            <span className="patient-quicklink-icon">{link.icon}</span>
-            {link.label}
-          </Link>
-        ))}
-        <button type="button" className="patient-quicklink" onClick={onLogout} style={{ color: 'var(--ink-soft)' }}>
-          <span className="patient-quicklink-icon">👋</span>
-          Sair
-        </button>
       </div>
 
       {showClinicPicker && clinics.length > 1 && (
@@ -314,6 +294,6 @@ export default function PatientDashboardPage() {
           portaldopsi.com.br
         </a>
       </p>
-    </div>
+    </PatientShell>
   );
 }

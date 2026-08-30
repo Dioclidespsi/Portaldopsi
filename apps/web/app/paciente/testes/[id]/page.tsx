@@ -2,6 +2,7 @@
 
 import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import PatientShell from '../../../../components/PatientShell';
 import { getOwnTest, PatientTestToAnswer, submitOwnTest } from '../../../../lib/patient-api';
 
 function AnswerTestForm() {
@@ -42,21 +43,21 @@ function AnswerTestForm() {
 
   if (error && !test) {
     return (
-      <div className="shell shell-wide">
+      <PatientShell title="Meus testes">
         <p className="error">{error}</p>
         <button onClick={() => router.push('/paciente/testes')}>Voltar</button>
-      </div>
+      </PatientShell>
     );
   }
 
   if (done) {
     return (
-      <div className="shell shell-wide">
+      <PatientShell title="Meus testes">
         <div className="card">
           <p style={{ margin: 0 }}>Respostas enviadas. Seu psicólogo vai revisar e conversar com você sobre o resultado.</p>
         </div>
         <button onClick={() => router.push('/paciente/testes')} style={{ marginTop: '1rem' }}>Voltar</button>
-      </div>
+      </PatientShell>
     );
   }
 
@@ -68,10 +69,8 @@ function AnswerTestForm() {
   });
 
   return (
-    <div className="shell shell-wide">
-      <h1 style={{ fontSize: '1.1rem' }}>{test.testTemplate.title}</h1>
+    <PatientShell title={test.testTemplate.title} description={test.testTemplate.instructions}>
       <div className="card" style={{ marginBottom: '1rem' }}>{test.testTemplate.disclaimer}</div>
-      <p className="sub">{test.testTemplate.instructions}</p>
 
       <form onSubmit={onSubmit}>
         {test.testTemplate.questions.map((q) => (
@@ -105,7 +104,7 @@ function AnswerTestForm() {
         <button type="submit" disabled={!allAnswered}>Enviar respostas</button>
       </form>
       {error && <span className="error">{error}</span>}
-    </div>
+    </PatientShell>
   );
 }
 

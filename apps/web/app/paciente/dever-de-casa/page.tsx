@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import PatientTopbar from '../../../components/PatientTopbar';
+import PatientShell from '../../../components/PatientShell';
 import { completeOwnHomework, listOwnHomework, PatientHomework } from '../../../lib/patient-api';
 
 export default function PatientHomeworkPage() {
@@ -41,9 +41,7 @@ export default function PatientHomeworkPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <PatientTopbar title="Dever de casa" subtitle="Tarefas que seu psicólogo(a) atribuiu entre as sessões." />
-
+    <PatientShell title="Dever de casa" description="Tarefas que seu psicólogo(a) atribuiu entre as sessões.">
       {error && <span className="error">{error}</span>}
 
       {homeworks.map((h) => (
@@ -84,6 +82,6 @@ export default function PatientHomeworkPage() {
         </div>
       ))}
       {homeworks.length === 0 && <p className="sub">Nenhum dever de casa por enquanto.</p>}
-    </div>
+    </PatientShell>
   );
 }

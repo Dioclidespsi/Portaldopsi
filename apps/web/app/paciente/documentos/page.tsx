@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import PatientTopbar from '../../../components/PatientTopbar';
+import PatientShell from '../../../components/PatientShell';
 import {
   acceptOwnPsychDocument,
   downloadOwnPsychDocument,
@@ -49,12 +49,10 @@ export default function PatientDocumentsPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <PatientTopbar
-        title="Meus documentos"
-        subtitle="Laudos, relatórios, atestados, contratos e outros documentos que seu psicólogo(a) disponibilizou."
-      />
-
+    <PatientShell
+      title="Meus documentos"
+      description="Laudos, relatórios, atestados, contratos e outros documentos que seu psicólogo(a) disponibilizou."
+    >
       {error && <span className="error">{error}</span>}
 
       {documents.map((doc) => (
@@ -83,6 +81,6 @@ export default function PatientDocumentsPage() {
         </div>
       ))}
       {documents.length === 0 && <p className="sub">Nenhum documento disponibilizado ainda.</p>}
-    </div>
+    </PatientShell>
   );
 }

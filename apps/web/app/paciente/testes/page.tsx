@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import PatientTopbar from '../../../components/PatientTopbar';
+import PatientShell from '../../../components/PatientShell';
 import { listOwnTests, PatientTestSummary } from '../../../lib/patient-api';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -27,9 +27,7 @@ export default function PatientTestsPage() {
   if (loading) return <div className="shell">Carregando…</div>;
 
   return (
-    <div className="shell shell-wide">
-      <PatientTopbar title="Meus testes" subtitle="Seu psicólogo decide como e quando conversar sobre o resultado — não mostramos pontuação aqui." />
-
+    <PatientShell title="Meus testes" description="Seu psicólogo decide como e quando conversar sobre o resultado — não mostramos pontuação aqui.">
       {tests.map((t) => (
         <div key={t.id} style={{ padding: '0.9rem 0', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
           <div>
@@ -44,6 +42,6 @@ export default function PatientTestsPage() {
         </div>
       ))}
       {tests.length === 0 && <p className="sub">Nenhum teste disponibilizado ainda.</p>}
-    </div>
+    </PatientShell>
   );
 }

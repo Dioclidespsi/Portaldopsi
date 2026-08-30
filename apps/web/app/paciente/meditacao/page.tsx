@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import PatientTopbar from '../../../components/PatientTopbar';
+import { Play } from 'lucide-react';
+import PatientShell from '../../../components/PatientShell';
 import { listOwnMeditationTracks, meditationAudioUrl, PatientMeditationTrack } from '../../../lib/patient-api';
 
 export default function PatientMeditationPage() {
@@ -26,9 +27,7 @@ export default function PatientMeditationPage() {
   }, {});
 
   return (
-    <div className="shell shell-wide">
-      <PatientTopbar title="Trilhas de meditação" subtitle="Áudios guiados pra usar quando precisar." />
-
+    <PatientShell title="Trilhas de meditação" description="Áudios guiados pra usar quando precisar.">
       {Object.entries(byCategory).map(([category, items]) => (
         <div key={category} style={{ marginBottom: '1.4rem' }}>
           <h3 style={{ fontSize: '0.92rem' }}>{category}</h3>
@@ -42,8 +41,8 @@ export default function PatientMeditationPage() {
               {playingId === t.id ? (
                 <audio controls autoPlay src={meditationAudioUrl(t.id)} style={{ width: '100%' }} />
               ) : (
-                <button onClick={() => setPlayingId(t.id)} style={{ fontSize: '0.85rem', padding: '0.4rem 0.7rem' }}>
-                  ▶ Ouvir
+                <button onClick={() => setPlayingId(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.4rem 0.7rem' }}>
+                  <Play size={14} fill="currentColor" /> Ouvir
                 </button>
               )}
             </div>
@@ -51,6 +50,6 @@ export default function PatientMeditationPage() {
         </div>
       ))}
       {tracks.length === 0 && <p className="sub">Nenhuma trilha disponível no momento.</p>}
-    </div>
+    </PatientShell>
   );
 }
