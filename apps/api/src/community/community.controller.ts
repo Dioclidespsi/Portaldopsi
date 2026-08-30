@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CommunityService } from './community.service';
 import { CreateCommunityPostDto } from './dto/create-post.dto';
 import { UpdateCommunityPostDto } from './dto/update-post.dto';
 import { CreateCommunityReplyDto } from './dto/create-reply.dto';
+import { communityImageUploadOptions } from './community-image-upload.config';
 import { ListCommunityPostsDto } from './dto/list-posts.dto';
 import { ReportContentDto } from './dto/report-content.dto';
 import { RolesGuard } from '../auth/roles.guard';
@@ -40,6 +42,13 @@ export class CommunityController {
   @Delete('posts/:id')
   deletePost(@Param('id') id: string) {
     return this.community.deletePost(id);
+  }
+
+  /** Opcional — pra posts de data comemorativa que o psicólogo baixa e compartilha nas próprias redes. */
+  @Post('posts/:id/image')
+  @UseInterceptors(FileInterceptor('file', communityImageUploadOptions))
+  uploadPostImage(@Param('id') id: string, @UploadedFile() file?: Express.Multer.File) {
+    return this.community.uploadPostImage(id, file);
   }
 
   @Post('posts/:id/replies')

@@ -4,23 +4,37 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminShell from '../../../components/AdminShell';
 import {
+  AdminCommunityCategory,
   AdminCommunityPost,
   CommunityReportItem,
+  createInstitutionalCommunityPost,
   getAdminToken,
   listAllCommunityPosts,
   listCommunityReports,
   removeCommunityPost,
   removeCommunityReply,
   resolveCommunityReport,
+  uploadCommunityPostImage,
 } from '../../../lib/admin-api';
+import { COMMUNITY_CATEGORY_LABEL } from '../../../lib/api';
 
 const DEFAULT_REMOVE_REASON = 'Removido pela administração da plataforma por descumprir as diretrizes de uso.';
+
+const INSTITUTIONAL_CATEGORY_OPTIONS: AdminCommunityCategory[] = [
+  'GERAL', 'INDICACAO', 'CASO_CLINICO', 'GESTAO_CONSULTORIO', 'ABORDAGENS_TECNICAS', 'CARREIRA_FORMACAO',
+];
 
 export default function AdminComunidadePage() {
   const router = useRouter();
   const [reports, setReports] = useState<CommunityReportItem[]>([]);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeReason, setRemoveReason] = useState('');
+  const [showInstPost, setShowInstPost] = useState(false);
+  const [instTitle, setInstTitle] = useState('');
+  const [instContent, setInstContent] = useState('');
+  const [instCategory, setInstCategory] = useState<AdminCommunityCategory>('GERAL');
+  const [instImage, setInstImage] = useState<File | null>(null);
+  const [instSaving, setInstSaving] = useState(false);
   const [allPosts, setAllPosts] = useState<AdminCommunityPost[]>([]);
   const [postSearch, setPostSearch] = useState('');
   const [removingPostId, setRemovingPostId] = useState<string | null>(null);
@@ -30,6 +44,26 @@ export default function AdminComunidadePage() {
 
   function loadAllPosts(search = '') {
     return listAllCommunityPosts(search || undefined).then((r) => setAllPosts(r.posts));
+  }
+
+  async function onCreateInstitutional(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInstSaving(true);
+    try {
+      const created = await createInstitutionalCommunityPost({ title: instTitle, content: instContent, category: instCategory });
+      if (instImage) await uploadCommunityPostImage(created.id, instImage);
+      setInstTitle('');
+      setInstContent('');
+      setInstCategory('GERAL');
+      setInstImage(null);
+      setShowInstPost(false);
+      await loadAllPosts(postSearch);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setInstSaving(false);
+    }
   }
 
   useEffect(() => {
@@ -98,6 +132,61 @@ export default function AdminComunidadePage() {
 
   return (
     <AdminShell title={"Moderação da Comunidade"} description={"Fila de denúncias de posts e respostas — único espaço do sistema que atravessa clínicas diferentes."}>
+      <h3 style={{ fontSize: '0.95rem', marginTop: 0 }}>Post institucional</h3>
+      <p className="sub" style={{ marginTop: 0 }}>
+        Publica como "Portal do Psi" (não uma clínica específica) — pra datas comemorativas e avisos gerais que os
+        psicólogos veem na Comunidade e podem baixar/compartilhar nas próprias redes.
+      </p>
+      {!showInstPost ? (
+        <button
+          type="button"
+          onClick={() => setShowInstPost(true)}
+          style={{ fontSize: '0.82rem', padding: '0.4rem 0.8rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px' }}
+        >
+          + Criar post institucional
+        </button>
+      ) : (
+        <div className="card">
+          <form onSubmit={onCreateInstitutional}>
+            <label>
+              Categoria
+              <select value={instCategory} onChange={(e) => setInstCategory(e.target.value as AdminCommunityCategory)}>
+                {INSTITUTIONAL_CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
+              </select>
+            </label>
+            <label>
+              Título
+              <input value={instTitle} onChange={(e) => setInstTitle(e.target.value)} required />
+            </label>
+            <label>
+              Conteúdo
+              <textarea
+                value={instContent}
+                onChange={(e) => setInstContent(e.target.value)}
+                rows={3}
+                style={{ padding: '0.55rem 0.7rem', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'inherit', background: 'var(--ground)' }}
+                required
+              />
+            </label>
+            <label>
+              Imagem (opcional)
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setInstImage(e.target.files?.[0] ?? null)} />
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="submit" disabled={instSaving}>{instSaving ? 'Publicando…' : 'Publicar'}</button>
+              <button
+                type="button"
+                onClick={() => setShowInstPost(false)}
+                style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <h3 style={{ fontSize: '0.95rem', marginTop: '2rem' }}>Denúncias</h3>
       {reports.map((r) => (
         <div key={r.id} className="card" style={{ marginTop: '1rem' }}>
           <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
@@ -161,6 +250,10 @@ export default function AdminComunidadePage() {
         <div key={p.id} className="card" style={{ marginBottom: '0.8rem', opacity: p.removedAt ? 0.6 : 1 }}>
           <p style={{ margin: '0 0 0.2rem', fontWeight: 600 }}>{p.title}</p>
           <p style={{ margin: '0 0 0.3rem', fontSize: '0.88rem' }}>{p.content}</p>
+          {p.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={p.imageUrl} alt={p.title} style={{ maxWidth: '200px', maxHeight: '140px', borderRadius: '6px', display: 'block', marginBottom: '0.4rem' }} />
+          )}
           <p className="sub" style={{ fontSize: '0.78rem' }}>
             {p.authorName} · {p.tenantName} · {new Date(p.createdAt).toLocaleDateString('pt-BR')}
             {p._count && ` · ${p._count.replies} resposta(s)`}

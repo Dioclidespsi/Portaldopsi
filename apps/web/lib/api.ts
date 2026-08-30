@@ -1139,12 +1139,13 @@ export interface CommunityPost {
   content: string;
   category: CommunityCategory;
   createdAt: string;
-  authorId: string;
+  authorId: string | null;
   authorName: string;
   authorPhotoUrl?: string | null;
   tenantName: string;
   authorCrpVerified: boolean;
   authorSpecialty?: string | null;
+  imageUrl?: string | null;
   likedByMe: boolean;
   _count?: { replies: number; likes: number };
 }
@@ -1198,6 +1199,23 @@ export function updateCommunityPost(id: string, data: Partial<{ title: string; c
 /** Exclusão de verdade pelo próprio autor — diferente da remoção por moderação (admin, com motivo). */
 export function deleteCommunityPost(id: string) {
   return request<{ deleted: true }>(`/community/posts/${id}`, { method: 'DELETE' });
+}
+
+/** Opcional — pra posts de data comemorativa que o psicólogo baixa e compartilha nas próprias redes. */
+export async function uploadCommunityPostImage(id: string, file: File) {
+  const token = getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/community/posts/${id}/image`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<CommunityPost>;
 }
 
 export function replyToCommunityPost(id: string, content: string) {

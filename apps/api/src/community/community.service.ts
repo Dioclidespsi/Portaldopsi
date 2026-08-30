@@ -1,10 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { getRequestContext } from '../common/tenant-context';
 import { CreateCommunityPostDto } from './dto/create-post.dto';
 import { UpdateCommunityPostDto } from './dto/update-post.dto';
 import { CreateCommunityReplyDto } from './dto/create-reply.dto';
 import { ListCommunityPostsDto } from './dto/list-posts.dto';
+import { COMMUNITY_IMAGE_UPLOAD_DIR } from './community-image-upload.config';
 
 /**
  * `community_*` não têm RLS de propósito (ver schema.prisma) — por isso usa
@@ -21,7 +25,10 @@ import { ListCommunityPostsDto } from './dto/list-posts.dto';
  */
 @Injectable()
 export class CommunityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   private async currentAuthorSnapshot() {
     const { userId, tenantId } = getRequestContext();
@@ -69,6 +76,39 @@ export class CommunityService {
 
     await this.prisma.communityPost.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  /**
+   * Opcional — pra posts de data comemorativa que o psicólogo baixa e
+   * compartilha nas próprias redes. Mesmo padrão de ProfileService.uploadPhoto
+   * (URL absoluta pronta pra <img src>, apaga o arquivo antigo se havia um).
+   */
+  async uploadPostImage(id: string, file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Envie o arquivo da imagem.');
+    const { userId } = getRequestContext();
+    const post = await this.prisma.communityPost.findUnique({ where: { id } });
+    if (!post || post.removedAt) throw new NotFoundException('Post não encontrado.');
+    if (post.authorId !== userId) throw new ForbiddenException('Você só pode adicionar imagem aos seus próprios posts.');
+
+    const publicApiUrl = this.config.get<string>('PUBLIC_API_URL', 'http://localhost:3333');
+    const ownUploadPrefix = `${publicApiUrl}/public/community-images/`;
+    if (post.imageUrl?.startsWith(ownUploadPrefix)) {
+      const oldFilename = post.imageUrl.slice(ownUploadPrefix.length);
+      fs.unlink(path.join(COMMUNITY_IMAGE_UPLOAD_DIR, oldFilename), () => undefined);
+    }
+
+    const imageUrl = `${ownUploadPrefix}${file.filename}`;
+    return this.prisma.communityPost.update({ where: { id }, data: { imageUrl } });
+  }
+
+  /** `filename` vem direto da URL (rota pública) — valida contra path traversal antes de tocar o disco. */
+  getImagePath(filename: string) {
+    if (filename !== path.basename(filename) || filename.includes('..')) {
+      throw new NotFoundException('Imagem não encontrada.');
+    }
+    const absolutePath = path.join(COMMUNITY_IMAGE_UPLOAD_DIR, filename);
+    if (!fs.existsSync(absolutePath)) throw new NotFoundException('Imagem não encontrada.');
+    return absolutePath;
   }
 
   async listPosts(query: ListCommunityPostsDto) {
@@ -156,7 +196,9 @@ export class CommunityService {
     const snapshot = await this.currentAuthorSnapshot();
     const reply = await this.prisma.communityReply.create({ data: { ...snapshot, postId, content: dto.content } });
 
-    if (post.authorId !== snapshot.authorId) {
+    // post.authorId é null em post institucional ("Portal do Psi") — não tem
+    // clínica nenhuma pra notificar nesse caso.
+    if (post.authorId && post.authorId !== snapshot.authorId) {
       await this.prisma.communityNotification.create({
         data: {
           userId: post.authorId,

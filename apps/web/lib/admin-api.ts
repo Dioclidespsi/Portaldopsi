@@ -133,12 +133,37 @@ export interface AdminCommunityPost {
   id: string;
   title: string;
   content: string;
+  imageUrl?: string | null;
   authorName: string;
   tenantName: string;
   createdAt: string;
   removedAt: string | null;
   removedReason: string | null;
   _count?: { replies: number };
+}
+
+/** Só GERAL/CASO_CLINICO/etc — mesma lista de apps/web/app/dashboard/comunidade/community-ui.tsx. */
+export type AdminCommunityCategory = 'INDICACAO' | 'CASO_CLINICO' | 'GESTAO_CONSULTORIO' | 'ABORDAGENS_TECNICAS' | 'CARREIRA_FORMACAO' | 'GERAL';
+
+/** Post "Portal do Psi" (não uma clínica) — pra datas comemorativas etc, que os psicólogos veem e podem compartilhar. */
+export function createInstitutionalCommunityPost(data: { title: string; content: string; category: AdminCommunityCategory }) {
+  return request<AdminCommunityPost>('/admin/community/posts', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function uploadCommunityPostImage(id: string, file: File) {
+  const token = getAdminToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/admin/community/posts/${id}/image`, {
+    method: 'POST',
+    headers: token ? { 'x-admin-token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<AdminCommunityPost>;
 }
 
 /** Todos os posts (não só os denunciados) — pra poder remover qualquer post da plataforma. */

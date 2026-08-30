@@ -17,6 +17,7 @@ import {
   toggleCommunityPostLike,
   toggleCommunityReplyLike,
   updateCommunityPost,
+  uploadCommunityPostImage,
 } from '../../../../lib/api';
 import { Avatar, CATEGORY_OPTIONS, CategoryChip, CrpBadge, relativeTime } from '../community-ui';
 
@@ -33,6 +34,7 @@ export default function ComunidadePostPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [editCategory, setEditCategory] = useState<CommunityCategory>('GERAL');
+  const [editImage, setEditImage] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export default function ComunidadePostPage() {
     setEditTitle(post.title);
     setEditContent(post.content);
     setEditCategory(post.category);
+    setEditImage(null);
     setEditing(true);
   }
 
@@ -59,7 +62,8 @@ export default function ComunidadePostPage() {
     setError(null);
     setSaving(true);
     try {
-      const updated = await updateCommunityPost(post.id, { title: editTitle, content: editContent, category: editCategory });
+      let updated = await updateCommunityPost(post.id, { title: editTitle, content: editContent, category: editCategory });
+      if (editImage) updated = await uploadCommunityPostImage(post.id, editImage);
       setPost({ ...post, ...updated });
       setEditing(false);
     } catch (err) {
@@ -170,6 +174,10 @@ export default function ComunidadePostPage() {
                     required
                   />
                 </label>
+                <label>
+                  {post.imageUrl ? 'Trocar imagem' : 'Adicionar imagem (opcional)'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setEditImage(e.target.files?.[0] ?? null)} />
+                </label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button>
                   <button type="button" onClick={() => setEditing(false)} style={{ background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
@@ -181,6 +189,15 @@ export default function ComunidadePostPage() {
               <>
                 <h2 style={{ fontSize: '1.05rem', margin: '0.5rem 0 0.4rem' }}>{post.title}</h2>
                 <p style={{ fontSize: '0.92rem', whiteSpace: 'pre-wrap' }}>{post.content}</p>
+                {post.imageUrl && (
+                  <div style={{ margin: '0 0 0.6rem' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={post.imageUrl} alt={post.title} style={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />
+                    <a href={post.imageUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem' }}>
+                      Baixar imagem →
+                    </a>
+                  </div>
+                )}
               </>
             )}
 

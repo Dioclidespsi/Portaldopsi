@@ -13,6 +13,8 @@ import { SetTestTemplateActiveDto } from './dto/set-test-template-active.dto';
 import { documentTemplateUploadOptions } from '../document-templates/document-template-upload.config';
 import { libraryMaterialUploadOptions } from '../library/library-material-upload.config';
 import { meditationUploadOptions } from '../meditation/meditation-upload.config';
+import { communityImageUploadOptions } from '../community/community-image-upload.config';
+import { CreateCommunityPostDto } from '../community/dto/create-post.dto';
 import { certificateTemplateUploadOptions } from '../certificates/certificate-template-upload.config';
 import { bannerUploadOptions } from '../banners/banner-upload.config';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
@@ -136,6 +138,18 @@ export class AdminController {
   @Get('community/posts')
   listAllCommunityPosts(@Query('search') search?: string, @Query('page') page?: string) {
     return this.admin.listAllCommunityPosts(search, page ? Number(page) : undefined);
+  }
+
+  /** Post "Portal do Psi" (não uma clínica) — datas comemorativas etc. */
+  @Post('community/posts')
+  createInstitutionalCommunityPost(@Body() dto: CreateCommunityPostDto) {
+    return this.admin.createInstitutionalCommunityPost(dto);
+  }
+
+  @Post('community/posts/:id/image')
+  @UseInterceptors(FileInterceptor('file', communityImageUploadOptions))
+  uploadCommunityPostImage(@Param('id') id: string, @UploadedFile() file?: Express.Multer.File) {
+    return this.admin.uploadCommunityPostImage(id, file);
   }
 
   @Post('community/reports/:id/resolve')

@@ -49,6 +49,7 @@ export class AuthModule implements NestModule {
         { path: 'public/tenants/:slug/likes', method: RequestMethod.POST },
         { path: 'public/tenants/:slug/likes', method: RequestMethod.DELETE },
         { path: 'public/photos/:filename', method: RequestMethod.GET },
+        { path: 'public/community-images/:filename', method: RequestMethod.GET },
         { path: 'public/tenants/:slug/presentation-video', method: RequestMethod.GET },
         { path: 'public/banners', method: RequestMethod.GET },
         { path: 'public/banner-images/:filename', method: RequestMethod.GET },

@@ -10,8 +10,9 @@ import { LIBRARY_MATERIAL_UPLOAD_DIR } from '../library/library-material-upload.
 import { MEDITATION_UPLOAD_DIR } from '../meditation/meditation-upload.config';
 import { CERTIFICATE_OUTPUT_DIR, CERTIFICATE_TEMPLATE_UPLOAD_DIR } from '../certificates/certificate-template-upload.config';
 import { BANNER_UPLOAD_DIR } from '../banners/banner-upload.config';
+import { COMMUNITY_IMAGE_UPLOAD_DIR } from '../community/community-image-upload.config';
 import { renderCertificateBuffer } from '../certificates/certificate-renderer';
-import { CampaignLeadStatus, CrpStatus, DocumentTemplateAudience, Prisma, Role, SubscriptionStatus, VideoApprovalStatus } from '@prisma/client';
+import { CampaignLeadStatus, CommunityCategory, CrpStatus, DocumentTemplateAudience, Prisma, Role, SubscriptionStatus, VideoApprovalStatus } from '@prisma/client';
 import { UpsertCertificateTemplateDto } from './dto/upsert-certificate-template.dto';
 import { UpsertTestTemplateDto } from './dto/upsert-test-template.dto';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
@@ -392,6 +393,47 @@ export class AdminService {
       this.prisma.forSystem().communityPost.count({ where }),
     ]);
     return { posts, total, page, take };
+  }
+
+  /**
+   * Post institucional ("Portal do Psi", não uma clínica específica) — pra
+   * datas comemorativas etc, que os psicólogos veem na Comunidade e podem
+   * baixar/compartilhar nas próprias redes. authorId/tenantId ficam null de
+   * propósito (ver schema.prisma — CommunityPost.authorId/tenantId são
+   * opcionais exatamente pra cobrir esse caso); CommunityService nunca faz
+   * include ao vivo de author/tenant, só usa os campos de snapshot, então
+   * não tem nenhum outro lugar do sistema que dependa desses FKs existirem.
+   */
+  async createInstitutionalCommunityPost(data: { title: string; content: string; category: CommunityCategory }) {
+    return this.prisma.forSystem().communityPost.create({
+      data: {
+        authorId: null,
+        tenantId: null,
+        authorName: 'Portal do Psi',
+        tenantName: 'Portal do Psi',
+        authorCrpVerified: false,
+        title: data.title,
+        content: data.content,
+        category: data.category,
+      },
+    });
+  }
+
+  /** Mesma lógica de ProfileService.uploadPhoto/CommunityService.uploadPostImage, sem checagem de autor (admin pode em qualquer post). */
+  async uploadCommunityPostImage(id: string, file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Envie o arquivo da imagem.');
+    const post = await this.prisma.forSystem().communityPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Post não encontrado.');
+
+    const publicApiUrl = this.config.get<string>('PUBLIC_API_URL', 'http://localhost:3333');
+    const ownUploadPrefix = `${publicApiUrl}/public/community-images/`;
+    if (post.imageUrl?.startsWith(ownUploadPrefix)) {
+      const oldFilename = post.imageUrl.slice(ownUploadPrefix.length);
+      fs.unlink(path.join(COMMUNITY_IMAGE_UPLOAD_DIR, oldFilename), () => undefined);
+    }
+
+    const imageUrl = `${ownUploadPrefix}${file.filename}`;
+    return this.prisma.forSystem().communityPost.update({ where: { id }, data: { imageUrl } });
   }
 
   /**

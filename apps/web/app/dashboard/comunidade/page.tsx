@@ -17,6 +17,7 @@ import {
   markAllCommunityNotificationsRead,
   markCommunityNotificationRead,
   toggleCommunityPostLike,
+  uploadCommunityPostImage,
 } from '../../../lib/api';
 import { Avatar, CATEGORY_OPTIONS, CategoryChip, CrpBadge, relativeTime } from './community-ui';
 
@@ -34,6 +35,7 @@ export default function ComunidadePage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [newCategory, setNewCategory] = useState<CommunityCategory>('GERAL');
+  const [newImage, setNewImage] = useState<File | null>(null);
   const [hasOwnPhoto, setHasOwnPhoto] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,10 +76,13 @@ export default function ComunidadePage() {
     e.preventDefault();
     setError(null);
     try {
-      await createCommunityPost({ title, content, category: newCategory });
+      const created = await createCommunityPost({ title, content, category: newCategory });
+      if (newImage) await uploadCommunityPostImage(created.id, newImage);
       setTitle('');
       setContent('');
       setNewCategory('GERAL');
+      setNewImage(null);
+      setShowNewPost(false);
       await reload(1);
     } catch (err) {
       setError((err as Error).message);
@@ -118,76 +123,103 @@ export default function ComunidadePage() {
 
   return (
     <DashboardShell title="Comunidade" description="Troca de casos, indicações e experiências entre psicólogos de todo o Brasil.">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={onOpenNotifications}
-            style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink)', position: 'relative', padding: '0.5rem 0.7rem' }}
-          >
-            <Bell size={16} />
-            {unreadCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute', top: -4, right: -4, background: 'var(--crit)', color: '#fff',
-                  borderRadius: '50%', fontSize: '0.65rem', width: '18px', height: '18px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
-                }}
-              >
-                {unreadCount}
-              </span>
-            )}
-          </button>
-          {showNotifications && (
-            <div
+      {/* Visível mas discreto (item 9: nunca exigir rolar até o fim da lista pra publicar) — o
+          destaque da página é pros posts e interações, não pro formulário de criar um novo, pelos
+          filtros nem pelo sino. Tudo numa linha só, nada esticando a largura inteira. */}
+      <div style={{ margin: '1rem 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {!showNewPost && (
+            <button
+              type="button"
+              onClick={() => setShowNewPost(true)}
               style={{
-                position: 'absolute', right: 0, top: '2.6rem', width: '320px', maxHeight: '360px', overflowY: 'auto',
-                background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
-                padding: '0.6rem', zIndex: 10,
+                flexShrink: 0, fontSize: '0.82rem', padding: '0.4rem 0.8rem',
+                background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                <strong style={{ fontSize: '0.82rem' }}>Notificações</strong>
-                {unreadCount > 0 && (
-                  <button onClick={onMarkAllRead} style={{ fontSize: '0.72rem', padding: '0.2rem 0.4rem', background: 'transparent', color: 'var(--accent)' }}>
-                    Marcar todas como lidas
-                  </button>
-                )}
-              </div>
-              {notifications.length === 0 && <p className="sub" style={{ fontSize: '0.8rem', margin: 0 }}>Nenhuma notificação ainda.</p>}
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => onNotificationClick(n)}
+              + Criar post
+            </button>
+          )}
+          <form onSubmit={onFilter} style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar posts…"
+              aria-label="Buscar posts"
+              style={{ width: '220px', fontSize: '0.82rem', padding: '0.35rem 0.6rem' }}
+            />
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as CommunityCategory | '')}
+              aria-label="Categoria"
+              style={{ fontSize: '0.82rem', padding: '0.35rem 0.6rem', width: 'auto' }}
+            >
+              <option value="">Todas as categorias</option>
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
+            </select>
+            <button
+              type="submit"
+              style={{ flexShrink: 0, fontSize: '0.78rem', padding: '0.35rem 0.7rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
+            >
+              Filtrar
+            </button>
+          </form>
+
+          <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            <button
+              onClick={onOpenNotifications}
+              style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--ink)', position: 'relative', padding: '0.4rem 0.6rem' }}
+            >
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <span
                   style={{
-                    padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem',
-                    background: n.readAt ? 'transparent' : 'var(--warn-soft)', marginBottom: '0.3rem',
+                    position: 'absolute', top: -4, right: -4, background: 'var(--crit)', color: '#fff',
+                    borderRadius: '50%', fontSize: '0.65rem', width: '18px', height: '18px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
                   }}
                 >
-                  <p style={{ margin: 0 }}>{n.message}</p>
-                  <span className="sub" style={{ fontSize: '0.7rem' }}>{relativeTime(n.createdAt)}</span>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <div
+                style={{
+                  position: 'absolute', right: 0, top: '2.6rem', width: '320px', maxHeight: '360px', overflowY: 'auto',
+                  background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
+                  padding: '0.6rem', zIndex: 10,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <strong style={{ fontSize: '0.82rem' }}>Notificações</strong>
+                  {unreadCount > 0 && (
+                    <button onClick={onMarkAllRead} style={{ fontSize: '0.72rem', padding: '0.2rem 0.4rem', background: 'transparent', color: 'var(--accent)' }}>
+                      Marcar todas como lidas
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+                {notifications.length === 0 && <p className="sub" style={{ fontSize: '0.8rem', margin: 0 }}>Nenhuma notificação ainda.</p>}
+                {notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    onClick={() => onNotificationClick(n)}
+                    style={{
+                      padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem',
+                      background: n.readAt ? 'transparent' : 'var(--warn-soft)', marginBottom: '0.3rem',
+                    }}
+                  >
+                    <p style={{ margin: 0 }}>{n.message}</p>
+                    <span className="sub" style={{ fontSize: '0.7rem' }}>{relativeTime(n.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Visível mas discreto (item 9: nunca exigir rolar até o fim da lista pra publicar) — o
-          destaque da página é pros posts e interações, não pro formulário de criar um novo. */}
-      <div style={{ margin: '1rem 0' }}>
-        {!showNewPost ? (
-          <button
-            type="button"
-            onClick={() => setShowNewPost(true)}
-            style={{
-              display: 'inline-block', fontSize: '0.82rem', padding: '0.4rem 0.8rem',
-              background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: '100px',
-            }}
-          >
-            + Criar post
-          </button>
-        ) : (
-          <div className="card">
+        {showNewPost && (
+          <div className="card" style={{ marginTop: '0.6rem' }}>
             <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.6rem' }}>Novo post</h3>
             <form onSubmit={onCreate}>
               <label>
@@ -210,6 +242,10 @@ export default function ComunidadePage() {
                   required
                 />
               </label>
+              <label>
+                Imagem (opcional — ex: arte de data comemorativa pra baixar e compartilhar)
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setNewImage(e.target.files?.[0] ?? null)} />
+              </label>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button type="submit">Publicar</button>
                 <button
@@ -223,6 +259,7 @@ export default function ComunidadePage() {
             </form>
           </div>
         )}
+
         {!hasOwnPhoto && (
           <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.78rem' }}>
             Você ainda não tem uma foto de perfil — ela aparece ao lado do seu nome nos posts e respostas.{' '}
@@ -230,31 +267,6 @@ export default function ComunidadePage() {
           </p>
         )}
       </div>
-
-      <form onSubmit={onFilter} style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', margin: '0 0 1rem' }}>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar posts…"
-          aria-label="Buscar posts"
-          style={{ flex: 1, minWidth: '160px', fontSize: '0.82rem', padding: '0.35rem 0.6rem' }}
-        />
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as CommunityCategory | '')}
-          aria-label="Categoria"
-          style={{ fontSize: '0.82rem', padding: '0.35rem 0.6rem', width: 'auto' }}
-        >
-          <option value="">Todas as categorias</option>
-          {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{COMMUNITY_CATEGORY_LABEL[c]}</option>)}
-        </select>
-        <button
-          type="submit"
-          style={{ fontSize: '0.78rem', padding: '0.35rem 0.7rem', background: 'transparent', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}
-        >
-          Filtrar
-        </button>
-      </form>
 
       {posts.map((post) => (
         <div
@@ -280,6 +292,14 @@ export default function ComunidadePage() {
                 <p style={{ margin: '0 0 0.6rem', fontSize: '0.88rem', color: 'var(--ink-soft)' }}>
                   {post.content.length > 180 ? `${post.content.slice(0, 180)}…` : post.content}
                 </p>
+                {post.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.imageUrl}
+                    alt={post.title}
+                    style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', display: 'block', marginBottom: '0.6rem' }}
+                  />
+                )}
               </Link>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
