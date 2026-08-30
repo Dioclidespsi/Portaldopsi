@@ -227,7 +227,7 @@ export default function TestesPage() {
         <p className="sub">Nenhum teste cadastrado no catálogo ainda — peça pro administrador cadastrar em /admin/testes.</p>
       ) : (
         <form onSubmit={onAssign} style={{ marginBottom: '1.5rem' }}>
-          {selectedTemplate && <div className="callout-box" style={{ marginBottom: '0.8rem' }}>{selectedTemplate.disclaimer}</div>}
+          {selectedTemplate && <div className="card" style={{ marginBottom: '0.8rem' }}>{selectedTemplate.disclaimer}</div>}
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
             <button type="submit">Disponibilizar para o paciente</button>
             <button

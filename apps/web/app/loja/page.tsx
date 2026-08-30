@@ -114,7 +114,7 @@ export default function LojaPage() {
           </div>
 
           {buyingSlug === c.slug && !loggedIn && (
-            <div className="callout-box" style={{ marginTop: '0.8rem' }}>
+            <div className="card" style={{ marginTop: '0.8rem' }}>
               <strong style={{ fontSize: '0.9rem' }}>Cadastro de Estudante de Psicologia</strong>
               <p className="sub" style={{ margin: '0.3rem 0 0.7rem' }}>
                 Diferente do cadastro de clínica, aqui pedimos também a comprovação da sua matrícula — sua conta

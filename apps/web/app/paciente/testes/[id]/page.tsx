@@ -52,7 +52,7 @@ function AnswerTestForm() {
   if (done) {
     return (
       <div className="shell shell-wide">
-        <div className="callout-box">
+        <div className="card">
           <p style={{ margin: 0 }}>Respostas enviadas. Seu psicólogo vai revisar e conversar com você sobre o resultado.</p>
         </div>
         <button onClick={() => router.push('/paciente/testes')} style={{ marginTop: '1rem' }}>Voltar</button>
@@ -70,7 +70,7 @@ function AnswerTestForm() {
   return (
     <div className="shell shell-wide">
       <h1 style={{ fontSize: '1.1rem' }}>{test.testTemplate.title}</h1>
-      <div className="callout-box" style={{ marginBottom: '1rem' }}>{test.testTemplate.disclaimer}</div>
+      <div className="card" style={{ marginBottom: '1rem' }}>{test.testTemplate.disclaimer}</div>
       <p className="sub">{test.testTemplate.instructions}</p>
 
       <form onSubmit={onSubmit}>
