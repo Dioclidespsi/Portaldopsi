@@ -188,7 +188,7 @@ export default function DocumentosPage() {
 
   return (
     <DashboardShell title={"Documentos"} description={"Preencha laudo, relatório, atestado, declaração, encaminhamento ou parecer para um paciente específico. O PDF final leva sua assinatura/carimbo e só é entregue ao paciente quando você clicar em \"Disponibilizar ao paciente\" — gerar o documento não libera sozinho."}>
-      <div className="callout-box" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <strong>Identidade nos documentos</strong>
         <p className="sub" style={{ margin: '0.3rem 0 0.8rem' }}>
           Assinatura, carimbo, endereço e contato configurados aqui aparecem automaticamente em todo laudo,

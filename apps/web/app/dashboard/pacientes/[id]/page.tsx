@@ -357,7 +357,7 @@ export default function PatientDetailPage() {
       <button onClick={onSummarize} disabled={summarizing} style={{ marginBottom: '0.6rem' }}>
         {summarizing ? 'Resumindo…' : 'Resumir com IA'}
       </button>
-      {summary && <div className="callout-box" style={{ marginBottom: '0.8rem' }}>{summary}</div>}
+      {summary && <div className="card" style={{ marginBottom: '0.8rem' }}>{summary}</div>}
 
       {entries.map((e) => (
         <div key={e.id} style={{ padding: '0.6rem 0', borderBottom: '1px solid var(--line)' }}>
@@ -555,7 +555,7 @@ export default function PatientDetailPage() {
       </form>
 
       <h3 style={{ fontSize: '0.92rem', marginTop: '1.5rem' }}>Aplicativo do paciente</h3>
-      {portalMessage && <div className="callout-box" style={{ marginBottom: '1rem' }}>{portalMessage}</div>}
+      {portalMessage && <div className="card" style={{ marginBottom: '1rem' }}>{portalMessage}</div>}
       {patient.patientAccountId ? (
         <p className="sub">Portal ativado — o paciente já pode entrar com o e-mail cadastrado.</p>
       ) : (
@@ -571,7 +571,7 @@ export default function PatientDetailPage() {
             que ele já tem continua valendo.
           </p>
           {activationLink && (
-            <div className="callout-box" style={{ marginBottom: '1rem' }}>
+            <div className="card" style={{ marginBottom: '1rem' }}>
               <p style={{ margin: '0 0 0.4rem' }}>
                 Envie este link pro paciente (WhatsApp, SMS) — ele mesmo define a senha. Válido por 48h:
               </p>

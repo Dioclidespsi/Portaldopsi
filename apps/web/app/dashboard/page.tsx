@@ -147,7 +147,7 @@ export default function DashboardPage() {
       )}
 
       {me.role === 'PSICOLOGO_TITULAR' && me.crpStatus === 'VERIFICADO' && (
-        <div className="callout-box" style={{ marginBottom: '1.2rem' }}>
+        <div className="card" style={{ marginBottom: '1.2rem' }}>
           {!editingCrp ? (
             <p style={{ margin: 0, display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <span>

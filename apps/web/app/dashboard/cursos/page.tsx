@@ -40,7 +40,7 @@ function BuyCoursePanel({ course }: { course: CourseView }) {
 
   if (paymentLink) {
     return (
-      <div className="callout-box" style={{ marginBottom: '0.8rem' }}>
+      <div className="card" style={{ marginBottom: '0.8rem' }}>
         Cobrança gerada — finalize o pagamento pra liberar o curso:{' '}
         <a href={paymentLink} target="_blank" rel="noreferrer">{paymentLink}</a>
       </div>
@@ -48,7 +48,7 @@ function BuyCoursePanel({ course }: { course: CourseView }) {
   }
 
   return (
-    <div className="callout-box" style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.6rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+    <div className="card" style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.6rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
       <span style={{ fontSize: '0.88rem' }}>
         Este curso é pago{course.priceCents !== null ? ` — ${centsToReais(course.priceCents)}` : ''}.
       </span>
@@ -109,13 +109,13 @@ function QuizPanel({ lessonId, onClose }: { lessonId: string; onClose: () => voi
     setAnswers({});
   }
 
-  if (error) return <div className="callout-box" style={{ marginTop: '0.6rem' }}><span className="error">{error}</span></div>;
-  if (!quiz) return <div className="callout-box" style={{ marginTop: '0.6rem' }}>Carregando quiz…</div>;
+  if (error) return <div className="card" style={{ marginTop: '0.6rem' }}><span className="error">{error}</span></div>;
+  if (!quiz) return <div className="card" style={{ marginTop: '0.6rem' }}>Carregando quiz…</div>;
 
   const allAnswered = quiz.questions.every((q) => answers[q.id]);
 
   return (
-    <div className="callout-box" style={{ marginTop: '0.6rem' }}>
+    <div className="card" style={{ marginTop: '0.6rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
         <strong style={{ fontSize: '0.9rem' }}>
           Quiz {quiz.required ? `— nota mínima ${quiz.passingScorePercent}%` : '(opcional)'}

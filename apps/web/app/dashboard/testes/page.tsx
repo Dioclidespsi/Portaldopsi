@@ -306,7 +306,7 @@ export default function TestesPage() {
         const assignment = assignments.find((a) => a.id === viewingAnswersId);
         if (!assignment) return null;
         return (
-          <div className="callout-box" style={{ marginTop: '1rem' }}>
+          <div className="card" style={{ marginTop: '1rem' }}>
             <h4 style={{ margin: '0 0 0.6rem', fontSize: '0.92rem' }}>Respostas: {assignment.testTemplate.title}</h4>
             {assignment.finalResultLabel && (
               <p className="sub" style={{ marginBottom: '0.6rem' }}>
@@ -327,7 +327,7 @@ export default function TestesPage() {
           return q.type === 'objetiva' ? typeof value === 'number' : typeof value === 'string' && value.trim().length > 0;
         });
         return (
-          <div className="callout-box" style={{ marginTop: '1.2rem' }}>
+          <div className="card" style={{ marginTop: '1.2rem' }}>
             <h4 style={{ margin: '0 0 0.4rem', fontSize: '0.92rem' }}>Aplicação ao vivo: {assignment.testTemplate.title}</h4>
             <p className="sub" style={{ margin: '0 0 0.8rem' }}>
               Leia cada pergunta em voz alta pro paciente e preencha a resposta dele aqui. Ao enviar, o teste segue
@@ -381,7 +381,7 @@ export default function TestesPage() {
         const assignment = assignments.find((a) => a.id === correctingId);
         if (!assignment) return null;
         return (
-          <div className="callout-box" style={{ marginTop: '1.2rem' }}>
+          <div className="card" style={{ marginTop: '1.2rem' }}>
             <h4 style={{ margin: '0 0 0.6rem', fontSize: '0.92rem' }}>Corrigir: {assignment.testTemplate.title}</h4>
             <p className="sub" style={{ margin: '0 0 0.4rem' }}>
               Respostas do paciente — a pontuação sozinha não substitui a leitura de cada resposta:

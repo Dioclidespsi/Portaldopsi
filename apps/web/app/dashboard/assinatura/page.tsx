@@ -181,7 +181,7 @@ export default function AssinaturaPage() {
       </div>
 
       {status === 'ACTIVE' ? (
-        <div className="callout-box" style={{ marginTop: '1.2rem' }}>
+        <div className="card" style={{ marginTop: '1.2rem' }}>
           <p style={{ margin: 0 }}>
             Sua assinatura já está ativa
             {subscription?.currentPeriodEnd &&
@@ -213,7 +213,7 @@ export default function AssinaturaPage() {
         </>
       )}
 
-      {info && <div className="callout-box" style={{ marginTop: '1rem' }}>{info}</div>}
+      {info && <div className="card" style={{ marginTop: '1rem' }}>{info}</div>}
       {error && <span className="error">{error}</span>}
     </DashboardShell>
   );

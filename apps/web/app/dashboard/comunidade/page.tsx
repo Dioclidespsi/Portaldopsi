@@ -162,7 +162,7 @@ export default function ComunidadePage() {
       </div>
 
       {/* Fixo no topo (espaço antes vazio) — item 9: publicar não deve exigir rolar até o fim da lista de posts. */}
-      <div className="callout-box" style={{ margin: '1rem 0' }}>
+      <div className="card" style={{ margin: '1rem 0' }}>
         <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.6rem' }}>Novo post</h3>
         <form onSubmit={onCreate}>
           <label>

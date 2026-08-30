@@ -285,7 +285,7 @@ export default function CrmPage() {
       {info && <p className="sub" style={{ marginTop: '0.8rem' }}>{info}</p>}
 
       {selectedLead && (
-        <div className="callout-box" style={{ marginTop: '1rem' }}>
+        <div className="card" style={{ marginTop: '1rem' }}>
           <h3 style={{ fontSize: '0.92rem', marginTop: 0 }}>{selectedLead.name}</h3>
 
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
@@ -352,7 +352,7 @@ export default function CrmPage() {
           </div>
 
           {suggestions[selectedLead.id] && (
-            <div className="callout-box" style={{ marginTop: '0.8rem' }}>
+            <div className="card" style={{ marginTop: '0.8rem' }}>
               <p style={{ margin: '0 0 0.3rem', fontWeight: 600 }}>Rascunho de mensagem:</p>
               <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{suggestions[selectedLead.id]}</p>
             </div>
