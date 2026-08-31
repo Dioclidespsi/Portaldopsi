@@ -18,7 +18,7 @@ export const meditationUploadOptions = {
       cb(null, `${randomUUID()}${ext}`);
     },
   }),
-  limits: { fileSize: 80 * 1024 * 1024 },
+  limits: { fileSize: 95 * 1024 * 1024 },
   fileFilter: (_req: unknown, file: Express.Multer.File, cb: (error: Error | null, accept: boolean) => void) => {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       cb(new BadRequestException('Envie o áudio em MP3, M4A, WAV ou OGG.'), false);
