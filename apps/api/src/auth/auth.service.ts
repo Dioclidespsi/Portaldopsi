@@ -54,8 +54,11 @@ export class AuthService {
 
     // Não bloqueia o cadastro nem impede o login — só fica pendente até o
     // psicólogo clicar no link (mesmo padrão não-bloqueante do CRP).
+    // `forTenant` é obrigatório aqui: fora da transação de criação, a conexão
+    // não tem mais app.tenant_id setado — sem isso a RLS de `users` bloqueia
+    // o update (0 linhas afetadas) e todo cadastro novo quebra com 500.
     const verificationToken = randomUUID();
-    await this.prisma.user.update({
+    await this.prisma.forTenant(tenant.id).user.update({
       where: { id: user.id },
       data: {
         emailVerificationToken: verificationToken,
