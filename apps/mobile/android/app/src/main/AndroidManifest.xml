@@ -32,4 +32,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Teleconsulta (getUserMedia dentro do WebView, ver MainActivity.java) —
+         sem isso o Android nem deixa o app pedir a permissão em tempo de
+         execução, câmera/microfone ficam bloqueados pra sempre. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>
