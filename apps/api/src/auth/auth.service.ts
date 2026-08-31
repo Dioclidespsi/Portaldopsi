@@ -24,6 +24,8 @@ const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 const RESERVED_SLUGS = new Set([
   'admin', 'dashboard', 'login', 'loja', 'paciente', 'privacidade',
   'profissionais', 'signup', 'verificar', 'verificar-email', 'api', '_next', 'favicon.ico',
+  'esqueci-senha', 'redefinir-senha', 'programa-piloto', 'termos-aluno', 'termos-paciente',
+  'exclusao-de-conta',
 ]);
 
 @Injectable()
