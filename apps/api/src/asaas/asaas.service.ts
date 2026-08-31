@@ -298,7 +298,14 @@ export class AsaasService {
       include: { patient: true, tenant: true },
     });
     if (!invoice) throw new NotFoundException('Cobrança não encontrada.');
-    if (!invoice.tenant.payoutAccountId) {
+    // 'plataforma' é o sentinel de payoutProvider pra quem recebe direto na
+    // conta Asaas da própria plataforma (a mesma do ASAAS_API_KEY) — sem
+    // sub-conta, sem split, sem taxa (é a mesma dona do dinheiro nos dois
+    // lados). Uso pontual hoje (ex: o titular da plataforma atendendo pelo
+    // próprio Portal do Psi); qualquer outro tenant continua exigindo
+    // sub-conta vinculada, sem esse atalho.
+    const receivesDirectlyOnPlatform = invoice.tenant.payoutProvider === 'plataforma';
+    if (!receivesDirectlyOnPlatform && !invoice.tenant.payoutAccountId) {
       throw new BadRequestException(
         'Este psicólogo ainda não tem sub-conta de recebimento vinculada — crie uma em POST /asaas/payout-account antes de cobrar via Asaas.',
       );
@@ -319,6 +326,10 @@ export class AsaasService {
       await tenantPrisma.patient.update({ where: { id: invoice.patient.id }, data: { asaasCustomerId: customerId } });
     }
 
+    // Sem sub-conta pra receber "direto na plataforma": nenhum split é
+    // enviado, então o Asaas credita 100% na conta dona do ASAAS_API_KEY
+    // (a própria plataforma) — mesmo comportamento já usado na cobrança
+    // avulsa do Marketplace, só que agora reaproveitado aqui.
     const percentualValue = 100 - this.platformFeePercent;
     const payment = await this.request<{ id: string; invoiceUrl: string }>('/payments', {
       method: 'POST',
@@ -327,7 +338,9 @@ export class AsaasService {
         billingType: 'UNDEFINED',
         value: invoice.amountCents / 100,
         dueDate: invoice.dueDate.toISOString().slice(0, 10),
-        split: [{ walletId: invoice.tenant.payoutAccountId, percentualValue }],
+        ...(receivesDirectlyOnPlatform
+          ? {}
+          : { split: [{ walletId: invoice.tenant.payoutAccountId, percentualValue }] }),
       }),
     });
 
