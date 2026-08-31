@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { fetchPublicAvailability, PublicSlot, submitAuthenticatedBooking, submitPublicBooking } from '../../lib/api';
 import { getPatientToken, savePatientToken } from '../../lib/patient-api';
 import { siteFieldStyle, sitePrimaryButtonStyle } from '../../lib/site-ui';
+import PasswordInput from '../../components/PasswordInput';
 
 /** Cartão de dia e botão de horário usam a mesma largura — evita o horário parecer "mais largo" que a data acima dele. */
 const CALENDAR_CARD_WIDTH = '64px';
@@ -188,7 +189,15 @@ export default function BookingWidget({ slug }: { slug: string }) {
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--site-ink-soft)' }}>
           Crie uma senha <span style={{ fontWeight: 400 }}>(pra acompanhar suas sessões depois)</span>
-          <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required style={fieldStyle} />
+          <PasswordInput
+            name="new-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={fieldStyle}
+          />
         </label>
         <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--site-ink-soft)' }}>
           <input

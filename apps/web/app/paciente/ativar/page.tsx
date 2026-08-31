@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { activatePatientPortal, savePatientToken } from '../../../lib/patient-api';
+import PasswordInput from '../../../components/PasswordInput';
 
 function AtivarForm() {
   const router = useRouter();
@@ -56,11 +57,25 @@ function AtivarForm() {
       <form onSubmit={onSubmit}>
         <label>
           Senha
-          <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput
+            name="new-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </label>
         <label>
           Confirmar senha
-          <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+          <PasswordInput
+            name="confirm-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
         </label>
         <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.4rem' }}>
           <input

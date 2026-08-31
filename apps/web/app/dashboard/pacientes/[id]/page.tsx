@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardShell from '../../../../components/DashboardShell';
+import PasswordInput from '../../../../components/PasswordInput';
 import WhatsAppButton from '../../../../components/WhatsAppButton';
 import {
   addProntuarioEntry,
@@ -582,7 +583,14 @@ export default function PatientDetailPage() {
           <form onSubmit={onEnablePortal} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <label>
               Senha inicial
-              <input type="password" minLength={8} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} required />
+              <PasswordInput
+                name="new-password"
+                autoComplete="new-password"
+                minLength={8}
+                value={portalPassword}
+                onChange={(e) => setPortalPassword(e.target.value)}
+                required
+              />
             </label>
             <button type="submit" disabled={!patient.email}>Ativar portal</button>
           </form>

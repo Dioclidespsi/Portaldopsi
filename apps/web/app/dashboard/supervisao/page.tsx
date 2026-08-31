@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '../../../components/DashboardShell';
+import PasswordInput from '../../../components/PasswordInput';
 import {
   createSupervisionSession,
   createSupervisionTeleconsultaRoom,
@@ -192,7 +193,7 @@ export default function SupervisaoPage() {
           <form onSubmit={onAddSupervisor} style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <label>Nome<input value={newName} onChange={(e) => setNewName(e.target.value)} required /></label>
             <label>E-mail<input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required /></label>
-            <label>Senha<input type="password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>
+            <label>Senha<PasswordInput name="new-password" autoComplete="new-password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></label>
             <button type="submit">Adicionar supervisor</button>
           </form>
         </>

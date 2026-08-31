@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '../../../components/DashboardShell';
+import PasswordInput from '../../../components/PasswordInput';
 import {
   AccountInfo,
   changeAccountEmail,
@@ -145,7 +146,13 @@ export default function ContaPage() {
         </label>
         <label>
           Senha atual (confirmação)
-          <input type="password" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} required />
+          <PasswordInput
+            name="current-password"
+            autoComplete="current-password"
+            value={emailPassword}
+            onChange={(e) => setEmailPassword(e.target.value)}
+            required
+          />
         </label>
         <button type="submit" disabled={savingEmail} style={{ alignSelf: 'flex-start' }}>
           {savingEmail ? 'Salvando…' : 'Salvar e-mail'}
@@ -158,11 +165,24 @@ export default function ContaPage() {
       <form onSubmit={onChangePassword}>
         <label>
           Senha atual
-          <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+          <PasswordInput
+            name="current-password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+          />
         </label>
         <label>
           Nova senha
-          <input type="password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+          <PasswordInput
+            name="new-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+          />
         </label>
         <button type="submit" disabled={savingPassword} style={{ alignSelf: 'flex-start' }}>
           {savingPassword ? 'Salvando…' : 'Salvar senha'}

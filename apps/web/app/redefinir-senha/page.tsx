@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { resetPassword } from '../../lib/api';
+import PasswordInput from '../../components/PasswordInput';
 
 function RedefinirSenhaForm() {
   const router = useRouter();
@@ -47,11 +48,25 @@ function RedefinirSenhaForm() {
       <form onSubmit={onSubmit}>
         <label>
           Nova senha
-          <input type="password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+          <PasswordInput
+            name="new-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+          />
         </label>
         <label>
           Confirme a nova senha
-          <input type="password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          <PasswordInput
+            name="confirm-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
         </label>
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Salvando…' : 'Redefinir senha'}</button>

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import PasswordInput from '../../../components/PasswordInput';
 import { patientLogin, savePatientToken } from '../../../lib/patient-api';
 
 export default function PatientLoginPage() {
@@ -37,11 +38,24 @@ export default function PatientLoginPage() {
       <form onSubmit={onSubmit}>
         <label>
           E-mail
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input
+            type="email"
+            name="username"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </label>
         <label>
           Senha
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput
+            name="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </label>
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>

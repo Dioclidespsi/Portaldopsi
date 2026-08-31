@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { enrollInCourse, getTenantKind, getToken, listMarketplaceCourses, MarketplaceCourse, purchaseCourse, saveToken } from '../../lib/api';
 import PaymentBadges from '../../components/PaymentBadges';
+import PasswordInput from '../../components/PasswordInput';
 
 function centsToReais(cents: number) {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -142,7 +143,13 @@ export default function LojaPage() {
                   </label>
                   <label>
                     Senha
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <PasswordInput
+                      name="new-password"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
                   </label>
                   <label>
                     Instituição de ensino

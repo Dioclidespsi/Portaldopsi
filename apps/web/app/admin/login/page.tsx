@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import PasswordInput from '../../../components/PasswordInput';
 import { saveAdminToken, verifyAdminToken } from '../../../lib/admin-api';
 
 export default function AdminLoginPage() {
@@ -38,7 +39,13 @@ export default function AdminLoginPage() {
       <form onSubmit={onSubmit}>
         <label>
           Token de administrador
-          <input type="password" value={token} onChange={(e) => setToken(e.target.value)} required />
+          <PasswordInput
+            name="password"
+            autoComplete="current-password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            required
+          />
         </label>
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>

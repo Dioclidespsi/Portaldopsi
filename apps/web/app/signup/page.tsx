@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { saveToken, signup } from '../../lib/api';
+import PasswordInput from '../../components/PasswordInput';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -74,7 +75,14 @@ export default function SignupPage() {
         </label>
         <label>
           Senha
-          <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput
+            name="new-password"
+            autoComplete="new-password"
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </label>
         {error && <span className="error">{error}</span>}
         <button type="submit" disabled={loading}>{loading ? 'Criando…' : 'Criar clínica'}</button>
