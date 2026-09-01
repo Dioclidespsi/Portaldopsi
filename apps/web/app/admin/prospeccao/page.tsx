@@ -34,6 +34,12 @@ const STAGE_LABEL: Record<string, string> = {
   OPT_OUT: 'Opt-out',
 };
 
+// Trava de segurança só do front — o backend já para sozinho quando o Serper não
+// tem mais resultado (results.length === 0 vira CONCLUIDA); isso aqui é só pra
+// nunca martelar a API indefinidamente se algo inesperado impedir o status de
+// virar CONCLUIDA.
+const MAX_AUTO_EXECUTIONS = 30;
+
 const SEARCH_REQUEST_STATUS_LABEL: Record<string, string> = {
   PENDENTE: 'Pendente — aguardando execução manual',
   EM_ANDAMENTO: 'Em andamento',
@@ -211,16 +217,31 @@ export default function AdminProspeccaoPage() {
     }
   }
 
+  /**
+   * Cada chamada ao backend processa só 1 página do Google (até 10 resultados
+   * brutos, que depois dos filtros costumam virar bem menos leads de verdade)
+   * — pedir "10 leads" podia exigir vários cliques manuais em "Executar mais"
+   * sem isso ficar claro, dando a impressão de que a busca não rende nada.
+   * Agora um clique só continua sozinho, lote após lote, até a pesquisa
+   * concluir (ou até MAX_AUTO_EXECUTIONS, trava de segurança).
+   */
   async function onExecuteSearchRequest(id: string) {
     setError(null);
     setInfo(null);
     setExecutingId(id);
     try {
-      const updated = await executeSearchRequest(id);
+      let updated = await executeSearchRequest(id);
+      let attempts = 1;
+      while (updated.status === 'EM_ANDAMENTO' && attempts < MAX_AUTO_EXECUTIONS) {
+        setInfo(`Buscando… ${updated.resultCount}/${updated.quantity} encontrado(s) até agora.`);
+        load();
+        updated = await executeSearchRequest(id);
+        attempts++;
+      }
       setInfo(
         updated.status === 'CONCLUIDA'
           ? `Pesquisa concluída — ${updated.resultCount} profissional(is) encontrado(s) no total.`
-          : `Lote processado — ${updated.resultCount}/${updated.quantity} até agora. Clique em "Executar mais" pra continuar.`,
+          : `Parado após ${attempts} lote(s) sem concluir (limite de segurança) — ${updated.resultCount}/${updated.quantity} até agora. Clique em "Executar mais" pra continuar.`,
       );
       load();
     } catch (err) {
@@ -278,9 +299,9 @@ export default function AdminProspeccaoPage() {
         </div>
         <p className="sub" style={{ fontSize: '0.8rem', margin: '0.4rem 0 0' }}>
           Define os critérios da busca. Depois de registrar, clique em &quot;Executar&quot; pra rodar a busca
-          (via Serper + extração por IA) — processa até 10 por vez, pra nunca travar nem gastar cota à toa;
-          clique de novo pra continuar até bater a quantidade desejada. Sem SERPER_API_KEY configurada no
-          servidor, a execução fica indisponível.
+          (via Serper + extração por IA) — continua sozinho, lote após lote, até bater a quantidade
+          desejada ou os resultados acabarem. Sem SERPER_API_KEY configurada no servidor, a execução fica
+          indisponível.
         </p>
 
         {showSearchForm && (
