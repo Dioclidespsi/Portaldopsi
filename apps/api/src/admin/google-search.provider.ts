@@ -261,9 +261,16 @@ function normalizeCandidate(candidate: ExtractedCandidate): ExtractedCandidate {
   // praticamente sempre WhatsApp-alcançável, então aproveita como tal em vez de
   // descartar um lead bom só por falta de rótulo na página.
   if (!normalized.whatsapp && typeof normalized.phone === 'string') {
-    const digits = normalized.phone.replace(/\D/g, '');
-    const isBrMobile = /^(\d{2})?9\d{8}$/.test(digits.length === 11 ? digits : digits.slice(-9));
-    if (digits.length >= 10 && isBrMobile) normalized.whatsapp = normalized.phone;
+    let digits = normalized.phone.replace(/\D/g, '');
+    // Remove o código do país (+55) antes de checar o formato local — sem isso,
+    // "+55 11 99999-8888" (13 dígitos) nunca batia com o padrão de celular
+    // (DDD + 9 dígitos = 11 dígitos), e praticamente todo número em formato
+    // internacional — comum em bio do Instagram — era rejeitado por engano.
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+      digits = digits.slice(2);
+    }
+    const isBrMobile = digits.length === 11 && digits[2] === '9';
+    if (isBrMobile) normalized.whatsapp = normalized.phone;
   }
   return normalized as unknown as ExtractedCandidate;
 }
