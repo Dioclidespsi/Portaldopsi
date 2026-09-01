@@ -206,9 +206,12 @@ export class GoogleSearchProvider {
           'DIRETÓRIO listando VÁRIOS — extraia todos os que conseguir identificar com nome próprio claro. ' +
           'Responda em JSON estrito: {"candidates": [...]}, cada item com as chaves fullName, crp, city, ' +
           'state, specialties, approaches, audience, serviceMode, website, instagram, whatsapp, phone, ' +
-          'publicEmail — todas opcionais exceto fullName. Preencha APENAS o que estiver realmente escrito na ' +
-          'página; nunca invente, nunca infira dado sensível. Se a página não tiver nenhuma pessoa ' +
-          'identificável por nome (ex: página de curso, erro, ou lista sem nomes), responda {"candidates": []}.',
+          'publicEmail — todas opcionais exceto fullName. TODOS os valores são STRING simples, nunca array — ' +
+          'quando houver mais de um item (ex: várias especialidades), junte numa única string separada por ' +
+          'vírgula (ex: "Ansiedade, Depressão, Autoestima"), nunca ["Ansiedade","Depressão"]. Preencha APENAS ' +
+          'o que estiver realmente escrito na página; nunca invente, nunca infira dado sensível. Se a página ' +
+          'não tiver nenhuma pessoa identificável por nome (ex: página de curso, erro, ou lista sem nomes), ' +
+          'responda {"candidates": []}.',
         messages: [{ role: 'user', content: context }],
       });
     } catch (err) {
@@ -226,9 +229,31 @@ export class GoogleSearchProvider {
       const match = raw.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};
       const candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];
-      return candidates.filter((c: ExtractedCandidate) => Boolean(c?.fullName));
+      return candidates.filter((c: ExtractedCandidate) => Boolean(c?.fullName)).map(normalizeCandidate);
     } catch {
       return [];
     }
   }
+}
+
+/**
+ * O prompt pede string simples, mas a IA às vezes devolve array mesmo assim
+ * (ex: specialties: ["Ansiedade","Depressão"]) — todo campo aqui é `string?`
+ * no schema (ver ExtractedCandidate/CreateProspectDto), e o Prisma rejeita
+ * array/objeto de propósito (fail closed). Normaliza aqui, na fronteira com
+ * a IA, em vez de confiar só na instrução do prompt.
+ */
+function normalizeCandidate(candidate: ExtractedCandidate): ExtractedCandidate {
+  const normalized: Record<string, unknown> = { ...candidate };
+  for (const [key, value] of Object.entries(normalized)) {
+    if (Array.isArray(value)) {
+      const joined = value.filter(Boolean).join(', ');
+      normalized[key] = joined || undefined;
+    } else if (value !== null && typeof value === 'object') {
+      normalized[key] = undefined;
+    } else if (value === '') {
+      normalized[key] = undefined;
+    }
+  }
+  return normalized as unknown as ExtractedCandidate;
 }
