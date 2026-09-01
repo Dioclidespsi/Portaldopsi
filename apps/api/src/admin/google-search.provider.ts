@@ -255,5 +255,15 @@ function normalizeCandidate(candidate: ExtractedCandidate): ExtractedCandidate {
       normalized[key] = undefined;
     }
   }
+  // Todo lead precisa de WhatsApp no mínimo (regra confirmada com o usuário) — mas a
+  // página às vezes só diz "Telefone: (11) 98888-7777" sem mencionar WhatsApp
+  // explicitamente. No Brasil, celular (DDD + 9 dígitos, começando com 9) é
+  // praticamente sempre WhatsApp-alcançável, então aproveita como tal em vez de
+  // descartar um lead bom só por falta de rótulo na página.
+  if (!normalized.whatsapp && typeof normalized.phone === 'string') {
+    const digits = normalized.phone.replace(/\D/g, '');
+    const isBrMobile = /^(\d{2})?9\d{8}$/.test(digits.length === 11 ? digits : digits.slice(-9));
+    if (digits.length >= 10 && isBrMobile) normalized.whatsapp = normalized.phone;
+  }
   return normalized as unknown as ExtractedCandidate;
 }

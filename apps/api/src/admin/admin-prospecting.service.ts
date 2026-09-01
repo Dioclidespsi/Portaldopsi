@@ -294,10 +294,12 @@ export class AdminProspectingService {
         if (candidates.length === 0) { skipped++; processed++; continue; }
         for (const candidate of candidates) {
           if (req.resultCount + created >= req.quantity) break;
-          // Página-diretório lista nome + CRP mas não o contato de cada um (fica só no
-          // site individual, que a gente não visita) — sem NENHUM canal, o lead nunca
-          // pode ser abordado, então nem cria: seria gasto de revisão humana à toa depois.
-          if (!hasAnyContactChannel(candidate)) { withoutContact++; continue; }
+          // WhatsApp é o canal de abordagem de verdade da equipe — site/Instagram/e-mail
+          // sozinhos não bastam (item confirmado com o usuário: todo lead precisa de
+          // WhatsApp no mínimo). Página-diretório costuma listar nome + CRP sem contato
+          // nenhum (fica só no site individual, que a gente não visita) — sem WhatsApp,
+          // nem cria: seria gasto de revisão humana à toa depois.
+          if (!candidate.whatsapp) { withoutContact++; continue; }
           const outcome = await this.create({
             ...candidate,
             source: `Serper — pedido "${query}"`,
@@ -335,7 +337,7 @@ export class AdminProspectingService {
         offset: newOffset,
         status: done ? 'CONCLUIDA' : 'EM_ANDAMENTO',
         completedAt: done ? new Date() : null,
-        notes: `Último lote: ${created} novo(s), ${blocked} bloqueado(s), ${skipped} página(s) sem profissional identificável, ${withoutContact} descartado(s) por não ter nenhum contato.`,
+        notes: `Último lote: ${created} novo(s), ${blocked} bloqueado(s), ${skipped} página(s) sem profissional identificável, ${withoutContact} descartado(s) por não ter WhatsApp.`,
       },
     });
   }
@@ -514,22 +516,4 @@ export class AdminProspectingService {
       },
     });
   }
-}
-
-/**
- * Página-diretório (ex: "Psicólogos em Campinas") lista nome + CRP de vários
- * profissionais, mas o telefone/site/Instagram de cada um só existe na
- * página INDIVIDUAL de cada um — que a gente nunca visita (só a página
- * encontrada pela busca). Sem nenhum canal, o lead nunca pode ser
- * contatado; criar mesmo assim só infla a lista com trabalho de revisão à
- * toa. Ver executeSearchRequest.
- */
-function hasAnyContactChannel(candidate: {
-  website?: string; instagram?: string; facebook?: string; linkedin?: string;
-  googleBusinessUrl?: string; whatsapp?: string; phone?: string; publicEmail?: string;
-}): boolean {
-  return Boolean(
-    candidate.website || candidate.instagram || candidate.facebook || candidate.linkedin ||
-    candidate.googleBusinessUrl || candidate.whatsapp || candidate.phone || candidate.publicEmail,
-  );
 }
