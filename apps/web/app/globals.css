@@ -838,6 +838,142 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
 .home-mission-values .value-title { font-weight: 600; font-size: 1.02rem; color: var(--accent-deep); margin: 0 0 0.25rem; }
 .home-mission-values p { color: var(--ink-soft); font-size: 0.9rem; line-height: 1.55; margin: 0; }
 
+/* ---- Hero de celular: foto real em tela cheia, inspirado no app da Conexa Saúde
+   (bloco de texto sobre a imagem com degradê, badge de confiança, botões em
+   pílula, cartão escuro flutuando sobre a base da foto). Só existe abaixo de
+   720px — o hero de desktop (.home-hero, acima) continua como estava. ---- */
+.home-hero-mobile { display: none; }
+
+@media (max-width: 720px) {
+  .home-hero { display: none; }
+  .home-hero-mobile { display: block; max-width: none; margin: 0; padding: 0; }
+
+  .home-hero-mobile-media { position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: var(--ink); }
+  .home-hero-mobile-media img {
+    width: 100%; height: 100%; object-fit: cover; object-position: 62% 15%; display: block;
+    animation: home-hero-photo-in 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .home-hero-mobile-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(15, 33, 29, 0.05) 0%, rgba(15, 33, 29, 0.22) 40%, rgba(15, 33, 29, 0.94) 90%);
+  }
+  .home-hero-mobile-badge {
+    position: absolute;
+    top: 1.1rem;
+    left: 1.1rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.4rem 0.75rem;
+    border-radius: 100px;
+    animation: home-hero-fade-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.5s;
+  }
+  .home-hero-mobile-badge svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .home-hero-mobile-copy { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: 1.6rem 1.25rem 2.1rem; }
+  .home-hero-mobile-copy .home-eyebrow {
+    background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.32); color: #fff;
+    animation: home-hero-fade-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.65s;
+  }
+  .home-hero-mobile-copy h1 {
+    color: #fff; font-size: 1.85rem; line-height: 1.16; letter-spacing: -0.01em; margin: 0 0 1.15rem; text-wrap: balance;
+    animation: home-hero-fade-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.75s;
+  }
+  .home-hero-mobile-copy h1 em { font-style: italic; font-weight: 500; color: #a9e3d3; }
+  .home-hero-mobile-actions {
+    display: flex; flex-direction: column; gap: 0.7rem;
+    animation: home-hero-fade-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.9s;
+  }
+
+  .home-pill-btn {
+    display: block; width: 100%; border-radius: 100px; padding: 0.9rem 1.4rem; font-size: 0.95rem; font-weight: 700;
+    text-align: center; border: none; transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  }
+  .home-pill-btn:active { transform: scale(0.965); }
+  .home-pill-btn-primary { background: var(--accent); color: #fff; }
+  .home-pill-btn-primary:hover { box-shadow: 0 10px 24px -8px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .home-pill-btn-ghost { background: rgba(255, 255, 255, 0.14); color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.55); }
+  .home-pill-btn-ghost:hover { background: rgba(255, 255, 255, 0.22); }
+
+  .home-hero-mobile-stat {
+    position: relative;
+    z-index: 2;
+    margin: -1.7rem 1.1rem 0;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 18px;
+    padding: 1.1rem 1.3rem;
+    box-shadow: 0 22px 44px -20px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    animation: home-hero-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 1.05s;
+  }
+  .home-hero-mobile-stat strong { font-size: 0.98rem; line-height: 1.35; }
+  .home-hero-mobile-stat span { font-size: 0.82rem; color: rgba(255, 255, 255, 0.72); line-height: 1.45; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-hero-mobile-media img,
+    .home-hero-mobile-badge,
+    .home-hero-mobile-copy .home-eyebrow,
+    .home-hero-mobile-copy h1,
+    .home-hero-mobile-actions,
+    .home-hero-mobile-stat {
+      animation: none;
+    }
+  }
+}
+
+@keyframes home-hero-photo-in {
+  from { transform: scale(1.1); opacity: 0.001; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes home-hero-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes home-hero-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Revelação suave ao rolar a página (ver components/ScrollReveal.tsx) —
+   .reveal-visible é adicionado por IntersectionObserver quando o elemento
+   entra na tela; some por padrão, sobe/desliza levemente até o lugar. ---- */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1), transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.reveal-from-left { transform: translateX(-32px) translateY(0); }
+.reveal.reveal-from-right { transform: translateX(32px) translateY(0); }
+.reveal.reveal-visible { opacity: 1; transform: translate(0, 0); }
+
+.home-cards-grid .reveal:nth-child(1) { transition-delay: 0s; }
+.home-cards-grid .reveal:nth-child(2) { transition-delay: 0.1s; }
+.home-cards-grid .reveal:nth-child(3) { transition-delay: 0.2s; }
+
+.home-team-grid .reveal:nth-child(1) { transition-delay: 0s; }
+.home-team-grid .reveal:nth-child(2) { transition-delay: 0.09s; }
+.home-team-grid .reveal:nth-child(3) { transition-delay: 0.18s; }
+.home-team-grid .reveal:nth-child(4) { transition-delay: 0.27s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
 @media (max-width: 860px) {
   .home-hero { grid-template-columns: 1fr; }
   .home-hero-visual { min-height: 300px; margin-top: 1rem; }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Newsreader, Work_Sans } from 'next/font/google';
 import { fetchPublicBanners } from '../lib/api';
+import ScrollReveal from '../components/ScrollReveal';
 
 const newsreader = Newsreader({
   subsets: ['latin'],
@@ -62,7 +63,43 @@ export default async function HomePage() {
         </nav>
       </header>
 
-      {/* Hero */}
+      <ScrollReveal />
+
+      {/* Hero — versão celular: foto real em tela cheia (ver .home-hero-mobile,
+          só existe abaixo de 720px; o hero de desktop abaixo continua intacto). */}
+      <section className="home-hero-mobile">
+        <div className="home-hero-mobile-media">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/team/lara.jpg" alt="Psicóloga atendendo pacientes pelo Portal do Psi" />
+          <div className="home-hero-mobile-scrim" />
+          <span className="home-hero-mobile-badge">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6l-8-3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            </svg>
+            Conforme a LGPD e o CFP
+          </span>
+          <div className="home-hero-mobile-copy">
+            <span className="home-eyebrow">Feito para psicólogos clínicos</span>
+            <h1 className="home-serif">
+              Sua clínica, <em>organizada</em> do início ao fim.
+            </h1>
+            <div className="home-hero-mobile-actions">
+              <Link href="/signup">
+                <button className="home-pill-btn home-pill-btn-primary">Sou psicólogo(a) — criar conta</button>
+              </Link>
+              <Link href="/profissionais">
+                <button className="home-pill-btn home-pill-btn-ghost">Encontrar um profissional</button>
+              </Link>
+            </div>
+          </div>
+        </div>
+        <div className="home-hero-mobile-stat">
+          <strong>Agenda, prontuário, financeiro e teleconsulta</strong>
+          <span>em um único lugar — nada de planilha, caderno ou três apps abertos ao mesmo tempo.</span>
+        </div>
+      </section>
+
+      {/* Hero — versão desktop/tablet (a partir de 720px) */}
       <section className="home-section home-hero">
         <div className="home-hero-copy">
           <span className="home-eyebrow">Feito para psicólogos clínicos</span>
@@ -207,7 +244,7 @@ export default async function HomePage() {
           cada uma delas.
         </p>
         <div className="home-cards-grid">
-          <div className="home-card">
+          <div className="home-card reveal">
             <div className="home-card-icon">
               <svg viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.7" />
@@ -225,7 +262,7 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="home-card">
+          <div className="home-card reveal">
             <div className="home-card-icon">
               <svg viewBox="0 0 24 24" fill="none">
                 <rect x="4" y="5" width="16" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
@@ -243,7 +280,7 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="home-card">
+          <div className="home-card reveal">
             <div className="home-card-icon">
               <svg viewBox="0 0 24 24" fill="none">
                 <path d="M3 9 12 5l9 4-9 4-9-4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
@@ -270,7 +307,7 @@ export default async function HomePage() {
       {/* Por dentro do Portal */}
       <div className="home-glimpse">
         <div className="home-glimpse-inner">
-          <div className="home-glimpse-copy">
+          <div className="home-glimpse-copy reveal reveal-from-left">
             <p className="home-section-eyebrow">Por dentro do Portal</p>
             <h2 className="home-serif">A sua semana, organizada antes mesmo de você abrir o consultório.</h2>
             <p>
@@ -292,7 +329,7 @@ export default async function HomePage() {
               </li>
             </ul>
           </div>
-          <div className="home-mockup">
+          <div className="home-mockup reveal reveal-from-right">
             <div className="home-mockup-bar">
               <span /><span /><span />
               <span className="title">portaldopsi.com.br/agenda</span>
@@ -346,7 +383,7 @@ export default async function HomePage() {
         </p>
         <div className="home-team-grid">
           {TEAM.map((person) => (
-            <figure className="home-team-card" key={person.name}>
+            <figure className="home-team-card reveal" key={person.name}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={person.photo} alt={`${person.name}, psicólogo(a) parceiro(a) do Portal do Psi`} />
               <figcaption className="home-team-caption">
@@ -361,11 +398,11 @@ export default async function HomePage() {
       {/* Como construímos */}
       <div className="home-mission">
         <div className="home-mission-inner">
-          <div className="home-mission-photo">
+          <div className="home-mission-photo reveal reveal-from-left">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/team/missao.jpg" alt="Apresentação do Portal do Psi para um grupo de psicólogos" />
           </div>
-          <div className="home-mission-copy">
+          <div className="home-mission-copy reveal reveal-from-right">
             <p className="home-section-eyebrow">Como construímos</p>
             <h2 className="home-serif">Feito ao lado de quem atende, não atrás de uma tela</h2>
             <p>

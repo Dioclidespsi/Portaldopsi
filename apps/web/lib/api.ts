@@ -492,9 +492,15 @@ export interface PublicBanner {
 
 /** Banners da home da plataforma (configurados em /admin/banners) — usado em app/page.tsx. */
 export async function fetchPublicBanners(): Promise<PublicBanner[]> {
-  const res = await fetch(`${API_URL}/public/banners`, { cache: 'no-store' });
-  if (!res.ok) return [];
-  return res.json();
+  // Página inicial pública não pode cair inteira só porque a API de banners
+  // deu problema (rede fora, timeout) — banner é decoração, não crítico.
+  try {
+    const res = await fetch(`${API_URL}/public/banners`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 export interface DirectoryResult {
