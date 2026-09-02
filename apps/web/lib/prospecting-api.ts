@@ -208,3 +208,29 @@ export function executeSearchRequest(id: string): Promise<ProspectSearchRequest>
 export function deleteFinishedSearchRequests(): Promise<{ deleted: number }> {
   return request('/admin/prospecting/search-requests/finished', { method: 'DELETE' });
 }
+
+export interface ImportCsvResult {
+  totalRows: number;
+  created: number;
+  duplicates: number;
+  blocked: number;
+  withoutWhatsapp: number;
+  withoutName: number;
+}
+
+/** Coleta feita fora daqui (scraper de Google Maps etc.) — dado já vem estruturado, não passa pela IA de extração. */
+export async function importProspectingCsv(file: File): Promise<ImportCsvResult> {
+  const token = getAdminToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/admin/prospecting/import`, {
+    method: 'POST',
+    headers: token ? { 'x-admin-token': token } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new Error(body.message ?? `Erro ${res.status}`);
+  }
+  return res.json();
+}

@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AdminProspectingService } from './admin-prospecting.service';
 import { AdminTokenGuard } from './admin-token.guard';
 import { CreateProspectDto } from './dto/create-prospect.dto';
@@ -28,6 +30,17 @@ export class AdminProspectingController {
   @Get()
   list(@Query() query: ListProspectsDto) {
     return this.prospecting.list(query);
+  }
+
+  /**
+   * CSV coletado fora daqui (ex: scraper de Google Maps) — memoryStorage
+   * porque só precisa ler o conteúdo uma vez, nunca persistir o arquivo.
+   */
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
+  importCsv(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
+    return this.prospecting.importCsv(file.buffer);
   }
 
   @Get('report')

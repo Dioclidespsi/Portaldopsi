@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminShell from '../../../components/AdminShell';
@@ -11,6 +11,7 @@ import {
   deleteFinishedSearchRequests,
   executeSearchRequest,
   getProspectingReport,
+  importProspectingCsv,
   listProspects,
   listSearchRequests,
   Prospect,
@@ -119,6 +120,7 @@ export default function AdminProspeccaoPage() {
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importingCsv, setImportingCsv] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '', city: '', state: '', specialties: '', approaches: '', audience: '', serviceMode: '',
     website: '', instagram: '', whatsapp: '', publicEmail: '', crp: '', source: '',
@@ -267,6 +269,28 @@ export default function AdminProspeccaoPage() {
     }
   }
 
+  async function onImportCsv(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite escolher o mesmo arquivo de novo depois
+    if (!file) return;
+    setError(null);
+    setInfo(null);
+    setImportingCsv(true);
+    try {
+      const result = await importProspectingCsv(file);
+      setInfo(
+        `Importação concluída — ${result.created} novo(s), ${result.duplicates} já existente(s), ` +
+          `${result.blocked} bloqueado(s), ${result.withoutWhatsapp} sem WhatsApp, ${result.withoutName} sem nome ` +
+          `(de ${result.totalRows} linha(s) no arquivo).`,
+      );
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setImportingCsv(false);
+    }
+  }
+
   if (loading) return <div className="shell">Carregando…</div>;
 
   const hasFinishedSearchRequests = searchRequests.some((r) => r.status === 'CONCLUIDA' || r.status === 'CANCELADA');
@@ -368,6 +392,23 @@ export default function AdminProspeccaoPage() {
             {clearingHistory ? 'Limpando…' : 'Limpar histórico (concluídas/canceladas)'}
           </button>
         )}
+      </div>
+
+      {/* IMPORTAR CSV (scraper externo) */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>Importar leads de um CSV</p>
+        <p className="sub" style={{ fontSize: '0.8rem', margin: '0.4rem 0 0.7rem' }}>
+          Colete com o scraper de sua preferência (ex: Google Maps) e suba o arquivo aqui — como o dado já vem
+          pronto, não passa pela IA de extração, só pelo mesmo filtro de qualidade da busca automática (exige
+          WhatsApp, nunca duplica). Reconhece colunas como Nome/Name, Telefone/Phone, Site/Website, E-mail/Email,
+          Cidade/City, Estado/State e Categoria/Category, em qualquer ordem.
+        </p>
+        <label style={{ display: 'inline-block' }}>
+          <input type="file" accept=".csv,text/csv" onChange={onImportCsv} disabled={importingCsv} style={{ display: 'none' }} />
+          <span style={{ display: 'inline-block', padding: '0.55rem 1rem', background: importingCsv ? 'var(--line)' : 'var(--accent)', color: importingCsv ? 'var(--ink-soft)' : '#fff', borderRadius: '6px', fontWeight: 600, fontSize: '0.9rem', cursor: importingCsv ? 'default' : 'pointer' }}>
+            {importingCsv ? 'Importando…' : 'Escolher arquivo CSV'}
+          </span>
+        </label>
       </div>
 
       <form onSubmit={onFilterSubmit} style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', margin: '1rem 0' }}>

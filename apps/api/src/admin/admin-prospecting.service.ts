@@ -8,6 +8,8 @@ import { UpdateProspectDto } from './dto/update-prospect.dto';
 import { ListProspectsDto } from './dto/list-prospects.dto';
 import { GoogleSearchProvider } from './google-search.provider';
 import { createAnthropicClient } from '../common/anthropic-client';
+import { parseCsv, pickColumn } from '../common/csv';
+import { toBrWhatsapp } from '../common/br-phone';
 
 /** Quantos resultados a IA/Google processam por chamada de `execute` — nunca o pedido inteiro de uma vez (item 21 do spec: consciência de custo, sem timeout). */
 const EXECUTE_BATCH_SIZE = 10;
@@ -190,6 +192,57 @@ export class AdminProspectingService {
       data: { score: total, scoreBreakdown: breakdown as unknown as Prisma.InputJsonValue },
     });
     return { prospect: scored, matchedExisting: false, blocked: false as const };
+  }
+
+  /**
+   * Importa leads já coletados fora daqui (ex: scraper de Google Maps) — o
+   * usuário faz a coleta com a ferramenta que preferir e sobe um CSV. Como o
+   * dado já vem estruturado (nome, telefone, site...), não passa pela IA de
+   * extração — só pelo mesmo funil de qualidade do resto do módulo: exige
+   * WhatsApp (toBrWhatsapp aproveita celular BR mesmo sem rótulo explícito),
+   * reaproveita `create()` pra dedup/score, nunca duplica quem já existe.
+   */
+  async importCsv(buffer: Buffer) {
+    const records = parseCsv(buffer.toString('utf-8'));
+
+    let created = 0;
+    let duplicates = 0;
+    let blocked = 0;
+    let withoutWhatsapp = 0;
+    let withoutName = 0;
+
+    for (const record of records) {
+      const fullName = pickColumn(record, ['name', 'nome', 'business name', 'title', 'company', 'razao social', 'razão social']);
+      if (!fullName) {
+        withoutName++;
+        continue;
+      }
+
+      const rawPhone = pickColumn(record, ['phone', 'telefone', 'phone number', 'celular', 'whatsapp', 'telephone']);
+      const whatsapp = toBrWhatsapp(rawPhone);
+      if (!whatsapp) {
+        withoutWhatsapp++;
+        continue;
+      }
+
+      const dto: CreateProspectDto = {
+        fullName,
+        whatsapp,
+        website: pickColumn(record, ['website', 'site', 'url']),
+        publicEmail: pickColumn(record, ['email', 'e-mail']),
+        city: pickColumn(record, ['city', 'cidade']) ?? pickColumn(record, ['address', 'endereco', 'endereço', 'full address', 'endereço completo']),
+        state: pickColumn(record, ['state', 'estado', 'uf']),
+        specialties: pickColumn(record, ['category', 'categoria', 'type', 'tipo']),
+        source: 'Importação CSV (scraper)',
+      } as CreateProspectDto;
+
+      const outcome = await this.create(dto);
+      if (outcome.blocked) blocked++;
+      else if (outcome.matchedExisting) duplicates++;
+      else created++;
+    }
+
+    return { totalRows: records.length, created, duplicates, blocked, withoutWhatsapp, withoutName };
   }
 
   /**

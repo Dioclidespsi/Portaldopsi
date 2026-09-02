@@ -2,6 +2,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAnthropicClient } from '../common/anthropic-client';
+import { toBrWhatsapp } from '../common/br-phone';
 
 export interface GoogleSearchResult {
   title: string;
@@ -257,20 +258,11 @@ function normalizeCandidate(candidate: ExtractedCandidate): ExtractedCandidate {
   }
   // Todo lead precisa de WhatsApp no mínimo (regra confirmada com o usuário) — mas a
   // página às vezes só diz "Telefone: (11) 98888-7777" sem mencionar WhatsApp
-  // explicitamente. No Brasil, celular (DDD + 9 dígitos, começando com 9) é
-  // praticamente sempre WhatsApp-alcançável, então aproveita como tal em vez de
-  // descartar um lead bom só por falta de rótulo na página.
+  // explicitamente. toBrWhatsapp aproveita celular BR como WhatsApp mesmo sem
+  // o rótulo explícito, em vez de descartar um lead bom por falta de rótulo.
   if (!normalized.whatsapp && typeof normalized.phone === 'string') {
-    let digits = normalized.phone.replace(/\D/g, '');
-    // Remove o código do país (+55) antes de checar o formato local — sem isso,
-    // "+55 11 99999-8888" (13 dígitos) nunca batia com o padrão de celular
-    // (DDD + 9 dígitos = 11 dígitos), e praticamente todo número em formato
-    // internacional — comum em bio do Instagram — era rejeitado por engano.
-    if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
-      digits = digits.slice(2);
-    }
-    const isBrMobile = digits.length === 11 && digits[2] === '9';
-    if (isBrMobile) normalized.whatsapp = normalized.phone;
+    const asWhatsapp = toBrWhatsapp(normalized.phone);
+    if (asWhatsapp) normalized.whatsapp = asWhatsapp;
   }
   return normalized as unknown as ExtractedCandidate;
 }
