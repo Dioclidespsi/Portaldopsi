@@ -994,7 +994,12 @@ export interface LibraryMaterial {
   title: string;
   description?: string | null;
   createdAt: string;
+  /** Extensão em minúsculo (ex: ".pdf") — usado só pra decidir se mostra o botão "Visualizar". */
+  fileExt: string;
 }
+
+/** PDF, Word e PowerPoint têm visualização embutida (ver dashboard/biblioteca) — os demais só baixam. */
+export const LIBRARY_VIEWABLE_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.ppt', '.pptx']);
 
 export function listLibrary() {
   return request<LibraryMaterial[]>('/library');
@@ -1013,6 +1018,11 @@ export async function downloadLibraryMaterial(id: string, suggestedName: string)
   link.download = suggestedName;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/** Link de visualização inline — token de 10min embutido, ver LibraryService.createViewToken. */
+export function getLibraryViewLink(id: string) {
+  return request<{ url: string }>(`/library/${id}/view-link`);
 }
 
 export interface SupervisionSession {

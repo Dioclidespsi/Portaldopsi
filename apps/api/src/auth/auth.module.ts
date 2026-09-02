@@ -55,6 +55,10 @@ export class AuthModule implements NestModule {
         { path: 'public/banner-images/:filename', method: RequestMethod.GET },
         { path: 'public/directory', method: RequestMethod.GET },
         { path: 'public/settings', method: RequestMethod.GET },
+        // Token próprio de 10min (não é a sessão do usuário) — ver LibraryService.resolveViewToken.
+        // Precisa ser pública porque o navegador (PDF) e o Office/Google Viewer (Word/PowerPoint)
+        // buscam essa URL diretamente, sem conseguir mandar o Authorization Bearer.
+        { path: 'library/:id/view', method: RequestMethod.GET },
         { path: 'certificates/verify/:code', method: RequestMethod.GET },
         { path: 'marketplace/courses', method: RequestMethod.GET },
         { path: 'marketplace/purchase', method: RequestMethod.POST },
