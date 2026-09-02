@@ -493,21 +493,33 @@ th { color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; lett
   padding: 3rem 1.5rem;
 }
 
+/* Empilhados em largura total (não mais lado a lado em grade pequena) — uma
+   campanha (ex: Setembro Amarelo) precisa de destaque de verdade, não de
+   miniatura ao lado de outra coisa. */
 .home-banner-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 1.5rem 2rem;
 }
 
+.home-banner-strip a,
 .home-banner-strip img {
   width: 100%;
-  border-radius: 12px;
+  border-radius: 14px;
   display: block;
+}
+
+.home-banner-strip img {
   object-fit: cover;
-  max-height: 220px;
+  max-height: 340px;
+  box-shadow: 0 18px 40px -22px rgba(18, 56, 50, 0.35);
+}
+
+@media (max-width: 640px) {
+  .home-banner-strip img { max-height: 220px; }
 }
 
 .home-cards-grid {
