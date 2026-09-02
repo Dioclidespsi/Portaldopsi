@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { requestPasswordReset } from '../../lib/api';
 
 export default function EsqueciSenhaPage() {
-  const [slug, setSlug] = useState('');
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +15,7 @@ export default function EsqueciSenhaPage() {
     setError(null);
     setLoading(true);
     try {
-      await requestPasswordReset({ slug, email });
+      await requestPasswordReset({ email });
       setSent(true);
     } catch (err) {
       setError((err as Error).message);
@@ -31,8 +30,8 @@ export default function EsqueciSenhaPage() {
         <Link href="/login" className="back-home">← Voltar ao login</Link>
         <h1>Verifique seu e-mail</h1>
         <p className="sub">
-          Se o identificador e o e-mail informados corresponderem a uma conta, enviamos um link pra
-          redefinir a senha. O link expira em 1 hora.
+          Se o e-mail informado corresponder a uma conta, enviamos um link pra redefinir a senha. O
+          link expira em 1 hora.
         </p>
       </div>
     );
@@ -42,12 +41,8 @@ export default function EsqueciSenhaPage() {
     <div className="shell">
       <Link href="/login" className="back-home">← Voltar ao login</Link>
       <h1>Esqueci minha senha</h1>
-      <p className="sub">Informe o identificador da clínica e o e-mail da sua conta.</p>
+      <p className="sub">Informe o e-mail da sua conta.</p>
       <form onSubmit={onSubmit}>
-        <label>
-          Identificador (slug) da clínica
-          <input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} required />
-        </label>
         <label>
           E-mail
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

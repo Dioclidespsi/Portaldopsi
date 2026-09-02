@@ -81,12 +81,23 @@ export async function verifyEmailToken(token: string): Promise<boolean> {
   return res.ok;
 }
 
-export function login(data: { slug: string; email: string; password: string }) {
-  return request<{ accessToken: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) });
+/**
+ * `slug` é opcional — só e-mail + senha resolve na maioria dos casos (email é
+ * único por clínica, não globalmente, mas quase sempre existe numa só). Se a
+ * mesma pessoa tiver conta com o mesmo e-mail em mais de uma clínica (raro),
+ * a resposta vem como `chooseTenant` em vez de `accessToken` — o chamador
+ * deve mostrar as opções e chamar `login()` de novo já com o `slug` escolhido.
+ */
+export type LoginResult =
+  | { accessToken: string }
+  | { chooseTenant: true; options: { slug: string; tenantName: string }[] };
+
+export function login(data: { slug?: string; email: string; password: string }) {
+  return request<LoginResult>('/auth/login', { method: 'POST', body: JSON.stringify(data) });
 }
 
 /** Resposta sempre igual, exista ou não a conta — nunca confirma nem nega quem tem cadastro. */
-export function requestPasswordReset(data: { slug: string; email: string }) {
+export function requestPasswordReset(data: { slug?: string; email: string }) {
   return request<{ sent: true }>('/auth/request-password-reset', { method: 'POST', body: JSON.stringify(data) });
 }
 
